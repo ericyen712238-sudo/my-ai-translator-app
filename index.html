@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini 全能翻譯工具 (精簡穩定版)</title>
+    <title>Gemini 翻譯</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Zen Maru Gothic (可愛圓體) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -29,35 +34,78 @@
 
     <style>
         body {
-            font-family: 'Inter', 'Microsoft JhengHei', system-ui, -apple-system, sans-serif;
+            font-family: 'Zen Maru Gothic', 'Microsoft JhengHei', system-ui, -apple-system, sans-serif;
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none; 
+            background-color: #fff5f7;
+            background-image: radial-gradient(#ffcce0 15%, transparent 16%), radial-gradient(#ffcce0 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
         }
-        textarea::-webkit-scrollbar { width: 6px; }
+        
+        /* 可愛捲軸 */
+        textarea::-webkit-scrollbar { width: 8px; }
         textarea::-webkit-scrollbar-track { background: transparent; }
-        textarea::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        textarea::-webkit-scrollbar-thumb { background-color: #ffb7c5; border-radius: 10px; border: 2px solid #fff; }
+        
+        /* 隱藏捲軸但可捲動 */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
+        .animate-spin { animation: spin 2s linear infinite; }
+        
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .animate-bounce-slow { animation: bounce-slow 2s infinite; }
+
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
         .no-select { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         
         /* Crop UI Styles */
         .crop-modal { touch-action: none; } 
+
+        /* 吉伊卡哇風格按鈕 (Bubble Button) */
+        .btn-cute {
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0px 4px 0px 0px rgba(0,0,0,0.1);
+            border-bottom-width: 4px;
+            border-color: rgba(0,0,0,0.05);
+        }
+        .btn-cute:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0px 0px 0px 0px rgba(0,0,0,0.1);
+            border-bottom-width: 0px;
+            margin-top: 4px; /* Compensate for border removal */
+        }
+        .btn-cute:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 卡片樣式 */
+        .card-cute {
+            border: 3px solid #fff;
+            box-shadow: 4px 4px 0px #ffdae6;
+            border-radius: 24px;
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 text-slate-800 min-h-screen">
+<body class="text-slate-700 min-h-screen pb-10">
 
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // --- Icons ---
+        // --- Icons (Lucide) ---
         const Icon = ({ children, className = "w-6 h-6" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
                 {children}
             </svg>
         );
@@ -69,7 +117,7 @@
             UploadCloud: () => <Icon><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></Icon>,
             ArrowRightLeft: () => <Icon><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></Icon>,
             Copy: () => <Icon><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></Icon>,
-            Check: () => <Icon className="w-4 h-4 text-green-500"><polyline points="20 6 9 17 4 12"/></Icon>,
+            Check: () => <Icon className="w-5 h-5 text-green-500"><polyline points="20 6 9 17 4 12"/></Icon>,
             Volume2: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
             X: () => <Icon><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>,
             RotateCw: () => <Icon className="w-5 h-5 animate-spin"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 12"/><path d="M21 3v9h-9"/></Icon>,
@@ -93,6 +141,7 @@
             Trash: () => <Icon><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></Icon>,
             Zap: () => <Icon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Icon>,
             Scissors: () => <Icon><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></Icon>,
+            MessageSquare: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Icon>,
             Maximize: () => <Icon><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Icon>,
             CPU: () => <Icon><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></Icon>,
             Crop: () => <Icon><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></Icon>,
@@ -103,31 +152,31 @@
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
         const GEMINI_MODELS = [
-            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
-            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定版)', desc: '快速' },
-            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業版)', desc: '高品質' },
-            { id: 'custom', name: '自訂模型 (Custom)', desc: '手動輸入' }
+            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (預覽)', desc: '預設' },
+            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定)', desc: '快速' },
+            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (聰明)', desc: '高品質' },
+            { id: 'custom', name: '自訂模型', desc: '手動' }
         ];
 
         const LANGUAGES = [
-            { code: 'auto', name: '自動辨識 (Auto)' },
-            { code: 'zh-TW', name: '繁體中文 (Chinese)' },
+            { code: 'auto', name: '自動辨識' },
+            { code: 'zh-TW', name: '繁體中文' },
             { code: 'en', name: 'English' },
-            { code: 'ja', name: '日本語 (Japanese)' },
-            { code: 'ko', name: '한국어 (Korean)' },
-            { code: 'es', name: 'Español (Spanish)' },
-            { code: 'fr', name: 'Français (French)' },
-            { code: 'de', name: 'Deutsch (German)' },
-            { code: 'vi', name: 'Tiếng Việt (Vietnamese)' },
-            { code: 'th', name: 'ไทย (Thai)' },
+            { code: 'ja', name: '日本語' },
+            { code: 'ko', name: '한국어' },
+            { code: 'es', name: 'Español' },
+            { code: 'fr', name: 'Français' },
+            { code: 'de', name: 'Deutsch' },
+            { code: 'vi', name: 'Tiếng Việt' },
+            { code: 'th', name: 'ไทย' },
         ];
 
         const TONES = [
-            { id: 'standard', name: '標準 (Standard)', icon: '✨' },
-            { id: 'formal', name: '正式/商務 (Formal)', icon: '👔' },
-            { id: 'casual', name: '口語/輕鬆 (Casual)', icon: '😎' },
-            { id: 'academic', name: '學術/專業 (Academic)', icon: '🎓' },
-            { id: 'creative', name: '創意/優美 (Creative)', icon: '🎨' },
+            { id: 'standard', name: '標準', icon: '✨' },
+            { id: 'formal', name: '禮貌', icon: '👔' },
+            { id: 'casual', name: '輕鬆', icon: '😎' },
+            { id: 'academic', name: '專業', icon: '🎓' },
+            { id: 'creative', name: '優美', icon: '🎨' },
         ];
 
         const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
@@ -137,7 +186,7 @@
                     const errorBody = await response.json().catch(() => ({}));
                     const errorMessage = errorBody.error?.message || `HTTP error! status: ${response.status}`;
                     if (response.status >= 400 && response.status < 500) {
-                        throw new Error(`請求失敗 (${response.status}): ${errorMessage} - 請檢查模型名稱或 API Key`); 
+                        throw new Error(`請求失敗 (${response.status}): ${errorMessage} - 請檢查模型或 Key`); 
                     }
                     throw new Error(errorMessage);
                 }
@@ -165,7 +214,6 @@
                         let height = img.height;
                         const MAX_WIDTH = 1500; 
                         const MAX_HEIGHT = 1500;
-                        
                         if (width > height) {
                             if (width > MAX_WIDTH) {
                                 height *= MAX_WIDTH / width;
@@ -177,12 +225,10 @@
                                 height = MAX_HEIGHT;
                             }
                         }
-                        
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        
                         const base64Data = canvas.toDataURL('image/jpeg', 0.8);
                         resolve(base64Data.split(',')[1]);
                     };
@@ -196,7 +242,7 @@
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = (event) => {
+                reader.onload = () => {
                     const base64String = reader.result.split(',')[1];
                     resolve(base64String);
                 };
@@ -233,17 +279,14 @@
             const [cropSelection, setCropSelection] = useState(null); 
             const [isCropping, setIsCropping] = useState(false);
             
-            // Refs for drag state
             const dragStartRef = useRef(null);
             const isDraggingRef = useRef(false);
-            
             const imageRef = useRef(null);
             const cropContainerRef = useRef(null);
 
             const [apiProvider, setApiProvider] = useState('gemini'); 
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key') || '');
             const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model') || 'gemini-2.5-flash-preview-09-2025');
-            
             const [ollamaUrl, setOllamaUrl] = useState(DEFAULT_OLLAMA_URL);
             const [ollamaModel, setOllamaModel] = useState(DEFAULT_OLLAMA_MODEL);
             const [isListening, setIsListening] = useState(false);
@@ -260,7 +303,6 @@
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); }, [history]);
             
-            // --- Load Voices ---
             useEffect(() => {
                 const loadVoices = () => {
                     const voices = window.speechSynthesis.getVoices();
@@ -270,7 +312,6 @@
                 window.speechSynthesis.onvoiceschanged = loadVoices;
             }, []);
 
-            // --- Paste Listener ---
             useEffect(() => {
                 if (mode !== 'text' && mode !== 'file') return;
                 const handlePaste = (e) => {
@@ -301,9 +342,8 @@
                 setHistory(prev => [newItem, ...prev].slice(0, 50));
             };
 
-            const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) setHistory([]); };
+            const clearHistory = () => { if(confirm("確定要刪除嗎？")) setHistory([]); };
 
-            // --- Screen Capture ---
             const handleScreenCapture = async () => {
                 try {
                     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
@@ -322,52 +362,41 @@
                     });
                 } catch (e) { 
                     console.log("Screen capture cancelled", e); 
-                    alert("螢幕截圖已取消或失敗，請確認瀏覽器權限。");
+                    alert("截圖失敗，請檢查權限。");
                 }
             };
 
-            // --- Crop Handlers (Optimized) ---
             const getClientCoordinates = (e) => {
                 const imgRect = imageRef.current.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                
                 let x = clientX - imgRect.left;
                 let y = clientY - imgRect.top;
-                
                 x = Math.max(0, Math.min(x, imgRect.width));
                 y = Math.max(0, Math.min(y, imgRect.height));
-                
                 return { x, y };
             };
 
             const handleCropStart = (e) => {
                 if(e.type === 'mousedown') e.preventDefault(); 
-                
                 if(!cropImageSrc) return;
-                
                 const coords = getClientCoordinates(e);
                 dragStartRef.current = coords;
                 isDraggingRef.current = true;
-                
                 setCropSelection({ x: coords.x, y: coords.y, w: 0, h: 0 });
             };
 
             const handleCropMove = (e) => {
                 if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
                 if (!isDraggingRef.current || !dragStartRef.current) return;
-                
                 const coords = getClientCoordinates(e);
                 const start = dragStartRef.current;
-                
                 const currentX = coords.x;
                 const currentY = coords.y;
-                
                 const x = Math.min(start.x, currentX);
                 const y = Math.min(start.y, currentY);
                 const w = Math.abs(currentX - start.x);
                 const h = Math.abs(currentY - start.y);
-                
                 setCropSelection({ x, y, w, h });
             };
 
@@ -377,30 +406,19 @@
             };
 
             const handleCropConfirm = async () => {
+                // 微距選取解鎖: 移除最小尺寸限制
                 if (!cropSelection) {
                     alert("請先在圖片上滑動手指選取範圍");
                     return;
                 }
-                
                 const img = imageRef.current;
                 const canvas = document.createElement('canvas');
-                
                 const scaleX = img.naturalWidth / img.clientWidth;
                 const scaleY = img.naturalHeight / img.clientHeight;
-                
                 canvas.width = Math.max(1, cropSelection.w * scaleX);
                 canvas.height = Math.max(1, cropSelection.h * scaleY);
-                
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(
-                    img,
-                    cropSelection.x * scaleX,
-                    cropSelection.y * scaleY,
-                    cropSelection.w * scaleX,
-                    cropSelection.h * scaleY,
-                    0, 0, canvas.width, canvas.height
-                );
-                
+                ctx.drawImage(img, cropSelection.x * scaleX, cropSelection.y * scaleY, cropSelection.w * scaleX, cropSelection.h * scaleY, 0, 0, canvas.width, canvas.height);
                 canvas.toBlob(blob => {
                     const file = new File([blob], "cropped_selection.jpg", { type: 'image/jpeg' });
                     setShowCropModal(false);
@@ -418,26 +436,22 @@
                 runOCR(file);
             };
 
-            // --- OCR Core ---
             const runOCR = async (file) => {
                 setErrorMsg('');
                 setSourceText('');
                 setIsLoading(true);
-                setLoadingStatus('正在處理...');
-
+                setLoadingStatus('正在讀取圖片...');
                 try {
                     let text = "";
                     if (apiProvider === 'gemini') text = await performGeminiOCR(file);
                     else text = await performLegacyOCR(file);
                     
-                    if (!text || !text.trim()) throw new Error("無法辨識出文字，請確認圖片/檔案清晰度。");
-                    
+                    if (!text || !text.trim()) throw new Error("無法辨識圖片中的文字");
                     setSourceText(text);
                     callAI('translate', text); 
-
                 } catch (err) {
                     console.error(err);
-                    setErrorMsg(err.message || "讀取失敗 (若為 400/404 錯誤請檢查 Key 或切換模型)");
+                    setErrorMsg(err.message || "讀取失敗");
                     setIsLoading(false);
                 }
             };
@@ -446,13 +460,11 @@
                 const trimmedKey = geminiKey.trim();
                 if (!trimmedKey) {
                     setShowSettings(true);
-                    throw new Error("請輸入 Gemini API Key 以使用 AI 視覺辨識");
+                    throw new Error("請輸入 Gemini API Key");
                 }
-                
                 setLoadingStatus('AI 正在壓縮並讀取圖片...');
                 const base64Image = await compressImage(file);
                 const mimeType = 'image/jpeg';
-                
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 const payload = {
                     contents: [{
@@ -462,7 +474,6 @@
                         ]
                     }]
                 };
-                
                 const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error("AI 無法辨識圖片中的文字");
@@ -472,13 +483,11 @@
             const performLegacyOCR = async (file) => {
                 if (!window.Tesseract) throw new Error("OCR 元件載入中...");
                 let tessLang = 'eng'; 
-                let langDesc = '英文';
-                if (sourceLang === 'auto') { tessLang = 'chi_tra+eng'; langDesc = '繁中+英文'; }
-                else if (sourceLang.includes('zh')) { tessLang = 'chi_tra+eng'; langDesc = '繁中+英文'; }
-                else if (sourceLang.includes('ja')) { tessLang = 'jpn+eng'; langDesc = '日文+英文'; }
-                else if (sourceLang.includes('ko')) { tessLang = 'kor+eng'; langDesc = '韓文+英文'; }
-                
-                setLoadingStatus(`下載辨識模型中... (語言: ${langDesc})`);
+                if (sourceLang === 'auto') tessLang = 'chi_tra+eng'; 
+                else if (sourceLang.includes('zh')) tessLang = 'chi_tra+eng';
+                else if (sourceLang.includes('ja')) tessLang = 'jpn+eng';
+                else if (sourceLang.includes('ko')) tessLang = 'kor+eng';
+                setLoadingStatus(`下載辨識模型中...`);
                 const { data: { text } } = await Tesseract.recognize(file, tessLang, {
                     logger: m => { if (m.status === 'recognizing text') setLoadingStatus(`辨識文字中... ${Math.round(m.progress * 100)}%`); }
                 });
@@ -488,11 +497,9 @@
             const processFile = async (file) => {
                 if (!file) return;
                 setFileName(file.name || "File");
-                
                 const lowerName = file.name ? file.name.toLowerCase() : 'image.jpg';
                 const fileType = file.type || '';
 
-                // If Image -> Open Crop Modal
                 if (fileType.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|bmp|webp)$/)) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
@@ -504,7 +511,6 @@
                     return;
                 }
 
-                // If Docs -> Direct Process
                 setMode('text');
                 setSourceText('');
                 setIsLoading(true);
@@ -539,7 +545,6 @@
                     if (!text || !text.trim()) throw new Error("無法讀取文字");
                     setSourceText(text);
                     callAI('translate', text); 
-
                 } catch (err) {
                     console.error(err);
                     setErrorMsg(err.message || "讀取失敗");
@@ -549,16 +554,10 @@
 
             const handleFileChange = (e) => processFile(e.target.files[0]);
             
-            // --- Voice Logic ---
             const toggleListening = () => {
-                if (isListening) {
-                    recognitionRef.current?.stop();
-                    setIsListening(false);
-                    return;
-                }
+                if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
-                
+                if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; }
                 const recognition = new SpeechRecognition();
                 if (sourceLang !== 'auto') recognition.lang = sourceLang;
                 recognition.continuous = true;
@@ -597,7 +596,6 @@
                 } else { return `[${tName}] ${text}`; }
             };
 
-            // Revised callAI
             const callAI = async (promptType, textOverride = null) => {
                 const textToUse = textOverride !== null ? textOverride : sourceText;
                 if (!textToUse.trim()) return;
@@ -618,7 +616,7 @@
                 else if (promptType === 'summarize') systemInstruction = `Summarize text into ${tName}. Use bullet points. Concise.`;
                 else if (promptType === 'grammar') systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName}.`;
 
-                if(!textOverride) setLoadingStatus("AI 處理中...");
+                if(!textOverride) setLoadingStatus("AI 思考中 (･ω･)b...");
 
                 try {
                     let resultText = "";
@@ -632,7 +630,7 @@
                     } else if (apiProvider === 'mymemory' && promptType === 'translate') {
                         resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang);
                     } else {
-                        resultText = "此模式不支援進階功能";
+                        resultText = "此模式不支援";
                     }
 
                     if (currentRequestId === requestCounter.current) {
@@ -670,12 +668,12 @@
                              onMouseUp={handleCropEnd}
                              onTouchEnd={handleCropEnd}
                         >
-                            <div className="flex justify-between items-center p-4 bg-black/50 text-white z-10">
-                                <h3 className="font-bold">裁切選取區域</h3>
-                                <button onClick={() => { setShowCropModal(false); setCropImageSrc(null); }} className="p-2"><Icons.X className="w-6 h-6"/></button>
+                            <div className="flex justify-between items-center p-4 bg-[#ffdbed] text-[#d45d79] z-10 border-b-4 border-[#fff]">
+                                <h3 className="font-bold text-lg flex items-center gap-2">✂️ 裁切選取區域</h3>
+                                <button onClick={() => { setShowCropModal(false); setCropImageSrc(null); }} className="p-2 bg-white rounded-full shadow-sm active:scale-95 transition-transform"><Icons.X className="w-6 h-6"/></button>
                             </div>
-                            <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-                                <div className="relative">
+                            <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-[#fff0f5]">
+                                <div className="relative shadow-2xl rounded-lg overflow-hidden border-4 border-white">
                                     <img 
                                         ref={imageRef} 
                                         src={cropImageSrc} 
@@ -687,7 +685,7 @@
                                     />
                                     {cropSelection && (
                                         <div 
-                                            className="absolute border-2 border-yellow-400 bg-yellow-400/30 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+                                            className="absolute border-4 border-[#ffb7c5] bg-[#ffb7c5]/20 pointer-events-none shadow-[0_0_0_9999px_rgba(255,255,255,0.7)] rounded-lg"
                                             style={{
                                                 left: cropSelection.x,
                                                 top: cropSelection.y,
@@ -698,12 +696,12 @@
                                     )}
                                 </div>
                             </div>
-                            <div className="p-4 bg-black/80 grid grid-cols-2 gap-4 z-10">
-                                <button onClick={handleFullImageConfirm} className="bg-slate-700 hover:bg-slate-600 text-white py-3.5 rounded-xl font-bold text-sm">
-                                    翻譯整張
+                            <div className="p-4 bg-white border-t-4 border-[#ffdae6] grid grid-cols-2 gap-4 z-10">
+                                <button onClick={handleFullImageConfirm} className="btn-cute bg-[#e0f7fa] text-[#0277bd] py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2">
+                                    <Icons.FileText className="w-5 h-5"/> 翻譯整張
                                 </button>
-                                <button onClick={handleCropConfirm} className={`py-3.5 rounded-xl font-bold text-sm ${!cropSelection ? 'bg-indigo-900 text-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`} disabled={!cropSelection}>
-                                    翻譯選取區域
+                                <button onClick={handleCropConfirm} className={`btn-cute py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 ${!cropSelection ? 'bg-gray-100 text-gray-400' : 'bg-[#ffdbed] text-[#d45d79]'}`}>
+                                    <Icons.Crop className="w-5 h-5"/> 翻譯選取
                                 </button>
                             </div>
                         </div>
@@ -711,35 +709,38 @@
 
                     {/* Full Screen Text Modal */}
                     {showBigText && (
-                        <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in fade-in duration-200">
+                        <div className="fixed inset-0 bg-[#fff0f5] z-[60] flex flex-col animate-in fade-in duration-200">
                             <div className="flex justify-end p-4">
-                                <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 rounded-full"><Icons.X className="w-8 h-8 text-slate-600"/></button>
+                                <button onClick={() => setShowBigText(false)} className="p-3 bg-white border-2 border-[#ffb7c5] rounded-full text-[#d45d79] shadow-lg active:scale-90 transition-transform"><Icons.X className="w-8 h-8"/></button>
                             </div>
                             <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-                                <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap">
+                                <p className="text-4xl md:text-6xl font-bold text-slate-700 leading-tight text-center whitespace-pre-wrap font-[Zen_Maru_Gothic]">
                                     {translatedText || "尚無翻譯內容"}
                                 </p>
                             </div>
                             <div className="p-8 flex justify-center gap-4">
-                                <button onClick={() => speak(translatedText, targetLang)} className="p-4 bg-indigo-600 rounded-full text-white shadow-lg"><Icons.Volume2 className="w-8 h-8"/></button>
+                                <button onClick={() => speak(translatedText, targetLang)} className="p-6 bg-[#ffdbed] border-4 border-white rounded-full text-[#d45d79] shadow-[4px_4px_0px_#ffb7c5] active:translate-y-1 active:shadow-none transition-all"><Icons.Volume2 className="w-10 h-10"/></button>
                             </div>
                         </div>
                     )}
 
                     {/* History Modal */}
                     {showHistory && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
-                            <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-4" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                                    <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
-                                    <button onClick={clearHistory}><Icons.Trash /></button>
+                        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
+                            <div className="bg-[#fff0f5] w-full max-w-md h-full shadow-2xl flex flex-col border-l-4 border-[#ffdae6]" onClick={e => e.stopPropagation()}>
+                                <div className="px-6 py-5 border-b-2 border-[#ffdae6] flex justify-between items-center bg-white">
+                                    <h3 className="font-bold text-slate-700 flex items-center gap-2 text-lg"><Icons.Clock /> 歷史紀錄</h3>
+                                    <button onClick={clearHistory} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded-xl"><Icons.Trash /></button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto space-y-3">
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                     {history.map(item => (
-                                        <div key={item.id} className="bg-slate-50 p-3 rounded-lg text-sm cursor-pointer" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}>
-                                            <div className="text-slate-500 text-xs mb-1">{item.sLang} → {item.tLang}</div>
-                                            <div className="font-bold mb-1 line-clamp-2">{item.src}</div>
-                                            <div className="text-indigo-600 line-clamp-2">{item.res}</div>
+                                        <div key={item.id} className="bg-white p-4 rounded-2xl border-2 border-[#ffdae6] shadow-sm active:scale-95 transition-transform cursor-pointer" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}>
+                                            <div className="flex justify-between text-xs text-slate-400 mb-2 font-bold">
+                                                <span>{item.timestamp}</span>
+                                                <span className="bg-[#e0f7fa] text-[#0277bd] px-2 py-0.5 rounded-full">{item.sLang} → {item.tLang}</span>
+                                            </div>
+                                            <div className="font-bold mb-1 line-clamp-2 text-slate-700">{item.src}</div>
+                                            <div className="text-[#d45d79] line-clamp-2">{item.res}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -749,210 +750,154 @@
                     
                     {/* Settings Modal */}
                     {showSettings && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-                                <h3 className="font-bold text-lg flex items-center gap-2"><Icons.Settings /> 設定</h3>
+                        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-[#fff0f5] rounded-3xl w-full max-w-md p-6 space-y-5 max-h-[90vh] overflow-y-auto border-4 border-white shadow-[8px_8px_0px_#ffdae6]">
+                                <div className="flex justify-between items-center border-b-2 border-[#ffdae6] pb-3">
+                                    <h3 className="font-bold text-xl flex items-center gap-2 text-slate-700"><Icons.Settings /> 設定</h3>
+                                    <button onClick={() => setShowSettings(false)} className="bg-white p-2 rounded-full text-slate-400"><Icons.X/></button>
+                                </div>
                                 
-                                {/* Voice Settings Section */}
-                                <div className="space-y-3 border-b pb-4">
+                                {/* Voice Settings */}
+                                <div className="space-y-3 bg-white p-4 rounded-2xl border-2 border-[#ffdae6]">
                                     <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Volume3 className="w-4 h-4"/> 語音設定</h4>
-                                    
-                                    <div>
-                                        <label className="text-xs text-slate-500 mb-1 block">朗讀語音 (Voice)</label>
-                                        <select 
-                                            value={selectedVoiceURI} 
-                                            onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                                            className="w-full p-2 border rounded-lg text-sm bg-white"
-                                        >
-                                            <option value="">預設 (Default)</option>
-                                            {availableVoices.map(v => (
-                                                <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
+                                    <select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="w-full p-2 border-2 border-slate-100 rounded-xl text-sm bg-[#f9fafb] outline-none focus:border-[#ffb7c5]">
+                                        <option value="">預設語音</option>
+                                        {availableVoices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                                    </select>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs text-slate-500 mb-1 block">語速 (Rate): {voiceRate}x</label>
-                                            <input 
-                                                type="range" min="0.5" max="2" step="0.1" 
-                                                value={voiceRate} 
-                                                onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-slate-500 mb-1 block">音調 (Pitch): {voicePitch}</label>
-                                            <input 
-                                                type="range" min="0.5" max="2" step="0.1" 
-                                                value={voicePitch} 
-                                                onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
+                                        <div><label className="text-xs text-slate-500 block mb-1">語速: {voiceRate}x</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(parseFloat(e.target.value))} className="w-full accent-[#ffb7c5]"/></div>
+                                        <div><label className="text-xs text-slate-500 block mb-1">音調: {voicePitch}</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={(e) => setVoicePitch(parseFloat(e.target.value))} className="w-full accent-[#ffb7c5]"/></div>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold">翻譯引擎</label>
+                                    <label className="text-sm font-bold text-slate-600 ml-1">翻譯引擎</label>
                                     <div className="grid grid-cols-3 gap-2">
-                                        <button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded text-sm ${apiProvider==='gemini'?'bg-indigo-50 border-indigo-500 text-indigo-700':''}`}>Gemini</button>
-                                        <button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded text-sm ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700':''}`}>MyMemory</button>
-                                        <button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded text-sm ${apiProvider==='ollama'?'bg-emerald-50 border-emerald-500 text-emerald-700':''}`}>Ollama</button>
+                                        <button onClick={() => setApiProvider('gemini')} className={`p-2 border-2 rounded-xl text-sm font-bold transition-all ${apiProvider==='gemini'?'bg-[#ffdbed] border-[#ffb7c5] text-[#d45d79]':'bg-white border-slate-100 text-slate-400'}`}>Gemini</button>
+                                        <button onClick={() => setApiProvider('mymemory')} className={`p-2 border-2 rounded-xl text-sm font-bold transition-all ${apiProvider==='mymemory'?'bg-[#e0f7fa] border-[#81d4fa] text-[#0277bd]':'bg-white border-slate-100 text-slate-400'}`}>免費API</button>
+                                        <button onClick={() => setApiProvider('ollama')} className={`p-2 border-2 rounded-xl text-sm font-bold transition-all ${apiProvider==='ollama'?'bg-[#fff9c4] border-[#fff176] text-[#fbc02d]':'bg-white border-slate-100 text-slate-400'}`}>本地</button>
                                     </div>
                                 </div>
                                 
                                 {apiProvider === 'gemini' && (
-                                    <div className="space-y-3 animate-in fade-in">
-                                        <div className="bg-indigo-50 p-4 rounded-xl space-y-2">
-                                            <label className="text-xs font-bold text-indigo-600 flex items-center gap-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</label>
-                                            <input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2 border border-indigo-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="貼上您的 Key" />
-                                            <div className="text-xs text-indigo-600 font-medium flex items-center gap-1 mt-1">
-                                                <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline flex items-center gap-1 hover:text-indigo-800">
-                                                    👉 點此前往 Google AI Studio 取得免費 Key <Icons.Copy className="w-3 h-3 inline"/>
-                                                </a>
-                                            </div>
+                                    <div className="space-y-3 animate-in fade-in bg-white p-4 rounded-2xl border-2 border-[#ffdae6]">
+                                        <div>
+                                            <label className="text-xs font-bold text-[#d45d79] flex items-center gap-1 mb-1"><Icons.Key className="w-3 h-3"/> API Key</label>
+                                            <input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-3 border-2 border-slate-100 rounded-xl font-mono text-sm outline-none focus:border-[#ffb7c5]" placeholder="貼上 Key" />
+                                            <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-[10px] text-slate-400 mt-1 block underline hover:text-[#d45d79] text-right">👉 取得免費 Key</a>
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-bold text-slate-500 flex items-center gap-1"><Icons.CPU className="w-3 h-3"/> 選擇模型 (Model)</label>
-                                            <select 
-                                                value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} 
-                                                onChange={(e) => {
-                                                    if (e.target.value === 'custom') setGeminiModel('');
-                                                    else setGeminiModel(e.target.value);
-                                                }} 
-                                                className="w-full p-2 border rounded-lg text-sm bg-white"
-                                            >
-                                                {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 flex items-center gap-1 mb-1"><Icons.CPU className="w-3 h-3"/> 模型 (Model)</label>
+                                            <select value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} onChange={(e) => { if (e.target.value === 'custom') setGeminiModel(''); else setGeminiModel(e.target.value); }} className="w-full p-2 border-2 border-slate-100 rounded-xl text-sm bg-[#f9fafb] outline-none focus:border-[#ffb7c5]">
+                                                {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                                             </select>
-                                            
-                                            {(GEMINI_MODELS.every(m => m.id !== geminiModel) || geminiModel === '') && (
-                                                <input 
-                                                    type="text" 
-                                                    value={geminiModel}
-                                                    onChange={(e) => setGeminiModel(e.target.value)}
-                                                    placeholder="輸入模型 ID (例如 gemini-3.0-pro)"
-                                                    className="mt-2 w-full p-2 border rounded-lg text-sm font-mono bg-slate-50"
-                                                />
-                                            )}
-                                            
-                                            <p className="text-xs text-slate-400 mt-1">若遇到 404 錯誤，請嘗試切換不同模型。</p>
+                                            {(GEMINI_MODELS.every(m => m.id !== geminiModel) || geminiModel === '') && <input type="text" value={geminiModel} onChange={(e) => setGeminiModel(e.target.value)} placeholder="輸入模型 ID" className="mt-2 w-full p-2 border-2 border-slate-100 rounded-xl text-sm font-mono bg-[#f9fafb]" />}
                                         </div>
                                     </div>
                                 )}
-
-                                {apiProvider === 'ollama' && (
-                                    <div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in">
-                                        <label className="text-xs font-bold text-emerald-600">API URL</label>
-                                        <input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 rounded-lg font-mono text-sm" />
-                                    </div>
-                                )}
-
-                                <button onClick={() => setShowSettings(false)} className="w-full bg-slate-900 text-white py-2 rounded-lg shadow-lg hover:bg-slate-800">關閉設定</button>
+                                <button onClick={() => setShowSettings(false)} className="w-full bg-[#d45d79] text-white py-3 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform">OK! (儲存)</button>
                             </div>
                         </div>
                     )}
 
                     {/* Header */}
-                    <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-20 h-16 flex items-center justify-between px-4">
-                        <div className="flex items-center gap-2 text-indigo-600">
-                            <div className="bg-indigo-600 text-white p-1.5 rounded-lg"><Icons.Languages className="w-5 h-5" /></div>
-                            <h1 className="font-bold text-slate-900">Gemini Translate</h1>
+                    <header className="bg-white/80 backdrop-blur-md shadow-[0_2px_10px_rgba(255,183,197,0.2)] sticky top-0 z-20 h-16 flex items-center justify-between px-4">
+                        <div className="flex items-center gap-2 text-[#d45d79]">
+                            <div className="bg-[#ffdbed] text-[#d45d79] p-2 rounded-xl shadow-sm"><Icons.Languages className="w-6 h-6" /></div>
+                            <h1 className="font-bold text-lg tracking-tight">吉伊翻譯 <span className="text-xs font-normal text-slate-400">x Gemini</span></h1>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100"><Icons.Clock className="w-6 h-6" /></button>
-                            <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full ${!geminiKey&&apiProvider==='gemini'?'text-red-500 animate-pulse':'text-slate-400'}`}><Icons.Settings className="w-6 h-6" /></button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-[#fff0f5] hover:text-[#d45d79] transition-colors"><Icons.Clock className="w-6 h-6" /></button>
+                            <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!geminiKey&&apiProvider==='gemini'?'text-red-400 animate-pulse bg-red-50':'text-slate-400 hover:bg-[#fff0f5] hover:text-[#d45d79]'}`}><Icons.Settings className="w-6 h-6" /></button>
                         </div>
                     </header>
 
-                    <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+                    <main className="max-w-6xl mx-auto px-4 py-6 space-y-5">
                         {/* Mode Switcher */}
-                        <div className="grid grid-cols-2 gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200">
-                            <button onClick={() => setMode('text')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='text'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.Type className="w-4 h-4"/>文字/語音</button>
-                            <button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button>
+                        <div className="flex gap-2 bg-white p-2 rounded-3xl shadow-[4px_4px_0px_#ffdae6] border-2 border-white">
+                            <button onClick={() => setMode('text')} className={`flex-1 py-2.5 rounded-2xl text-xs md:text-sm font-bold flex items-center justify-center gap-1 transition-all ${mode==='text'?'bg-[#ffdbed] text-[#d45d79] shadow-sm':'text-slate-400 hover:bg-slate-50'}`}><Icons.Type className="w-4 h-4"/>一般</button>
+                            <button onClick={() => setMode('file')} className={`flex-1 py-2.5 rounded-2xl text-xs md:text-sm font-bold flex items-center justify-center gap-1 transition-all ${mode==='file'?'bg-[#e0f7fa] text-[#0277bd] shadow-sm':'text-slate-400 hover:bg-slate-50'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button>
                         </div>
 
-                        {/* Language Select (Global) */}
-                        <div className="flex gap-2 items-center justify-center bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                            <select value={sourceLang} onChange={e=>setSourceLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 text-center outline-none">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select>
-                            <div onClick={()=>{const t=targetLang;setTargetLang(sourceLang);setSourceLang(t)}} className="p-2 rounded-full bg-slate-50 text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></div>
-                            <select value={targetLang} onChange={e=>setTargetLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 text-center outline-none">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select>
+                        {/* Language Select */}
+                        <div className="flex gap-2 items-center justify-center bg-white p-2 rounded-3xl shadow-[4px_4px_0px_#e0f2f1] border-2 border-white">
+                            <select value={sourceLang} onChange={e=>setSourceLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-600 text-center outline-none appearance-none py-2">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select>
+                            <div onClick={()=>{const t=targetLang;setTargetLang(sourceLang);setSourceLang(t)}} className="p-2 rounded-full bg-[#e0f7fa] text-[#0277bd] cursor-pointer active:rotate-180 transition-transform"><Icons.ArrowRightLeft className="w-4 h-4"/></div>
+                            <select value={targetLang} onChange={e=>setTargetLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-600 text-center outline-none appearance-none py-2">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select>
                         </div>
 
-                        {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-center gap-2 animate-bounce"><Icons.AlertCircle className="w-4 h-4"/>{errorMsg}</div>}
+                        {errorMsg && <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-sm flex items-center gap-2 animate-bounce shadow-sm border border-red-100"><Icons.AlertCircle className="w-5 h-5"/>{errorMsg}</div>}
 
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {/* Source */}
-                            <div className={`bg-white rounded-2xl shadow-sm border flex flex-col h-[300px] md:h-[500px] overflow-hidden relative group ${isListening?'ring-2 ring-red-100 border-red-400':''}`}>
-                                <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center">
+                        <div className="grid md:grid-cols-2 gap-5">
+                            {/* Source Input */}
+                            <div className={`card-cute bg-white flex flex-col h-[300px] md:h-[500px] overflow-hidden relative group transition-all ${isListening?'border-[#ff8a80] ring-4 ring-[#ffebee]':''}`}>
+                                <div className="p-3 border-b-2 border-slate-50 flex justify-between items-center bg-[#fffbfc]">
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => setIsRealTime(!isRealTime)} className={`p-1 rounded ${isRealTime?'bg-yellow-100 text-yellow-600':'text-slate-400'}`}><Icons.Zap className="w-4 h-4"/></button>
-                                        <span className="text-xs font-bold text-slate-400 uppercase">原文 {isListening&&<span className="text-red-500 animate-pulse">●</span>}</span>
+                                        <button onClick={() => setIsRealTime(!isRealTime)} className={`p-1.5 rounded-xl transition-all ${isRealTime?'bg-[#fff9c4] text-[#fbc02d] shadow-sm':'text-slate-300 hover:bg-slate-50'}`} title="即時翻譯"><Icons.Zap className="w-4 h-4"/></button>
+                                        <span className="text-xs font-bold text-slate-400 tracking-wider">原文 {isListening&&<span className="text-[#ff8a80] animate-pulse">● 聽寫中</span>}</span>
                                     </div>
                                     <div className="flex gap-1">
                                         <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                                        <button onClick={handleScreenCapture} className="p-1.5 rounded hover:bg-slate-100 hidden sm:block" title="截圖"><Icons.Scissors className="w-5 h-5 text-slate-500"/></button>
-                                        <button onClick={() => cameraInputRef.current?.click()} className={`p-1.5 rounded-lg ${apiProvider==='gemini'&&geminiKey?'text-indigo-600 bg-indigo-50 hover:bg-indigo-100':'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`} title={apiProvider==='gemini'?'AI 視覺辨識 (Gemini Vision)':'相機 (Tesseract OCR)'}>
-                                            {apiProvider==='gemini'&&geminiKey ? <Icons.Eye className="w-5 h-5"/> : <Icons.Camera className="w-5 h-5" />}
-                                        </button>
-                                        <button onClick={() => toggleListening()} className={`p-1.5 rounded ${isListening?'bg-red-100 text-red-600':'text-slate-500 hover:bg-slate-100'}`}><Icons.Mic className="w-5 h-5"/></button>
-                                        {sourceText && <button onClick={clearAll} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"><Icons.X className="w-5 h-5"/></button>}
+                                        <button onClick={handleScreenCapture} className="p-2 rounded-xl hover:bg-[#e0f7fa] text-slate-400 hover:text-[#0277bd] hidden sm:block" title="截圖"><Icons.Scissors className="w-4 h-4"/></button>
+                                        <button onClick={() => cameraInputRef.current?.click()} className={`p-2 rounded-xl transition-all ${apiProvider==='gemini'&&geminiKey?'text-[#0277bd] bg-[#e0f7fa] hover:bg-[#b3e5fc]':'text-slate-400 hover:text-[#0277bd] hover:bg-[#e0f7fa]'}`} title="相機"><Icons.Camera className="w-4 h-4"/></button>
+                                        <button onClick={() => toggleListening()} className={`p-2 rounded-xl transition-all ${isListening?'bg-[#ff8a80] text-white animate-pulse':'text-slate-400 hover:text-[#d45d79] hover:bg-[#ffdbed]'}`}><Icons.Mic className="w-4 h-4"/></button>
+                                        {sourceText && <button onClick={clearAll} className="p-2 rounded-xl hover:bg-red-50 text-slate-300 hover:text-red-400"><Icons.X className="w-4 h-4"/></button>}
                                     </div>
                                 </div>
                                 <div className="flex-1 relative">
                                     {mode === 'file' && !sourceText ? (
-                                        <div onClick={()=>fileInputRef.current?.click()} className={`absolute inset-3 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:bg-slate-50 ${isDragOver?'border-indigo-500 bg-indigo-50':''}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={e=>{e.preventDefault();setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}>
+                                        <div onClick={()=>fileInputRef.current?.click()} className={`absolute inset-4 border-4 border-dashed border-[#b3e5fc] rounded-3xl flex flex-col items-center justify-center cursor-pointer text-[#81d4fa] hover:bg-[#e0f7fa] transition-colors ${isDragOver?'bg-[#e0f7fa] border-[#0277bd]':''}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={e=>{e.preventDefault();setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}>
                                             <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.docx,.txt,image/*" onChange={handleFileChange} />
-                                            <Icons.UploadCloud className="w-8 h-8 text-indigo-300 mb-2" />
-                                            <p className="text-sm font-bold">拖曳檔案或圖片</p>
-                                            <p className="text-xs mt-1 opacity-70">
-                                                {apiProvider === 'gemini' && geminiKey ? '✨ 支援 Gemini AI 視覺辨識' : '支援圖片 OCR, PDF, Word'}
-                                            </p>
+                                            <Icons.UploadCloud className="w-10 h-10 mb-2 animate-bounce-slow" />
+                                            <p className="text-sm font-bold">點擊或拖曳檔案/圖片</p>
+                                            <p className="text-[10px] mt-1 opacity-60">PDF / Word / 截圖</p>
                                         </div>
                                     ) : (
-                                        <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="輸入文字..." />
+                                        <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="w-full h-full p-5 resize-none outline-none bg-transparent text-lg text-slate-700 leading-relaxed" placeholder="輸入文字..." spellCheck="false" />
                                     )}
-                                    {fileName && <div className="absolute bottom-2 left-2 px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded flex items-center gap-1"><Icons.FileType className="w-3 h-3"/>{fileName}</div>}
+                                    {fileName && <div className="absolute bottom-3 left-3 px-3 py-1 bg-[#e0f7fa] text-[#0277bd] text-xs rounded-full font-bold flex items-center gap-1 shadow-sm"><Icons.FileType className="w-3 h-3"/>{fileName}</div>}
                                 </div>
                             </div>
 
-                            {/* Target */}
-                            <div className="bg-slate-50 rounded-2xl border border-slate-200 flex flex-col h-[300px] md:h-[500px] overflow-hidden relative">
-                                <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400 uppercase">譯文</span>
+                            {/* Target Output */}
+                            <div className="card-cute bg-[#fdfdfe] flex flex-col h-[300px] md:h-[500px] overflow-hidden relative border-3 border-white shadow-[4px_4px_0px_#fff9c4]">
+                                <div className="p-3 border-b-2 border-slate-50 flex justify-between items-center bg-[#fffdf0]">
+                                    <span className="text-xs font-bold text-slate-400 uppercase">譯文 (AI)</span>
                                     <div className="flex gap-1">
-                                        {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
-                                        <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
-                                        <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
+                                        {translatedText && <button onClick={() => setShowBigText(true)} className="p-2 text-slate-400 hover:text-[#fbc02d] hover:bg-[#fff9c4] rounded-xl" title="全螢幕"><Icons.Maximize className="w-4 h-4"/></button>}
+                                        <button onClick={()=>copy(translatedText,false)} className="p-2 text-slate-400 hover:text-[#fbc02d] hover:bg-[#fff9c4] rounded-xl"><Icons.Copy className="w-4 h-4"/></button>
+                                        <button onClick={()=>speak(translatedText,targetLang)} className="p-2 text-slate-400 hover:text-[#fbc02d] hover:bg-[#fff9c4] rounded-xl"><Icons.Volume2 className="w-4 h-4"/></button>
                                     </div>
                                 </div>
                                 <div className="flex-1 relative">
-                                    {isLoading && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div><span className="text-xs font-bold text-indigo-600">{loadingStatus}</span></div>}
-                                    <textarea readOnly value={translatedText} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="結果..." />
+                                    {isLoading && <div className="absolute inset-0 bg-white/90 backdrop-blur-[1px] flex flex-col items-center justify-center z-10"><div className="text-4xl mb-2 animate-bounce">🤔</div><span className="text-xs font-bold text-[#d45d79] animate-pulse">{loadingStatus}</span></div>}
+                                    <textarea readOnly value={translatedText} className="w-full h-full p-5 resize-none outline-none bg-transparent text-lg text-slate-800 leading-relaxed" placeholder="等待翻譯..." />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Bottom Tone/Action Bar */}
-                        <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
-                            <span className="text-xs font-bold text-slate-400 px-2">風格</span>
-                            <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-                                {TONES.map(t => (
-                                    <button key={t.id} onClick={()=>setSelectedTone(t.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedTone===t.id?'bg-indigo-100 text-indigo-700':'text-slate-500 hover:bg-slate-50'}`}>{t.icon} {t.name.split(' ')[0]}</button>
-                                ))}
+                        {/* Bottom Actions */}
+                        <div className="bg-white p-3 rounded-3xl shadow-[4px_4px_0px_#f0f0f0] border-2 border-white">
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <span className="text-xs font-bold text-slate-400">語氣風格</span>
+                                <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+                                    {TONES.map(t => (
+                                        <button key={t.id} onClick={()=>setSelectedTone(t.id)} className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${selectedTone===t.id?'bg-[#ffdbed] text-[#d45d79] shadow-sm':'text-slate-400 hover:bg-slate-50'}`}>{t.icon} {t.name.split(' ')[0]}</button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-3">
+                                <button onClick={() => callAI('translate')} disabled={isLoading || !sourceText} className="col-span-4 md:col-span-1 btn-cute bg-[#d45d79] hover:bg-[#c2405e] text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 text-sm">
+                                    {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : <Icons.Sparkles className="w-5 h-5 text-[#fff9c4]"/>} 翻譯
+                                </button>
+                                <button onClick={() => callAI('polish')} disabled={isLoading || !sourceText} className="btn-cute bg-[#e0f7fa] hover:bg-[#b3e5fc] text-[#0277bd] py-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Edit3 className="w-4 h-4"/>潤飾</button>
+                                <button onClick={() => callAI('summarize')} disabled={isLoading || !sourceText} className="btn-cute bg-[#fff9c4] hover:bg-[#fff59d] text-[#f57f17] py-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.List className="w-4 h-4"/>摘要</button>
+                                <button onClick={() => callAI('grammar')} disabled={isLoading || !sourceText} className="btn-cute bg-[#f3e5f5] hover:bg-[#e1bee7] text-[#8e24aa] py-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Search className="w-4 h-4"/>分析</button>
                             </div>
                         </div>
-
-                        <div className="grid grid-cols-4 gap-2">
-                            <button onClick={() => callAI('translate')} disabled={isLoading || !sourceText} className="col-span-4 md:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
-                                {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : <Icons.Sparkles className="w-5 h-5 text-yellow-300"/>} 翻譯
-                            </button>
-                            <button onClick={() => callAI('polish')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Edit3 className="w-4 h-4"/>潤飾</button>
-                            <button onClick={() => callAI('summarize')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.List className="w-4 h-4"/>摘要</button>
-                            <button onClick={() => callAI('grammar')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Search className="w-4 h-4"/>分析</button>
-                        </div>
                         
-                        <div className="text-center text-xs text-slate-400 opacity-60">© 2023 Gemini Translate Pro</div>
+                        <div className="text-center text-[10px] text-[#ffb7c5] font-bold">© 2023 Gemini Chiikawa Translate</div>
                     </main>
                 </div>
             );
