@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini 全能翻譯工具 (專業版)</title>
+    <title>Gemini 全能翻譯工具 (視覺翻譯版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Zen Maru Gothic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -29,7 +34,7 @@
 
     <style>
         body {
-            font-family: 'Inter', 'Microsoft JhengHei', system-ui, -apple-system, sans-serif;
+            font-family: 'Zen Maru Gothic', 'Microsoft JhengHei', system-ui, -apple-system, sans-serif;
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none; 
         }
@@ -44,8 +49,13 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .no-select { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         
-        /* Crop UI Styles */
+        /* Crop & Visual UI Styles */
         .crop-modal { touch-action: none; } 
+        .visual-text-box { 
+            touch-action: none; 
+            backdrop-filter: blur(4px);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 text-slate-800 min-h-screen">
@@ -57,7 +67,7 @@
 
         // --- Icons ---
         const Icon = ({ children, className = "w-6 h-6" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
                 {children}
             </svg>
         );
@@ -97,7 +107,8 @@
             Maximize: () => <Icon><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Icon>,
             CPU: () => <Icon><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></Icon>,
             Crop: () => <Icon><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></Icon>,
-            Volume3: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>
+            Volume3: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
+            Image: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
@@ -234,12 +245,22 @@
             const [cropSelection, setCropSelection] = useState(null); 
             const [isCropping, setIsCropping] = useState(false);
             
+            // Visual Mode State
+            const [showVisualMode, setShowVisualMode] = useState(false);
+            const [displayImage, setDisplayImage] = useState(null); // Stores the image for visual mode
+            const [visualTextPos, setVisualTextPos] = useState({ x: 50, y: 50 }); // Percentages
+            const [visualFontSize, setVisualFontSize] = useState(18);
+            const [visualDragging, setVisualDragging] = useState(false);
+
+            
             // Refs for drag state
             const dragStartRef = useRef(null);
             const isDraggingRef = useRef(false);
+            const visualDragStartRef = useRef(null);
             
             const imageRef = useRef(null);
             const cropContainerRef = useRef(null);
+            const visualContainerRef = useRef(null);
 
             const [apiProvider, setApiProvider] = useState('gemini'); 
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key') || '');
@@ -327,6 +348,42 @@
                 }
             };
 
+            // --- Visual Mode Handlers ---
+            const handleVisualDragStart = (e) => {
+                e.preventDefault(); // Prevent default touch actions
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                visualDragStartRef.current = { x: clientX, y: clientY };
+                setVisualDragging(true);
+            };
+
+            const handleVisualDragMove = (e) => {
+                if (!visualDragging || !visualDragStartRef.current || !visualContainerRef.current) return;
+                e.preventDefault();
+                
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                const containerRect = visualContainerRef.current.getBoundingClientRect();
+                
+                // Calculate delta as percentage of container
+                const deltaX = ((clientX - visualDragStartRef.current.x) / containerRect.width) * 100;
+                const deltaY = ((clientY - visualDragStartRef.current.y) / containerRect.height) * 100;
+                
+                setVisualTextPos(prev => ({
+                    x: Math.max(0, Math.min(100, prev.x + deltaX)),
+                    y: Math.max(0, Math.min(100, prev.y + deltaY))
+                }));
+                
+                visualDragStartRef.current = { x: clientX, y: clientY };
+            };
+
+            const handleVisualDragEnd = () => {
+                setVisualDragging(false);
+                visualDragStartRef.current = null;
+            };
+
+
             // --- Crop Handlers (Optimized) ---
             const getClientCoordinates = (e) => {
                 const imgRect = imageRef.current.getBoundingClientRect();
@@ -378,7 +435,6 @@
             };
 
             const handleCropConfirm = async () => {
-                // 微距選取解鎖: 移除最小尺寸限制
                 if (!cropSelection) {
                     alert("請先在圖片上滑動手指選取範圍");
                     return;
@@ -412,6 +468,8 @@
             };
 
             const handleFullImageConfirm = async () => {
+                // Use the crop image source which is already a data URL or blob URL
+                // We need to convert it to a File object for runOCR
                 const res = await fetch(cropImageSrc);
                 const blob = await res.blob();
                 const file = new File([blob], "full_image.jpg", { type: 'image/jpeg' });
@@ -426,6 +484,11 @@
                 setSourceText('');
                 setIsLoading(true);
                 setLoadingStatus('正在處理...');
+
+                // Store image for visual mode
+                const reader = new FileReader();
+                reader.onload = (e) => setDisplayImage(e.target.result);
+                reader.readAsDataURL(file);
 
                 try {
                     let text = "";
@@ -499,6 +562,7 @@
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         setCropImageSrc(e.target.result);
+                        setDisplayImage(e.target.result); // Set as current display image too
                         setCropSelection(null);
                         setShowCropModal(true);
                     };
@@ -511,6 +575,7 @@
                 setSourceText('');
                 setIsLoading(true);
                 setLoadingStatus('正在處理文件...');
+                setDisplayImage(null); // Clear image if document
 
                 try {
                     let text = "";
@@ -664,6 +729,46 @@
 
             return (
                 <div className="pb-12">
+                    {/* Visual Mode Modal */}
+                    {showVisualMode && displayImage && (
+                        <div className="fixed inset-0 bg-black z-[80] flex flex-col animate-in fade-in duration-200"
+                             onMouseMove={handleVisualDragMove}
+                             onTouchMove={handleVisualDragMove}
+                             onMouseUp={handleVisualDragEnd}
+                             onTouchEnd={handleVisualDragEnd}
+                        >
+                            <div className="flex justify-between items-center p-4 bg-black/50 text-white z-20 absolute top-0 left-0 right-0">
+                                <div className="flex gap-2">
+                                    <button onClick={() => setVisualFontSize(s => Math.max(12, s - 2))} className="p-2 bg-white/20 rounded">A-</button>
+                                    <button onClick={() => setVisualFontSize(s => Math.min(48, s + 2))} className="p-2 bg-white/20 rounded">A+</button>
+                                </div>
+                                <button onClick={() => setShowVisualMode(false)} className="p-2 bg-white/20 rounded-full"><Icons.X className="w-6 h-6"/></button>
+                            </div>
+                            
+                            <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-gray-900" ref={visualContainerRef}>
+                                <img src={displayImage} className="max-w-full max-h-full object-contain pointer-events-none select-none" alt="Original" />
+                                
+                                {translatedText && (
+                                    <div 
+                                        className="absolute visual-text-box bg-black/60 text-white p-4 rounded-lg cursor-move border border-white/30"
+                                        style={{
+                                            left: `${visualTextPos.x}%`,
+                                            top: `${visualTextPos.y}%`,
+                                            transform: 'translate(-50%, -50%)',
+                                            fontSize: `${visualFontSize}px`,
+                                            maxWidth: '80vw',
+                                            minWidth: '100px'
+                                        }}
+                                        onMouseDown={handleVisualDragStart}
+                                        onTouchStart={handleVisualDragStart}
+                                    >
+                                        {translatedText}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Crop Modal */}
                     {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in duration-200 crop-modal"
@@ -718,7 +823,7 @@
                                 <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 rounded-full"><Icons.X className="w-8 h-8 text-slate-600"/></button>
                             </div>
                             <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-                                <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap">
+                                <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap font-['Zen_Maru_Gothic']">
                                     {translatedText || "尚無翻譯內容"}
                                 </p>
                             </div>
@@ -871,7 +976,7 @@
                         {/* Mode Switcher */}
                         <div className="grid grid-cols-2 gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200">
                             <button onClick={() => setMode('text')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='text'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.Type className="w-4 h-4"/>一般</button>
-                            <button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button>
+                            <button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                         </div>
 
                         {/* Language Select (Global) */}
@@ -924,6 +1029,7 @@
                                     <span className="text-xs font-bold text-slate-400 uppercase">譯文</span>
                                     <div className="flex gap-1">
                                         {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
+                                        {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
                                         <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
                                         <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
                                     </div>
