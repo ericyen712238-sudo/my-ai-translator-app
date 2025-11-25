@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gemini 全能翻譯工具</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS (Added typography plugin for Markdown styling) -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     
     <!-- Google Fonts: Zen Maru Gothic -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,11 +41,16 @@
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none; 
         }
-        textarea::-webkit-scrollbar { width: 6px; }
-        textarea::-webkit-scrollbar-track { background: transparent; }
-        textarea::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        
+        /* 全域捲軸樣式 (適用於所有可捲動區域，包含 div 和 textarea) */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
@@ -60,15 +65,18 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
-        /* Markdown Styles */
-        .prose { font-size: 1.125rem; line-height: 1.75; color: #334155; }
-        .prose h1 { font-size: 1.5em; font-weight: 700; margin-top: 1em; margin-bottom: 0.5em; color: #1e293b; }
-        .prose h2 { font-size: 1.25em; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; color: #334155; }
-        .prose p { margin-bottom: 1em; }
-        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-        .prose ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
+        /* Markdown Styles Enhancement */
+        .prose { font-size: 1.125rem; line-height: 1.75; color: #334155; max-width: none; }
+        .prose h1 { font-size: 1.5em; font-weight: 700; margin-top: 0.5em; margin-bottom: 0.5em; color: #1e293b; }
+        .prose h2 { font-size: 1.25em; font-weight: 600; margin-top: 0.5em; margin-bottom: 0.5em; color: #334155; }
+        .prose p { margin-bottom: 0.8em; }
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.8em; }
+        .prose ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.8em; }
         .prose strong { font-weight: 700; color: #0f172a; }
-        .prose blockquote { border-left: 4px solid #e2e8f0; padding-left: 1em; font-style: italic; color: #64748b; }
+        .prose blockquote { border-left: 4px solid #e2e8f0; padding-left: 1em; font-style: italic; color: #64748b; margin-bottom: 0.8em; }
+        .prose code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.9em; font-family: monospace; color: #ef4444; }
+        .prose pre { background-color: #1e293b; color: #f8fafc; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin-bottom: 0.8em; }
+        .prose pre code { background-color: transparent; padding: 0; color: inherit; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 text-slate-800 min-h-screen">
@@ -116,6 +124,7 @@
             Trash: () => <Icon><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></Icon>,
             Zap: () => <Icon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Icon>,
             Scissors: () => <Icon><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></Icon>,
+            MessageSquare: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Icon>,
             Maximize: () => <Icon><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Icon>,
             CPU: () => <Icon><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></Icon>,
             Crop: () => <Icon><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></Icon>,
@@ -129,10 +138,10 @@
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
         const GEMINI_MODELS = [
-            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新)', desc: '預設' },
-            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定)', desc: '快速' },
-            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業)', desc: '高品質' },
-            { id: 'custom', name: '自訂模型', desc: '手動' }
+            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
+            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定版)', desc: '快速' },
+            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業版)', desc: '高品質' },
+            { id: 'custom', name: '自訂模型 (Custom)', desc: '手動輸入' }
         ];
 
         const LANGUAGES = [
@@ -178,6 +187,7 @@
             }
         };
 
+        // Helper: Compress and Convert File to Base64 JPEG
         const compressImage = (file) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -191,6 +201,7 @@
                         let height = img.height;
                         const MAX_WIDTH = 1500; 
                         const MAX_HEIGHT = 1500;
+                        
                         if (width > height) {
                             if (width > MAX_WIDTH) {
                                 height *= MAX_WIDTH / width;
@@ -202,10 +213,12 @@
                                 height = MAX_HEIGHT;
                             }
                         }
+                        
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
+                        
                         const base64Data = canvas.toDataURL('image/jpeg', 0.8);
                         resolve(base64Data.split(',')[1]);
                     };
@@ -291,6 +304,7 @@
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); }, [history]);
             
+            // --- Load Voices ---
             useEffect(() => {
                 const loadVoices = () => {
                     const voices = window.speechSynthesis.getVoices();
@@ -300,6 +314,7 @@
                 window.speechSynthesis.onvoiceschanged = loadVoices;
             }, []);
 
+            // --- Paste Listener ---
             useEffect(() => {
                 if (mode !== 'text' && mode !== 'file') return;
                 const handlePaste = (e) => {
@@ -332,6 +347,7 @@
 
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) setHistory([]); };
 
+            // --- Screen Capture ---
             const handleScreenCapture = async () => {
                 try {
                     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
@@ -350,10 +366,11 @@
                     });
                 } catch (e) { 
                     console.log("Screen capture cancelled", e); 
-                    alert("截圖失敗，請檢查權限。");
+                    alert("螢幕截圖已取消或失敗，請確認瀏覽器權限。");
                 }
             };
 
+            // --- Visual Mode Handlers ---
             const handleVisualDragStart = (e) => {
                 e.preventDefault(); 
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -382,43 +399,58 @@
                 visualDragStartRef.current = null;
             };
 
+            // --- Crop Handlers (Optimized) ---
             const getClientCoordinates = (e) => {
                 const imgRect = imageRef.current.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
                 let x = clientX - imgRect.left;
                 let y = clientY - imgRect.top;
+                
                 x = Math.max(0, Math.min(x, imgRect.width));
                 y = Math.max(0, Math.min(y, imgRect.height));
+                
                 return { x, y };
             };
 
             const handleCropStart = (e) => {
+                // IMPORTANT: Prevent default ONLY for mouse to stop drag, but allow touch
                 if(e.type === 'mousedown') e.preventDefault(); 
+                
                 if(!cropImageSrc) return;
+                
                 const coords = getClientCoordinates(e);
                 dragStartRef.current = coords;
                 isDraggingRef.current = true;
+                
+                // Set initial selection to 0-size point (w=0, h=0)
                 setCropSelection({ x: coords.x, y: coords.y, w: 0, h: 0 });
             };
 
             const handleCropMove = (e) => {
                 if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
                 if (!isDraggingRef.current || !dragStartRef.current) return;
+                
                 const coords = getClientCoordinates(e);
                 const start = dragStartRef.current;
+                
                 const currentX = coords.x;
                 const currentY = coords.y;
+                
                 const x = Math.min(start.x, currentX);
                 const y = Math.min(start.y, currentY);
                 const w = Math.abs(currentX - start.x);
                 const h = Math.abs(currentY - start.y);
+                
+                // CRUCIAL: Always update the selection state to reflect micro-movements
                 setCropSelection({ x, y, w, h });
             };
 
             const handleCropEnd = () => {
                 isDraggingRef.current = false;
                 dragStartRef.current = null;
+                // We DO NOT clear cropSelection here, allowing the button to be pressed even for a point selection
             };
 
             const handleCropConfirm = async () => {
@@ -426,14 +458,27 @@
                     alert("請先在圖片上滑動手指選取範圍");
                     return;
                 }
+                
                 const img = imageRef.current;
                 const canvas = document.createElement('canvas');
+                
                 const scaleX = img.naturalWidth / img.clientWidth;
                 const scaleY = img.naturalHeight / img.clientHeight;
+                
+                // Use Math.max(1, ...) to prevent canvas dimension from being zero, which causes errors
                 canvas.width = Math.max(1, cropSelection.w * scaleX);
                 canvas.height = Math.max(1, cropSelection.h * scaleY);
+                
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, cropSelection.x * scaleX, cropSelection.y * scaleY, cropSelection.w * scaleX, cropSelection.h * scaleY, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(
+                    img,
+                    cropSelection.x * scaleX,
+                    cropSelection.y * scaleY,
+                    cropSelection.w * scaleX,
+                    cropSelection.h * scaleY,
+                    0, 0, canvas.width, canvas.height
+                );
+                
                 canvas.toBlob(blob => {
                     const file = new File([blob], "cropped_selection.jpg", { type: 'image/jpeg' });
                     setShowCropModal(false);
@@ -451,25 +496,31 @@
                 runOCR(file);
             };
 
+            // --- OCR Core ---
             const runOCR = async (file) => {
                 setErrorMsg('');
                 setSourceText('');
                 setIsLoading(true);
-                setLoadingStatus('正在讀取圖片...');
+                setLoadingStatus('正在處理...');
+
+                // Store image for visual mode
                 const reader = new FileReader();
                 reader.onload = (e) => setDisplayImage(e.target.result);
                 reader.readAsDataURL(file);
+
                 try {
                     let text = "";
                     if (apiProvider === 'gemini') text = await performGeminiOCR(file);
                     else text = await performLegacyOCR(file);
                     
-                    if (!text || !text.trim()) throw new Error("無法辨識圖片中的文字");
+                    if (!text || !text.trim()) throw new Error("無法辨識出文字，請確認圖片/檔案清晰度。");
+                    
                     setSourceText(text);
                     callAI('translate', text); 
+
                 } catch (err) {
                     console.error(err);
-                    setErrorMsg(err.message || "讀取失敗");
+                    setErrorMsg(err.message || "讀取失敗 (若為 400/404 錯誤請檢查 Key 或切換模型)");
                     setIsLoading(false);
                 }
             };
@@ -478,11 +529,13 @@
                 const trimmedKey = geminiKey.trim();
                 if (!trimmedKey) {
                     setShowSettings(true);
-                    throw new Error("請輸入 Gemini API Key");
+                    throw new Error("請輸入 Gemini API Key 以使用 AI 視覺辨識");
                 }
+                
                 setLoadingStatus('AI 正在壓縮並讀取圖片...');
                 const base64Image = await compressImage(file);
                 const mimeType = 'image/jpeg';
+                
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 const payload = {
                     contents: [{
@@ -492,6 +545,7 @@
                         ]
                     }]
                 };
+                
                 const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error("AI 無法辨識圖片中的文字");
@@ -501,11 +555,13 @@
             const performLegacyOCR = async (file) => {
                 if (!window.Tesseract) throw new Error("OCR 元件載入中...");
                 let tessLang = 'eng'; 
-                if (sourceLang === 'auto') tessLang = 'chi_tra+eng'; 
-                else if (sourceLang.includes('zh')) tessLang = 'chi_tra+eng';
-                else if (sourceLang.includes('ja')) tessLang = 'jpn+eng';
-                else if (sourceLang.includes('ko')) tessLang = 'kor+eng';
-                setLoadingStatus(`下載辨識模型中...`);
+                let langDesc = '英文';
+                if (sourceLang === 'auto') { tessLang = 'chi_tra+eng'; langDesc = '繁中+英文'; }
+                else if (sourceLang.includes('zh')) { tessLang = 'chi_tra+eng'; langDesc = '繁中+英文'; }
+                else if (sourceLang.includes('ja')) { tessLang = 'jpn+eng'; langDesc = '日文+英文'; }
+                else if (sourceLang.includes('ko')) { tessLang = 'kor+eng'; langDesc = '韓文+英文'; }
+                
+                setLoadingStatus(`下載辨識模型中... (語言: ${langDesc})`);
                 const { data: { text } } = await Tesseract.recognize(file, tessLang, {
                     logger: m => { if (m.status === 'recognizing text') setLoadingStatus(`辨識文字中... ${Math.round(m.progress * 100)}%`); }
                 });
@@ -515,14 +571,16 @@
             const processFile = async (file) => {
                 if (!file) return;
                 setFileName(file.name || "File");
+                
                 const lowerName = file.name ? file.name.toLowerCase() : 'image.jpg';
                 const fileType = file.type || '';
 
+                // If Image -> Open Crop Modal
                 if (fileType.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|bmp|webp)$/)) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         setCropImageSrc(e.target.result);
-                        setDisplayImage(e.target.result);
+                        setDisplayImage(e.target.result); // Set as current display image too
                         setCropSelection(null);
                         setShowCropModal(true);
                     };
@@ -530,11 +588,12 @@
                     return;
                 }
 
+                // If Docs -> Direct Process
                 setMode('text');
                 setSourceText('');
                 setIsLoading(true);
                 setLoadingStatus('正在處理文件...');
-                setDisplayImage(null);
+                setDisplayImage(null); // Clear image if document
 
                 try {
                     let text = "";
@@ -565,6 +624,7 @@
                     if (!text || !text.trim()) throw new Error("無法讀取文字");
                     setSourceText(text);
                     callAI('translate', text); 
+
                 } catch (err) {
                     console.error(err);
                     setErrorMsg(err.message || "讀取失敗");
@@ -574,10 +634,16 @@
 
             const handleFileChange = (e) => processFile(e.target.files[0]);
             
+            // --- Voice Logic ---
             const toggleListening = () => {
-                if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
+                if (isListening) {
+                    recognitionRef.current?.stop();
+                    setIsListening(false);
+                    return;
+                }
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; }
+                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
+                
                 const recognition = new SpeechRecognition();
                 if (sourceLang !== 'auto') recognition.lang = sourceLang;
                 recognition.continuous = true;
@@ -593,6 +659,52 @@
                 };
                 recognitionRef.current = recognition;
                 recognition.start();
+            };
+
+            const startConversationVoice = (lang, speaker) => {
+                if (isListening) return;
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
+
+                const recognition = new SpeechRecognition();
+                let useLang = lang;
+                if (lang === 'auto') useLang = navigator.language;
+                
+                recognition.lang = useLang;
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.onstart = () => { setIsListening(true); setActiveSpeaker(speaker); setErrorMsg(''); };
+                recognition.onend = () => { setIsListening(false); setActiveSpeaker(null); };
+                recognition.onresult = (event) => {
+                    let final = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+                    }
+                    if (final) handleConversationTranslate(final, speaker);
+                };
+                recognitionRef.current = recognition;
+                try { recognition.start(); } catch(e) { console.error(e); setIsListening(false); }
+            };
+
+            const stopConversationVoice = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
+
+            // --- Conversation Translation ---
+            const handleConversationTranslate = async (text, speaker) => {
+                if (!text.trim()) return;
+                const sLang = sourceLang === 'auto' ? 'en' : sourceLang;
+                const tLang = targetLang;
+                const fromLang = speaker === 'user' ? tLang : sLang;
+                const toLang = speaker === 'user' ? sLang : tLang;
+                const newMessage = { id: Date.now(), speaker: speaker, text: text, translation: '...', isPending: true };
+                setConversationChat(prev => [...prev, newMessage]);
+
+                try {
+                    const translation = await performTranslation(text, fromLang, toLang);
+                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: translation, isPending: false } : msg));
+                    speak(translation, toLang);
+                } catch (e) {
+                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: "Error", isPending: false } : msg));
+                }
             };
 
             const performTranslation = async (text, sLangCode, tLangCode) => {
@@ -616,6 +728,7 @@
                 } else { return `[${tName}] ${text}`; }
             };
 
+            // Revised callAI
             const callAI = async (promptType, textOverride = null) => {
                 const textToUse = textOverride !== null ? textOverride : sourceText;
                 if (!textToUse.trim()) return;
