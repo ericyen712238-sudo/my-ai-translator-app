@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini 全能翻譯工具</title>
+    <title>Gemini 全能翻譯整理工具</title>
     
     <!-- Tailwind CSS (Added typography plugin for Markdown styling) -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -42,7 +42,7 @@
             overscroll-behavior-y: none; 
         }
         
-        /* 全域捲軸樣式 (適用於所有可捲動區域，包含 div 和 textarea) */
+        /* 全域捲軸樣式 */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
@@ -124,14 +124,12 @@
             Trash: () => <Icon><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></Icon>,
             Zap: () => <Icon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Icon>,
             Scissors: () => <Icon><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></Icon>,
-            MessageSquare: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Icon>,
             Maximize: () => <Icon><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Icon>,
             CPU: () => <Icon><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></Icon>,
             Crop: () => <Icon><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></Icon>,
             Volume3: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
             Image: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></Icon>,
-            Code: () => <Icon><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></Icon>,
-            EyeOff: () => <Icon><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></Icon>
+            Code: () => <Icon><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
@@ -187,7 +185,6 @@
             }
         };
 
-        // Helper: Compress and Convert File to Base64 JPEG
         const compressImage = (file) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -237,6 +234,22 @@
                     resolve(base64String);
                 };
                 reader.onerror = error => reject(error);
+            });
+        };
+
+        // Helper function to convert PDF first page to image
+        const renderPdfFirstPage = async (arrayBuffer) => {
+            const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            
+            return new Promise(resolve => {
+                canvas.toBlob(resolve, 'image/jpeg', 0.8);
             });
         };
 
@@ -366,7 +379,7 @@
                     });
                 } catch (e) { 
                     console.log("Screen capture cancelled", e); 
-                    alert("螢幕截圖已取消或失敗，請確認瀏覽器權限。");
+                    alert("截圖失敗，請檢查權限。");
                 }
             };
 
@@ -454,6 +467,7 @@
             };
 
             const handleCropConfirm = async () => {
+                // 微距選取解鎖: 移除最小尺寸限制
                 if (!cropSelection) {
                     alert("請先在圖片上滑動手指選取範圍");
                     return;
@@ -621,7 +635,18 @@
                         });
                     }
                     
-                    if (!text || !text.trim()) throw new Error("無法讀取文字");
+                    // PDF Scanned Document Handling: If text is empty, try OCR on first page
+                    if ((!text || !text.trim()) && lowerName.endsWith('.pdf')) {
+                         setLoadingStatus('PDF 無文字層，嘗試 OCR 辨識第一頁...');
+                         const arrayBuffer = await file.arrayBuffer();
+                         const imageBlob = await renderPdfFirstPage(arrayBuffer);
+                         const imageFile = new File([imageBlob], "pdf_page_1.jpg", { type: "image/jpeg" });
+                         await runOCR(imageFile);
+                         return;
+                    }
+                    
+                    if (!text || !text.trim()) throw new Error("無法讀取文字 (可能是掃描檔或空白檔案，請嘗試截圖上傳)");
+                    
                     setSourceText(text);
                     callAI('translate', text); 
 
@@ -659,52 +684,6 @@
                 };
                 recognitionRef.current = recognition;
                 recognition.start();
-            };
-
-            const startConversationVoice = (lang, speaker) => {
-                if (isListening) return;
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
-
-                const recognition = new SpeechRecognition();
-                let useLang = lang;
-                if (lang === 'auto') useLang = navigator.language;
-                
-                recognition.lang = useLang;
-                recognition.continuous = false;
-                recognition.interimResults = true;
-                recognition.onstart = () => { setIsListening(true); setActiveSpeaker(speaker); setErrorMsg(''); };
-                recognition.onend = () => { setIsListening(false); setActiveSpeaker(null); };
-                recognition.onresult = (event) => {
-                    let final = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) final += event.results[i][0].transcript;
-                    }
-                    if (final) handleConversationTranslate(final, speaker);
-                };
-                recognitionRef.current = recognition;
-                try { recognition.start(); } catch(e) { console.error(e); setIsListening(false); }
-            };
-
-            const stopConversationVoice = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
-
-            // --- Conversation Translation ---
-            const handleConversationTranslate = async (text, speaker) => {
-                if (!text.trim()) return;
-                const sLang = sourceLang === 'auto' ? 'en' : sourceLang;
-                const tLang = targetLang;
-                const fromLang = speaker === 'user' ? tLang : sLang;
-                const toLang = speaker === 'user' ? sLang : tLang;
-                const newMessage = { id: Date.now(), speaker: speaker, text: text, translation: '...', isPending: true };
-                setConversationChat(prev => [...prev, newMessage]);
-
-                try {
-                    const translation = await performTranslation(text, fromLang, toLang);
-                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: translation, isPending: false } : msg));
-                    speak(translation, toLang);
-                } catch (e) {
-                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: "Error", isPending: false } : msg));
-                }
             };
 
             const performTranslation = async (text, sLangCode, tLangCode) => {
@@ -1124,23 +1103,25 @@
                         </div>
 
                         {/* Bottom Tone/Action Bar */}
-                        <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
-                            <span className="text-xs font-bold text-slate-400 px-2">風格</span>
-                            <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-                                {TONES.map(t => (
-                                    <button key={t.id} onClick={()=>setSelectedTone(t.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedTone===t.id?'bg-indigo-100 text-indigo-700':'text-slate-500 hover:bg-slate-50'}`}>{t.icon} {t.name.split(' ')[0]}</button>
-                                ))}
+                        <>
+                            <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
+                                <span className="text-xs font-bold text-slate-400 px-2">風格</span>
+                                <div className="flex gap-1 overflow-x-auto hide-scrollbar">
+                                    {TONES.map(t => (
+                                        <button key={t.id} onClick={()=>setSelectedTone(t.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedTone===t.id?'bg-indigo-100 text-indigo-700':'text-slate-500 hover:bg-slate-50'}`}>{t.icon} {t.name.split(' ')[0]}</button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-4 gap-2">
-                            <button onClick={() => callAI('translate')} disabled={isLoading || !sourceText} className="col-span-4 md:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
-                                {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : <Icons.Sparkles className="w-5 h-5 text-yellow-300"/>} 翻譯
-                            </button>
-                            <button onClick={() => callAI('polish')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Edit3 className="w-4 h-4"/>潤飾</button>
-                            <button onClick={() => callAI('summarize')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.List className="w-4 h-4"/>摘要</button>
-                            <button onClick={() => callAI('grammar')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Search className="w-4 h-4"/>分析</button>
-                        </div>
+                            <div className="grid grid-cols-4 gap-2">
+                                <button onClick={() => callAI('translate')} disabled={isLoading || !sourceText} className="col-span-4 md:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : <Icons.Sparkles className="w-5 h-5 text-yellow-300"/>} 翻譯
+                                </button>
+                                <button onClick={() => callAI('polish')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Edit3 className="w-4 h-4"/>潤飾</button>
+                                <button onClick={() => callAI('summarize')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.List className="w-4 h-4"/>摘要</button>
+                                <button onClick={() => callAI('grammar')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Search className="w-4 h-4"/>分析</button>
+                            </div>
+                        </>
                         
                         <div className="text-center text-xs text-slate-400 opacity-60">© 2023 Gemini Translate Pro</div>
                     </main>
