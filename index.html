@@ -129,11 +129,12 @@
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
+        // Updated Gemini Models List - using safer aliases
         const GEMINI_MODELS = [
-            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新)', desc: '推薦預設' },
-            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定)', desc: '快速' }, // Fixed: use stable version ID
-            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業)', desc: '高品質' },
-            { id: 'custom', name: '自訂模型', desc: '手動' }
+            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
+            { id: 'gemini-1.5-flash', name: 'Flash 1.5 (穩定版)', desc: '快速' },
+            { id: 'gemini-1.5-pro', name: 'Pro 1.5 (專業版)', desc: '高品質' },
+            { id: 'custom', name: '自訂模型 (Custom)', desc: '手動輸入' }
         ];
 
         const LANGUAGES = [
@@ -517,9 +518,8 @@
                 }
                 setLoadingStatus(`AI 正在辨識 ${base64Images.length} 頁掃描文件...`);
                 
-                // Force use 1.5-flash-001 to avoid 404 and handle vision tasks well
-                const modelName = "gemini-1.5-flash-001"; 
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${trimmedKey}`;
+                // Use user selected model, not hardcoded
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 
                 const parts = [
                     { text: "Transcribe the text from these images sequentially. Output ONLY the text content. Do not describe the layout." }
@@ -569,9 +569,6 @@
                 setLoadingStatus('AI 正在壓縮並讀取圖片...');
                 const base64Image = await compressImage(file);
                 const mimeType = 'image/jpeg';
-                
-                // Prefer the model selected by user, but ensure it exists. 
-                // If user picked 2.5 preview and it fails, they should switch in settings.
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 const payload = {
                     contents: [{
