@@ -129,7 +129,6 @@
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
-        // Updated Gemini Models List - using safer aliases
         const GEMINI_MODELS = [
             { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
             { id: 'gemini-1.5-flash', name: 'Flash 1.5 (穩定版)', desc: '快速' },
@@ -518,9 +517,8 @@
                 }
                 setLoadingStatus(`AI 正在辨識 ${base64Images.length} 頁掃描文件...`);
                 
-                // Force use 1.5-flash-001 to avoid 404 and handle vision tasks well
-                const modelName = "gemini-1.5-flash-001"; 
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${trimmedKey}`;
+                // Use user selected model
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 
                 const parts = [
                     { text: "Transcribe the text from these images sequentially. Output ONLY the text content. Do not describe the layout." }
@@ -890,15 +888,14 @@
 
                     {/* Full Screen Text Modal */}
                     {showBigText && (
-                        <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in fade-in duration-200">
-                            <div className="flex justify-end p-4 z-20">
+                        <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in fade-in duration-200 overflow-hidden">
+                            <div className="flex justify-end p-4 z-20 bg-white/80 backdrop-blur-sm sticky top-0">
                                 <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 rounded-full"><Icons.X className="w-8 h-8 text-slate-600"/></button>
                             </div>
-                            {/* Fixed: Use flex-col and overflow-y-auto correctly to prevent content cutoff */}
-                            <div className="flex-1 overflow-y-auto w-full px-4 sm:px-8 pb-8 smooth-scroll">
-                                <div className="max-w-4xl mx-auto min-h-full flex flex-col justify-center">
+                            <div className="flex-1 overflow-y-auto w-full h-full px-4 sm:px-8 pb-24 smooth-scroll" style={{overscrollBehavior: 'contain'}}>
+                                <div className="max-w-4xl mx-auto">
                                     {isMarkdownMode ? (
-                                        <div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left py-8" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
+                                        <div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left py-4" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
                                     ) : (
                                         <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap font-['Zen_Maru_Gothic'] py-8">
                                             {translatedText || "尚無翻譯內容"}
@@ -906,7 +903,7 @@
                                     )}
                                 </div>
                             </div>
-                            <div className="p-6 flex justify-center gap-4 bg-white border-t border-slate-100 z-20">
+                            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-center gap-4 bg-white border-t border-slate-100 z-20">
                                 <button onClick={() => speak(translatedText, targetLang)} className="p-4 bg-indigo-600 rounded-full text-white shadow-lg hover:bg-indigo-700 transition-colors"><Icons.Volume2 className="w-8 h-8"/></button>
                             </div>
                         </div>
@@ -1151,6 +1148,22 @@
                                 </div>
                             </div>
                         </div>
+
+                        {/* Tone Selector (Visible only for Translate & Polish) */}
+                        {(currentTask === 'translate' || currentTask === 'polish') && (
+                            <div className="flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar py-1">
+                                <span className="text-xs font-bold text-slate-400 whitespace-nowrap px-2">語氣：</span>
+                                {TONES.map(t => (
+                                    <button 
+                                        key={t.id} 
+                                        onClick={() => setSelectedTone(t.id)}
+                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${selectedTone === t.id ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                                    >
+                                        {t.icon} {t.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Main Action Button */}
                         <button 
