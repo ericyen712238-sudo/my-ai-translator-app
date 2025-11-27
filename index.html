@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手</title>
+    <title>Gemini AI 全能文件助手 (智慧自適應版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -66,24 +66,24 @@
         .crop-modal { touch-action: none; } 
         .visual-text-box { 
             touch-action: none; 
-            backdrop-filter: blur(4px); 
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            backdrop-filter: blur(6px); 
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
             box-sizing: border-box;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
+            text-align: left; /* Better for reading paragraphs */
+            height: auto !important; /* Force auto height */
+            min-height: 40px;
         }
         
-        /* Custom Resize Handle for Mobile */
-        .resize-handle {
+        /* Custom Resize Handle - Enhanced for Mobile */
+        .resize-handle-area {
             position: absolute;
             bottom: -10px;
             right: -10px;
             width: 40px;
             height: 40px;
-            background: radial-gradient(circle, rgba(255,255,255,0.8) 30%, transparent 70%);
-            border-radius: 50%;
             cursor: nwse-resize;
             touch-action: none;
             display: flex;
@@ -91,13 +91,16 @@
             justify-content: center;
             z-index: 20;
         }
-        .resize-handle::after {
-            content: '';
-            width: 12px;
-            height: 12px;
-            background: white;
-            border: 2px solid #2563eb;
+        .resize-icon {
+            width: 20px;
+            height: 20px;
+            background: rgba(255,255,255,0.9);
+            border: 2px solid #3b82f6;
             border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Markdown */
@@ -292,27 +295,32 @@
             });
         };
 
-        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { 
+        // Helper function to convert PDF pages to images
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { // Default high limit
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const count = Math.min(pdf.numPages, maxPagesToRender);
             const images = [];
             
             for (let i = 1; i <= count; i++) {
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 }); 
+                const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is decent for OCR
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: context, viewport: viewport }).promise;
+                
+                // Get Base64
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                images.push(dataUrl.split(',')[1]); 
+                images.push(dataUrl.split(',')[1]); // Remove prefix
             }
             return { images, totalPages: pdf.numPages };
         };
 
+        // Helper function to render PDF first page for fallback (when we only need 1 page)
         const renderPdfFirstPage = async (arrayBuffer) => {
              const { images } = await renderPdfToImages(arrayBuffer, 1);
+             // Convert base64 back to blob to reuse existing runOCR logic if needed
              const byteCharacters = atob(images[0]);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
@@ -365,9 +373,9 @@
             
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
-            // Visual Box State: Position and Dimensions - x, y in %, w, h in px (auto for h by default, but allowing manual)
+            // Visual Box State: Position and Dimensions - x, y in %, w in px, h 'auto'
             // Changed to allow independent W/H resize.
-            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' }); 
+            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300 }); 
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
             const [visualResizing, setVisualResizing] = useState(false);
@@ -616,7 +624,7 @@
                 }
             };
 
-            // --- Visual Mode Handlers (New: Scale Logic) ---
+            // --- Visual Mode Handlers (New: Auto Scale Logic) ---
             const handleVisualDragStart = (e) => {
                 e.preventDefault();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -629,13 +637,11 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 
+                // Capture initial box width and font size for scaling ratio
                 resizeStartRef.current = { 
                     startX: clientX, 
-                    startY: clientY,
                     startW: visualBox.w, 
-                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200, // Approximate initial height if auto
                     fontSize: visualFontSize 
                 };
                 setVisualResizing(true);
@@ -660,21 +666,17 @@
                 } else if (visualResizing && resizeStartRef.current) {
                     e.preventDefault();
                     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                     
+                    // Calculate width change
                     const deltaX = clientX - resizeStartRef.current.startX;
-                    const deltaY = clientY - resizeStartRef.current.startY;
-                    
                     const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX);
-                    // Allow independent height resizing too (for background box)
-                    // Since height is auto by default, we switch to px
-                    const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY); // Arbitrary min height
                     
-                    // Scale font size proportionally based on WIDTH change (standard behavior)
+                    // Calculate auto-scale font size based on width ratio
                     const scaleRatio = newWidth / resizeStartRef.current.startW;
-                    const newFontSize = Math.max(10, Math.min(80, resizeStartRef.current.fontSize * scaleRatio));
+                    const newFontSize = Math.max(10, Math.min(100, resizeStartRef.current.fontSize * scaleRatio));
 
-                    setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight }));
+                    // Only update Width (Height is auto-handled by CSS), and Font Size
+                    setVisualBox(prev => ({ ...prev, w: newWidth }));
                     setVisualFontSize(newFontSize);
                 }
             };
@@ -813,11 +815,6 @@
                         >
                             <div className="flex justify-between items-center p-4 bg-black/50 text-white z-20 absolute top-0 left-0 right-0">
                                 <div className="flex items-center gap-2">
-                                    <button onClick={() => setVisualFontSize(14)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">S</button>
-                                    <button onClick={() => setVisualFontSize(18)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">M</button>
-                                    <button onClick={() => setVisualFontSize(24)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">L</button>
-                                    <button onClick={() => setVisualFontSize(32)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">XL</button>
-                                    <div className="w-px h-6 bg-white/20 mx-1"></div>
                                     <button onClick={() => handleShareImage()} className="p-2 bg-white/20 rounded" title="分享"><Icons.Share className="w-5 h-5"/></button>
                                     <button onClick={handleSaveVisualImage} className="p-2 bg-white/20 rounded" title="下載圖片"><Icons.Download className="w-5 h-5"/></button>
                                 </div>
@@ -834,7 +831,7 @@
                                             left: `${visualBox.x}%`,
                                             top: `${visualBox.y}%`,
                                             width: `${visualBox.w}px`,
-                                            height: typeof visualBox.h === 'number' ? `${visualBox.h}px` : 'auto',
+                                            height: 'auto', // Force auto height
                                             transform: 'translate(-50%, -50%)',
                                             fontSize: `${visualFontSize}px`,
                                             color: visualStyle.color,
@@ -849,11 +846,13 @@
                                         
                                         {/* Resize Handle (SE) */}
                                         <div 
-                                            className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize flex items-end justify-end p-1"
+                                            className="resize-handle-area"
                                             onMouseDown={handleVisualResizeStart}
                                             onTouchStart={handleVisualResizeStart}
                                         >
-                                             <Icons.Scaling className="w-4 h-4 text-white/80"/>
+                                             <div className="resize-icon">
+                                                <Icons.Scaling className="w-3 h-3 text-blue-500"/>
+                                             </div>
                                         </div>
 
                                         {/* Color Toggle */}
