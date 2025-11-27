@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini 全能翻譯整理工具</title>
+    <title>Gemini AI 全能文件助手</title>
     
-    <!-- Tailwind CSS (Added typography plugin for Markdown styling) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     
-    <!-- Google Fonts: Zen Maru Gothic -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
@@ -26,13 +26,13 @@
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
 
-    <!-- Mammoth.js (Word) -->
+    <!-- Mammoth.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
-    <!-- Tesseract.js (OCR) -->
+    <!-- Tesseract.js -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-    <!-- Marked.js (Markdown Rendering) -->
+    <!-- Marked.js -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
@@ -42,12 +42,11 @@
             overscroll-behavior-y: none; 
         }
         
-        /* 全域捲軸樣式 */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
-
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -57,29 +56,22 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .no-select { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         
-        /* Crop & Visual UI Styles */
+        /* UI Styles */
         .crop-modal { touch-action: none; } 
-        .visual-text-box { 
-            touch-action: none; 
-            backdrop-filter: blur(4px);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
+        .visual-text-box { touch-action: none; backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
-        /* Markdown Styles Enhancement */
-        .prose { font-size: 1.125rem; line-height: 1.75; color: #334155; max-width: none; }
-        .prose h1 { font-size: 1.5em; font-weight: 700; margin-top: 0.5em; margin-bottom: 0.5em; color: #1e293b; }
-        .prose h2 { font-size: 1.25em; font-weight: 600; margin-top: 0.5em; margin-bottom: 0.5em; color: #334155; }
-        .prose p { margin-bottom: 0.8em; }
-        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.8em; }
-        .prose ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 0.8em; }
-        .prose strong { font-weight: 700; color: #0f172a; }
-        .prose blockquote { border-left: 4px solid #e2e8f0; padding-left: 1em; font-style: italic; color: #64748b; margin-bottom: 0.8em; }
-        .prose code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.9em; font-family: monospace; color: #ef4444; }
-        .prose pre { background-color: #1e293b; color: #f8fafc; padding: 1em; border-radius: 0.5em; overflow-x: auto; margin-bottom: 0.8em; }
-        .prose pre code { background-color: transparent; padding: 0; color: inherit; }
+        /* Markdown */
+        .prose { font-size: 1.05rem; line-height: 1.7; color: #334155; max-width: none; }
+        .prose h1 { font-size: 1.4em; font-weight: 700; margin: 0.8em 0 0.4em; color: #0f172a; }
+        .prose h2 { font-size: 1.2em; font-weight: 600; margin: 0.8em 0 0.4em; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.2em; }
+        .prose ul { list-style-type: disc; padding-left: 1.2em; margin-bottom: 0.8em; }
+        .prose ol { list-style-type: decimal; padding-left: 1.2em; margin-bottom: 0.8em; }
+        .prose li { margin-bottom: 0.2em; }
+        .prose strong { font-weight: 700; color: #0f172a; background-color: #f1f5f9; padding: 0 2px; rounded: 2px; }
+        .prose blockquote { border-left: 4px solid #6366f1; padding-left: 1em; font-style: italic; color: #475569; background-color: #f8fafc; padding: 0.5em 1em; border-radius: 0 0.5em 0.5em 0; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-sky-50 via-white to-white text-slate-800 min-h-screen">
+<body class="bg-gradient-to-br from-sky-50 via-white to-indigo-50 text-slate-800 min-h-screen">
 
     <div id="root"></div>
 
@@ -88,7 +80,7 @@
 
         // --- Icons ---
         const Icon = ({ children, className = "w-6 h-6" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
                 {children}
             </svg>
         );
@@ -104,7 +96,7 @@
             Volume2: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
             X: () => <Icon><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>,
             RotateCw: () => <Icon className="w-5 h-5 animate-spin"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 12"/><path d="M21 3v9h-9"/></Icon>,
-            Sparkles: () => <Icon><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></Icon>,
+            Sparkles: () => <Icon><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></Icon>,
             AlertCircle: () => <Icon><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>,
             Mic: () => <Icon><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             MicOff: () => <Icon><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
@@ -115,7 +107,7 @@
             Camera: () => <Icon><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>,
             Globe: () => <Icon><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Icon>,
             Key: () => <Icon><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></Icon>,
-            Magic: () => <Icon><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H1"/><path d="M19 18v4"/><path d="M21 20h-4"/></Icon>,
+            Magic: () => <Icon><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H1"/><path d="M19 18v4"/><path d="M21 20h-4"/></Icon>,
             Edit3: () => <Icon><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></Icon>,
             List: () => <Icon><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></Icon>,
             Search: () => <Icon><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>,
@@ -124,6 +116,7 @@
             Trash: () => <Icon><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></Icon>,
             Zap: () => <Icon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></Icon>,
             Scissors: () => <Icon><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></Icon>,
+            MessageSquare: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Icon>,
             Maximize: () => <Icon><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Icon>,
             CPU: () => <Icon><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></Icon>,
             Crop: () => <Icon><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></Icon>,
@@ -136,10 +129,10 @@
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
         const GEMINI_MODELS = [
-            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
-            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定版)', desc: '快速' },
-            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業版)', desc: '高品質' },
-            { id: 'custom', name: '自訂模型 (Custom)', desc: '手動輸入' }
+            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新)', desc: '預設' },
+            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定)', desc: '快速' },
+            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業)', desc: '高品質' },
+            { id: 'custom', name: '自訂模型', desc: '手動' }
         ];
 
         const LANGUAGES = [
@@ -155,12 +148,20 @@
             { code: 'th', name: 'ไทย (Thai)' },
         ];
 
+        // Define Task Modes
+        const TASKS = [
+            { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700', prompt: 'Translate' },
+            { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600', prompt: 'Summarize' },
+            { id: 'polish', name: '潤飾優化', icon: <Icons.Magic className="w-4 h-4"/>, btnColor: 'bg-purple-600 hover:bg-purple-700', prompt: 'Polish' },
+            { id: 'grammar', name: '文法分析', icon: <Icons.Search className="w-4 h-4"/>, btnColor: 'bg-emerald-600 hover:bg-emerald-700', prompt: 'Analyze' }
+        ];
+
         const TONES = [
-            { id: 'standard', name: '標準 (Standard)', icon: '✨' },
-            { id: 'formal', name: '正式/商務 (Formal)', icon: '👔' },
-            { id: 'casual', name: '口語/輕鬆 (Casual)', icon: '😎' },
-            { id: 'academic', name: '學術/專業 (Academic)', icon: '🎓' },
-            { id: 'creative', name: '創意/優美 (Creative)', icon: '🎨' },
+            { id: 'standard', name: '標準', icon: '✨' },
+            { id: 'formal', name: '禮貌', icon: '👔' },
+            { id: 'casual', name: '輕鬆', icon: '😎' },
+            { id: 'academic', name: '專業', icon: '🎓' },
+            { id: 'creative', name: '優美', icon: '🎨' },
         ];
 
         const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
@@ -198,7 +199,6 @@
                         let height = img.height;
                         const MAX_WIDTH = 1500; 
                         const MAX_HEIGHT = 1500;
-                        
                         if (width > height) {
                             if (width > MAX_WIDTH) {
                                 height *= MAX_WIDTH / width;
@@ -210,12 +210,10 @@
                                 height = MAX_HEIGHT;
                             }
                         }
-                        
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        
                         const base64Data = canvas.toDataURL('image/jpeg', 0.8);
                         resolve(base64Data.split(',')[1]);
                     };
@@ -237,17 +235,15 @@
             });
         };
 
-        // Helper function to convert PDF first page to image
         const renderPdfFirstPage = async (arrayBuffer) => {
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
+            const viewport = page.getViewport({ scale: 2.0 });
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             await page.render({ canvasContext: context, viewport: viewport }).promise;
-            
             return new Promise(resolve => {
                 canvas.toBlob(resolve, 'image/jpeg', 0.8);
             });
@@ -255,6 +251,8 @@
 
         function App() {
             const [mode, setMode] = useState('text'); 
+            const [currentTask, setCurrentTask] = useState('translate'); // New State for Task
+            
             const [sourceText, setSourceText] = useState('');
             const [translatedText, setTranslatedText] = useState('');
             const [sourceLang, setSourceLang] = useState('auto');
@@ -269,21 +267,18 @@
             const [showHistory, setShowHistory] = useState(false);
             const [showBigText, setShowBigText] = useState(false);
             const [isRealTime, setIsRealTime] = useState(false);
-            const [isMarkdownMode, setIsMarkdownMode] = useState(true); // Default to formatted view
+            const [isMarkdownMode, setIsMarkdownMode] = useState(true); 
             
-            // Voice Settings
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
             const [availableVoices, setAvailableVoices] = useState([]);
             const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
             
-            // Crop State
             const [showCropModal, setShowCropModal] = useState(false);
             const [cropImageSrc, setCropImageSrc] = useState(null);
             const [cropSelection, setCropSelection] = useState(null); 
             const [isCropping, setIsCropping] = useState(false);
             
-            // Visual Mode State
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
             const [visualTextPos, setVisualTextPos] = useState({ x: 50, y: 50 });
@@ -297,6 +292,9 @@
             const imageRef = useRef(null);
             const cropContainerRef = useRef(null);
             const visualContainerRef = useRef(null);
+
+            const [conversationChat, setConversationChat] = useState([]);
+            const [activeSpeaker, setActiveSpeaker] = useState(null);
 
             const [apiProvider, setApiProvider] = useState('gemini'); 
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key') || '');
@@ -312,12 +310,18 @@
             const fileInputRef = useRef(null);
             const cameraInputRef = useRef(null);
             const requestCounter = useRef(0);
-            
+            const chatEndRef = useRef(null);
+
             useEffect(() => { localStorage.setItem('gemini_api_key', geminiKey); }, [geminiKey]);
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); }, [history]);
             
-            // --- Load Voices ---
+            useEffect(() => {
+                if (mode === 'conversation') {
+                    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                }
+            }, [conversationChat, mode]);
+
             useEffect(() => {
                 const loadVoices = () => {
                     const voices = window.speechSynthesis.getVoices();
@@ -327,7 +331,6 @@
                 window.speechSynthesis.onvoiceschanged = loadVoices;
             }, []);
 
-            // --- Paste Listener ---
             useEffect(() => {
                 if (mode !== 'text' && mode !== 'file') return;
                 const handlePaste = (e) => {
@@ -348,9 +351,9 @@
 
             useEffect(() => {
                 if (!isRealTime || !sourceText.trim() || mode !== 'text') return;
-                const timer = setTimeout(() => { if (sourceText.length > 1) callAI('translate'); }, 1200);
+                const timer = setTimeout(() => { if (sourceText.length > 1) callAI(currentTask); }, 1200); // Use currentTask
                 return () => clearTimeout(timer);
-            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode]);
+            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask]); // Add currentTask dependency
 
             const addToHistory = (src, res, sLang, tLang) => {
                 if (!src || !res) return;
@@ -360,7 +363,6 @@
 
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) setHistory([]); };
 
-            // --- Screen Capture ---
             const handleScreenCapture = async () => {
                 try {
                     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
@@ -417,43 +419,33 @@
                 const imgRect = imageRef.current.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                
                 let x = clientX - imgRect.left;
                 let y = clientY - imgRect.top;
-                
                 x = Math.max(0, Math.min(x, imgRect.width));
                 y = Math.max(0, Math.min(y, imgRect.height));
-                
                 return { x, y };
             };
 
             const handleCropStart = (e) => {
                 if(e.type === 'mousedown') e.preventDefault(); 
-                
                 if(!cropImageSrc) return;
-                
                 const coords = getClientCoordinates(e);
                 dragStartRef.current = coords;
                 isDraggingRef.current = true;
-                
                 setCropSelection({ x: coords.x, y: coords.y, w: 0, h: 0 });
             };
 
             const handleCropMove = (e) => {
                 if (e.cancelable && e.type.startsWith('touch')) e.preventDefault();
                 if (!isDraggingRef.current || !dragStartRef.current) return;
-                
                 const coords = getClientCoordinates(e);
                 const start = dragStartRef.current;
-                
                 const currentX = coords.x;
                 const currentY = coords.y;
-                
                 const x = Math.min(start.x, currentX);
                 const y = Math.min(start.y, currentY);
                 const w = Math.abs(currentX - start.x);
                 const h = Math.abs(currentY - start.y);
-                
                 setCropSelection({ x, y, w, h });
             };
 
@@ -467,26 +459,14 @@
                     alert("請先在圖片上滑動手指選取範圍");
                     return;
                 }
-                
                 const img = imageRef.current;
                 const canvas = document.createElement('canvas');
-                
                 const scaleX = img.naturalWidth / img.clientWidth;
                 const scaleY = img.naturalHeight / img.clientHeight;
-                
                 canvas.width = Math.max(1, cropSelection.w * scaleX);
                 canvas.height = Math.max(1, cropSelection.h * scaleY);
-                
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(
-                    img,
-                    cropSelection.x * scaleX,
-                    cropSelection.y * scaleY,
-                    cropSelection.w * scaleX,
-                    cropSelection.h * scaleY,
-                    0, 0, canvas.width, canvas.height
-                );
-                
+                ctx.drawImage(img, cropSelection.x * scaleX, cropSelection.y * scaleY, cropSelection.w * scaleX, cropSelection.h * scaleY, 0, 0, canvas.width, canvas.height);
                 canvas.toBlob(blob => {
                     const file = new File([blob], "cropped_selection.jpg", { type: 'image/jpeg' });
                     setShowCropModal(false);
@@ -504,31 +484,25 @@
                 runOCR(file);
             };
 
-            // --- OCR Core ---
             const runOCR = async (file) => {
                 setErrorMsg('');
                 setSourceText('');
                 setIsLoading(true);
-                setLoadingStatus('正在處理...');
-
-                // Store image for visual mode
+                setLoadingStatus('正在讀取圖片...');
                 const reader = new FileReader();
                 reader.onload = (e) => setDisplayImage(e.target.result);
                 reader.readAsDataURL(file);
-
                 try {
                     let text = "";
                     if (apiProvider === 'gemini') text = await performGeminiOCR(file);
                     else text = await performLegacyOCR(file);
                     
-                    if (!text || !text.trim()) throw new Error("無法辨識出文字，請確認圖片/檔案清晰度。");
-                    
+                    if (!text || !text.trim()) throw new Error("無法辨識圖片中的文字");
                     setSourceText(text);
-                    callAI('translate', text); 
-
+                    callAI(currentTask, text); // Auto run current task after OCR
                 } catch (err) {
                     console.error(err);
-                    setErrorMsg(err.message || "讀取失敗 (若為 400/404 錯誤請檢查 Key 或切換模型)");
+                    setErrorMsg(err.message || "讀取失敗");
                     setIsLoading(false);
                 }
             };
@@ -537,13 +511,11 @@
                 const trimmedKey = geminiKey.trim();
                 if (!trimmedKey) {
                     setShowSettings(true);
-                    throw new Error("請輸入 Gemini API Key 以使用 AI 視覺辨識");
+                    throw new Error("請輸入 Gemini API Key");
                 }
-                
                 setLoadingStatus('AI 正在壓縮並讀取圖片...');
                 const base64Image = await compressImage(file);
                 const mimeType = 'image/jpeg';
-                
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 const payload = {
                     contents: [{
@@ -553,7 +525,6 @@
                         ]
                     }]
                 };
-                
                 const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error("AI 無法辨識圖片中的文字");
@@ -563,13 +534,11 @@
             const performLegacyOCR = async (file) => {
                 if (!window.Tesseract) throw new Error("OCR 元件載入中...");
                 let tessLang = 'eng'; 
-                let langDesc = '英文';
-                if (sourceLang === 'auto') { tessLang = 'chi_tra+eng'; langDesc = '繁中+英文'; }
-                else if (sourceLang.includes('zh')) { tessLang = 'chi_tra+eng'; langDesc = '繁中+英文'; }
-                else if (sourceLang.includes('ja')) { tessLang = 'jpn+eng'; langDesc = '日文+英文'; }
-                else if (sourceLang.includes('ko')) { tessLang = 'kor+eng'; langDesc = '韓文+英文'; }
-                
-                setLoadingStatus(`下載辨識模型中... (語言: ${langDesc})`);
+                if (sourceLang === 'auto') tessLang = 'chi_tra+eng'; 
+                else if (sourceLang.includes('zh')) tessLang = 'chi_tra+eng';
+                else if (sourceLang.includes('ja')) tessLang = 'jpn+eng';
+                else if (sourceLang.includes('ko')) tessLang = 'kor+eng';
+                setLoadingStatus(`下載辨識模型中...`);
                 const { data: { text } } = await Tesseract.recognize(file, tessLang, {
                     logger: m => { if (m.status === 'recognizing text') setLoadingStatus(`辨識文字中... ${Math.round(m.progress * 100)}%`); }
                 });
@@ -579,16 +548,14 @@
             const processFile = async (file) => {
                 if (!file) return;
                 setFileName(file.name || "File");
-                
                 const lowerName = file.name ? file.name.toLowerCase() : 'image.jpg';
                 const fileType = file.type || '';
 
-                // If Image -> Open Crop Modal
                 if (fileType.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|bmp|webp)$/)) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         setCropImageSrc(e.target.result);
-                        setDisplayImage(e.target.result); // Set as current display image too
+                        setDisplayImage(e.target.result);
                         setCropSelection(null);
                         setShowCropModal(true);
                     };
@@ -596,43 +563,35 @@
                     return;
                 }
 
-                // If Docs -> Direct Process
                 setMode('text');
                 setSourceText('');
                 setIsLoading(true);
                 setLoadingStatus('正在處理文件...');
-                setDisplayImage(null); // Clear image if document
+                setDisplayImage(null);
 
                 try {
                     let text = "";
-                    const arrayBuffer = await file.arrayBuffer(); // Load array buffer once
-
                     if (lowerName.endsWith('.pdf')) {
                         if (!window.pdfjsLib) throw new Error("PDF 元件載入中...");
-                        
-                        // First attempt: read text layer
-                        const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                        const maxPages = Math.min(pdfDocument.numPages, 30);
-                        let fullText = "";
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        const maxPages = Math.min(pdf.numPages, 30);
                         for (let i = 1; i <= maxPages; i++) {
-                            const page = await pdfDocument.getPage(i);
+                            const page = await pdf.getPage(i);
                             const textContent = await page.getTextContent();
-                            fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+                            text += textContent.items.map(item => item.str).join(' ') + '\n\n';
                         }
-                        
-                        text = fullText;
-                        
-                        // If text is minimal (likely a scanned PDF without text layer), switch to OCR mode (first page only)
-                        if ((!text || text.trim().length < 50) && geminiKey) {
+                        // Fallback for scanned PDF
+                         if ((!text || text.trim().length < 50) && geminiKey) {
                             setLoadingStatus('PDF 無文字層，嘗試 OCR 辨識第一頁...');
                             const imageBlob = await renderPdfFirstPage(arrayBuffer);
                             const imageFile = new File([imageBlob], "pdf_page_1.jpg", { type: "image/jpeg" });
-                            // Re-route to runOCR flow
                             await runOCR(imageFile);
                             return; 
                         }
                     } else if (lowerName.endsWith('.docx')) {
                         if (!window.mammoth) throw new Error("Word 元件載入中...");
+                        const arrayBuffer = await file.arrayBuffer();
                         const result = await window.mammoth.extractRawText({ arrayBuffer });
                         text = result.value;
                     } else {
@@ -644,11 +603,9 @@
                         });
                     }
                     
-                    if (!text || !text.trim()) throw new Error("無法讀取文字 (空白或不支持的格式)");
-                    
+                    if (!text || !text.trim()) throw new Error("無法讀取文字");
                     setSourceText(text);
-                    callAI('translate', text); 
-
+                    callAI(currentTask, text); // Auto run current task
                 } catch (err) {
                     console.error(err);
                     setErrorMsg(err.message || "讀取失敗");
@@ -659,14 +616,9 @@
             const handleFileChange = (e) => processFile(e.target.files[0]);
             
             const toggleListening = () => {
-                if (isListening) {
-                    recognitionRef.current?.stop();
-                    setIsListening(false);
-                    return;
-                }
+                if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
-                
+                if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; }
                 const recognition = new SpeechRecognition();
                 if (sourceLang !== 'auto') recognition.lang = sourceLang;
                 recognition.continuous = true;
@@ -684,10 +636,55 @@
                 recognition.start();
             };
 
+            const startConversationVoice = (lang, speaker) => {
+                if (isListening) return;
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
+
+                const recognition = new SpeechRecognition();
+                let useLang = lang;
+                if (lang === 'auto') useLang = 'en-US';
+                
+                recognition.lang = useLang;
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.onstart = () => { setIsListening(true); setActiveSpeaker(speaker); setErrorMsg(''); };
+                recognition.onend = () => { setIsListening(false); setActiveSpeaker(null); };
+                recognition.onresult = (event) => {
+                    let final = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+                    }
+                    if (final) handleConversationTranslate(final, speaker);
+                };
+                recognitionRef.current = recognition;
+                try { recognition.start(); } catch(e) { console.error(e); setIsListening(false); }
+            };
+
+            const stopConversationVoice = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
+
+            const handleConversationTranslate = async (text, speaker) => {
+                if (!text.trim()) return;
+                const sLang = sourceLang === 'auto' ? 'en' : sourceLang;
+                const tLang = targetLang;
+                const fromLang = speaker === 'user' ? tLang : sLang;
+                const toLang = speaker === 'user' ? sLang : tLang;
+                const newMessage = { id: Date.now(), speaker: speaker, text: text, translation: '...', isPending: true };
+                setConversationChat(prev => [...prev, newMessage]);
+
+                try {
+                    const translation = await performTranslation(text, fromLang, toLang);
+                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: translation, isPending: false } : msg));
+                    speak(translation, toLang);
+                } catch (e) {
+                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: "Error", isPending: false } : msg));
+                }
+            };
+
             const performTranslation = async (text, sLangCode, tLangCode) => {
                 const sName = LANGUAGES.find(l => l.code === sLangCode)?.name || sLangCode;
                 const tName = LANGUAGES.find(l => l.code === tLangCode)?.name || tLangCode;
-                let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text. Use Markdown for formatting (bolding, lists, paragraphs) where appropriate to match the source structure.`;
+                let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text.`;
                 
                 if (apiProvider === 'gemini') {
                     const trimmedKey = geminiKey.trim();
@@ -720,10 +717,16 @@
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
 
                 let systemInstruction = "";
-                if (promptType === 'translate') systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding).`;
-                else if (promptType === 'polish') systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown.`;
-                else if (promptType === 'summarize') systemInstruction = `Summarize text into ${tName}. Use bullet points in Markdown. Concise.`;
-                else if (promptType === 'grammar') systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown.`;
+                // Prompts based on Task Type
+                if (promptType === 'translate') {
+                     systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding).`;
+                } else if (promptType === 'polish') {
+                     systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown.`;
+                } else if (promptType === 'summarize') {
+                     systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured.`;
+                } else if (promptType === 'grammar') {
+                     systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown.`;
+                }
 
                 if(!textOverride) setLoadingStatus("AI 處理中...");
 
@@ -1015,9 +1018,9 @@
 
                     {/* Header */}
                     <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-20 h-16 flex items-center justify-between px-4">
-                        <div className="flex items-center gap-2 text-indigo-600">
-                            <div className="bg-indigo-600 text-white p-1.5 rounded-lg"><Icons.Languages className="w-5 h-5" /></div>
-                            <h1 className="font-bold text-slate-900">Gemini Translate</h1>
+                        <div className="flex items-center gap-2 text-blue-700">
+                            <div className="bg-blue-600 text-white p-1.5 rounded-lg"><Icons.Languages className="w-5 h-5" /></div>
+                            <h1 className="font-bold text-slate-900">Gemini 助手</h1>
                         </div>
                         <div className="flex items-center gap-3">
                             <button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100"><Icons.Clock className="w-6 h-6" /></button>
@@ -1028,8 +1031,21 @@
                     <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
                         {/* Mode Switcher */}
                         <div className="grid grid-cols-2 gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200">
-                            <button onClick={() => setMode('text')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='text'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.Type className="w-4 h-4"/>一般</button>
-                            <button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-indigo-50 text-indigo-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button>
+                            <button onClick={() => setMode('text')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-500'}`}><Icons.Type className="w-4 h-4"/>一般</button>
+                            <button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button>
+                        </div>
+
+                        {/* Task Switcher (New Feature) */}
+                        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-1">
+                            {TASKS.map(task => (
+                                <button 
+                                    key={task.id} 
+                                    onClick={() => setCurrentTask(task.id)}
+                                    className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${currentTask === task.id ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                                >
+                                    {task.icon} {task.name}
+                                </button>
+                            ))}
                         </div>
 
                         {/* Language Select (Global) */}
@@ -1041,18 +1057,19 @@
 
                         {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-center gap-2 animate-bounce"><Icons.AlertCircle className="w-4 h-4"/>{errorMsg}</div>}
 
+                        {/* Main Input Area */}
                         <div className="grid md:grid-cols-2 gap-4">
                             {/* Source */}
                             <div className={`bg-white rounded-2xl shadow-sm border flex flex-col h-[300px] md:h-[500px] overflow-hidden relative group ${isListening?'ring-2 ring-red-100 border-red-400':''}`}>
                                 <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center">
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => setIsRealTime(!isRealTime)} className={`p-1 rounded ${isRealTime?'bg-yellow-100 text-yellow-600':'text-slate-400'}`}><Icons.Zap className="w-4 h-4"/></button>
+                                        <button onClick={() => setIsRealTime(!isRealTime)} className={`p-1 rounded ${isRealTime?'bg-yellow-100 text-yellow-600':'text-slate-400'}`} title="即時翻譯"><Icons.Zap className="w-4 h-4"/></button>
                                         <span className="text-xs font-bold text-slate-400 uppercase">原文 {isListening&&<span className="text-red-500 animate-pulse">●</span>}</span>
                                     </div>
                                     <div className="flex gap-1">
                                         <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                         <button onClick={handleScreenCapture} className="p-1.5 rounded hover:bg-slate-100 hidden sm:block" title="截圖"><Icons.Scissors className="w-5 h-5 text-slate-500"/></button>
-                                        <button onClick={() => cameraInputRef.current?.click()} className={`p-1.5 rounded-lg ${apiProvider==='gemini'&&geminiKey?'text-indigo-600 bg-indigo-50 hover:bg-indigo-100':'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'}`} title={apiProvider==='gemini'?'AI 視覺辨識 (Gemini Vision)':'相機 (Tesseract OCR)'}>
+                                        <button onClick={() => cameraInputRef.current?.click()} className={`p-1.5 rounded-lg ${apiProvider==='gemini'&&geminiKey?'text-blue-600 bg-blue-50 hover:bg-blue-100':'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`} title={apiProvider==='gemini'?'AI 視覺辨識 (Gemini Vision)':'相機 (Tesseract OCR)'}>
                                             {apiProvider==='gemini'&&geminiKey ? <Icons.Eye className="w-5 h-5"/> : <Icons.Camera className="w-5 h-5" />}
                                         </button>
                                         <button onClick={() => toggleListening()} className={`p-1.5 rounded ${isListening?'bg-red-100 text-red-600':'text-slate-500 hover:bg-slate-100'}`}><Icons.Mic className="w-5 h-5"/></button>
@@ -1061,9 +1078,9 @@
                                 </div>
                                 <div className="flex-1 relative">
                                     {mode === 'file' && !sourceText ? (
-                                        <div onClick={()=>fileInputRef.current?.click()} className={`absolute inset-3 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:bg-slate-50 ${isDragOver?'border-indigo-500 bg-indigo-50':''}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={e=>{e.preventDefault();setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}>
+                                        <div onClick={()=>fileInputRef.current?.click()} className={`absolute inset-3 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:bg-slate-50 ${isDragOver?'border-blue-500 bg-blue-50':''}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={e=>{e.preventDefault();setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}>
                                             <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.docx,.txt,image/*" onChange={handleFileChange} />
-                                            <Icons.UploadCloud className="w-8 h-8 text-indigo-300 mb-2" />
+                                            <Icons.UploadCloud className="w-8 h-8 text-blue-300 mb-2" />
                                             <p className="text-sm font-bold">拖曳檔案或圖片</p>
                                             <p className="text-xs mt-1 opacity-70">
                                                 {apiProvider === 'gemini' && geminiKey ? '✨ 支援 Gemini AI 視覺辨識' : '支援圖片 OCR, PDF, Word'}
@@ -1072,51 +1089,40 @@
                                     ) : (
                                         <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="輸入文字..." />
                                     )}
-                                    {fileName && <div className="absolute bottom-2 left-2 px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded flex items-center gap-1"><Icons.FileType className="w-3 h-3"/>{fileName}</div>}
+                                    {fileName && <div className="absolute bottom-2 left-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded flex items-center gap-1"><Icons.FileType className="w-3 h-3"/>{fileName}</div>}
                                 </div>
                             </div>
 
                             {/* Target */}
                             <div className="bg-slate-50 rounded-2xl border border-slate-200 flex flex-col h-[300px] md:h-[500px] overflow-hidden relative">
                                 <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center">
-                                    <span class="text-xs font-bold text-slate-400 uppercase">譯文</span>
+                                    <span className="text-xs font-bold text-slate-400 uppercase">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span>
                                     <div className="flex gap-1">
-                                        <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-indigo-600 bg-indigo-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
-                                        {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
-                                        {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
-                                        <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
-                                        <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
+                                        <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
+                                        {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
+                                        {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
+                                        <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
+                                        <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
                                     </div>
                                 </div>
                                 <div className="flex-1 relative">
-                                    {isLoading && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div><span className="text-xs font-bold text-indigo-600">{loadingStatus}</span></div>}
+                                    {isLoading && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div><span className="text-xs font-bold text-blue-600">{loadingStatus}</span></div>}
                                     {renderResult()}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Bottom Tone/Action Bar */}
-                        <>
-                            <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
-                                <span className="text-xs font-bold text-slate-400 px-2">風格</span>
-                                <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-                                    {TONES.map(t => (
-                                        <button key={t.id} onClick={()=>setSelectedTone(t.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedTone===t.id?'bg-indigo-100 text-indigo-700':'text-slate-500 hover:bg-slate-50'}`}>{t.icon} {t.name.split(' ')[0]}</button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-2">
-                                <button onClick={() => callAI('translate')} disabled={isLoading || !sourceText} className="col-span-4 md:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
-                                    {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : <Icons.Sparkles className="w-5 h-5 text-yellow-300"/>} 翻譯
-                                </button>
-                                <button onClick={() => callAI('polish')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Edit3 className="w-4 h-4"/>潤飾</button>
-                                <button onClick={() => callAI('summarize')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.List className="w-4 h-4"/>摘要</button>
-                                <button onClick={() => callAI('grammar')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Search className="w-4 h-4"/>分析</button>
-                            </div>
-                        </>
+                        {/* Main Action Button */}
+                        <button 
+                            onClick={() => callAI(currentTask)} 
+                            disabled={isLoading || !sourceText} 
+                            className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white transition-colors ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}
+                        >
+                            {isLoading ? <Icons.RotateCw className="w-6 h-6 animate-spin"/> : <Icons.Sparkles className="w-6 h-6 text-yellow-300"/>} 
+                            {TASKS.find(t=>t.id===currentTask)?.name}
+                        </button>
                         
-                        <div className="text-center text-xs text-slate-400 opacity-60">© 2023 Gemini Translate Pro</div>
+                        <div className="text-center text-xs text-slate-400 opacity-60">© 2023 Gemini AI Assistant</div>
                     </main>
                 </div>
             );
