@@ -79,7 +79,7 @@
         .prose pre code { background-color: transparent; padding: 0; color: inherit; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 text-slate-800 min-h-screen">
+<body class="bg-gradient-to-br from-sky-50 via-white to-white text-slate-800 min-h-screen">
 
     <div id="root"></div>
 
@@ -104,7 +104,7 @@
             Volume2: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
             X: () => <Icon><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>,
             RotateCw: () => <Icon className="w-5 h-5 animate-spin"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 12"/><path d="M21 3v9h-9"/></Icon>,
-            Sparkles: () => <Icon><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></Icon>,
+            Sparkles: () => <Icon><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></Icon>,
             AlertCircle: () => <Icon><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Icon>,
             Mic: () => <Icon><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             MicOff: () => <Icon><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
@@ -428,7 +428,6 @@
             };
 
             const handleCropStart = (e) => {
-                // IMPORTANT: Prevent default ONLY for mouse to stop drag, but allow touch
                 if(e.type === 'mousedown') e.preventDefault(); 
                 
                 if(!cropImageSrc) return;
@@ -437,7 +436,6 @@
                 dragStartRef.current = coords;
                 isDraggingRef.current = true;
                 
-                // Set initial selection to 0-size point (w=0, h=0)
                 setCropSelection({ x: coords.x, y: coords.y, w: 0, h: 0 });
             };
 
@@ -456,18 +454,15 @@
                 const w = Math.abs(currentX - start.x);
                 const h = Math.abs(currentY - start.y);
                 
-                // CRUCIAL: Always update the selection state to reflect micro-movements
                 setCropSelection({ x, y, w, h });
             };
 
             const handleCropEnd = () => {
                 isDraggingRef.current = false;
                 dragStartRef.current = null;
-                // We DO NOT clear cropSelection here, allowing the button to be pressed even for a point selection
             };
 
             const handleCropConfirm = async () => {
-                // 微距選取解鎖: 移除最小尺寸限制
                 if (!cropSelection) {
                     alert("請先在圖片上滑動手指選取範圍");
                     return;
@@ -479,7 +474,6 @@
                 const scaleX = img.naturalWidth / img.clientWidth;
                 const scaleY = img.naturalHeight / img.clientHeight;
                 
-                // Use Math.max(1, ...) to prevent canvas dimension from being zero, which causes errors
                 canvas.width = Math.max(1, cropSelection.w * scaleX);
                 canvas.height = Math.max(1, cropSelection.h * scaleY);
                 
@@ -611,19 +605,34 @@
 
                 try {
                     let text = "";
+                    const arrayBuffer = await file.arrayBuffer(); // Load array buffer once
+
                     if (lowerName.endsWith('.pdf')) {
                         if (!window.pdfjsLib) throw new Error("PDF 元件載入中...");
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                        const maxPages = Math.min(pdf.numPages, 30);
+                        
+                        // First attempt: read text layer
+                        const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        const maxPages = Math.min(pdfDocument.numPages, 30);
+                        let fullText = "";
                         for (let i = 1; i <= maxPages; i++) {
-                            const page = await pdf.getPage(i);
+                            const page = await pdfDocument.getPage(i);
                             const textContent = await page.getTextContent();
-                            text += textContent.items.map(item => item.str).join(' ') + '\n\n';
+                            fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+                        }
+                        
+                        text = fullText;
+                        
+                        // If text is minimal (likely a scanned PDF without text layer), switch to OCR mode (first page only)
+                        if ((!text || text.trim().length < 50) && geminiKey) {
+                            setLoadingStatus('PDF 無文字層，嘗試 OCR 辨識第一頁...');
+                            const imageBlob = await renderPdfFirstPage(arrayBuffer);
+                            const imageFile = new File([imageBlob], "pdf_page_1.jpg", { type: "image/jpeg" });
+                            // Re-route to runOCR flow
+                            await runOCR(imageFile);
+                            return; 
                         }
                     } else if (lowerName.endsWith('.docx')) {
                         if (!window.mammoth) throw new Error("Word 元件載入中...");
-                        const arrayBuffer = await file.arrayBuffer();
                         const result = await window.mammoth.extractRawText({ arrayBuffer });
                         text = result.value;
                     } else {
@@ -635,17 +644,7 @@
                         });
                     }
                     
-                    // PDF Scanned Document Handling: If text is empty, try OCR on first page
-                    if ((!text || !text.trim()) && lowerName.endsWith('.pdf')) {
-                         setLoadingStatus('PDF 無文字層，嘗試 OCR 辨識第一頁...');
-                         const arrayBuffer = await file.arrayBuffer();
-                         const imageBlob = await renderPdfFirstPage(arrayBuffer);
-                         const imageFile = new File([imageBlob], "pdf_page_1.jpg", { type: "image/jpeg" });
-                         await runOCR(imageFile);
-                         return;
-                    }
-                    
-                    if (!text || !text.trim()) throw new Error("無法讀取文字 (可能是掃描檔或空白檔案，請嘗試截圖上傳)");
+                    if (!text || !text.trim()) throw new Error("無法讀取文字 (空白或不支持的格式)");
                     
                     setSourceText(text);
                     callAI('translate', text); 
@@ -659,7 +658,6 @@
 
             const handleFileChange = (e) => processFile(e.target.files[0]);
             
-            // --- Voice Logic ---
             const toggleListening = () => {
                 if (isListening) {
                     recognitionRef.current?.stop();
@@ -707,7 +705,6 @@
                 } else { return `[${tName}] ${text}`; }
             };
 
-            // Revised callAI
             const callAI = async (promptType, textOverride = null) => {
                 const textToUse = textOverride !== null ? textOverride : sourceText;
                 if (!textToUse.trim()) return;
@@ -1082,7 +1079,7 @@
                             {/* Target */}
                             <div className="bg-slate-50 rounded-2xl border border-slate-200 flex flex-col h-[300px] md:h-[500px] overflow-hidden relative">
                                 <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400 uppercase">譯文</span>
+                                    <span class="text-xs font-bold text-slate-400 uppercase">譯文</span>
                                     <div className="flex gap-1">
                                         <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-indigo-600 bg-indigo-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
                                         {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
@@ -1093,11 +1090,7 @@
                                 </div>
                                 <div className="flex-1 relative">
                                     {isLoading && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div><span className="text-xs font-bold text-indigo-600">{loadingStatus}</span></div>}
-                                    {isMarkdownMode ? (
-                                        <div className="w-full h-full p-4 overflow-y-auto text-lg prose" dangerouslySetInnerHTML={{__html: marked.parse(translatedText || '')}} />
-                                    ) : (
-                                        <textarea readOnly value={translatedText} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="結果..." />
-                                    )}
+                                    {renderResult()}
                                 </div>
                             </div>
                         </div>
