@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手 (生產力版)</title>
+    <title>Gemini AI 全能文件助手 (旗艦版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -125,13 +125,15 @@
             Image: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></Icon>,
             Code: () => <Icon><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></Icon>,
             Download: () => <Icon><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>,
-            MessageSquarePlus: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></Icon>
+            MessageSquarePlus: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></Icon>,
+            BookOpen: () => <Icon><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Icon>,
+            Columns: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/></Icon>,
+            Book: () => <Icon><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
-        // Updated Gemini Models List - using safer aliases
         const GEMINI_MODELS = [
             { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
             { id: 'gemini-1.5-flash', name: 'Flash 1.5 (穩定版)', desc: '快速' },
@@ -152,7 +154,6 @@
             { code: 'th', name: 'ไทย (Thai)' },
         ];
 
-        // Define Task Modes
         const TASKS = [
             { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700', prompt: 'Translate' },
             { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600', prompt: 'Summarize' },
@@ -239,32 +240,27 @@
             });
         };
 
-        // Helper function to convert PDF pages to images
-        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { // Default high limit
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { 
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const count = Math.min(pdf.numPages, maxPagesToRender);
             const images = [];
             
             for (let i = 1; i <= count; i++) {
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is decent for OCR
+                const viewport = page.getViewport({ scale: 1.5 }); 
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: context, viewport: viewport }).promise;
-                
-                // Get Base64
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                images.push(dataUrl.split(',')[1]); // Remove prefix
+                images.push(dataUrl.split(',')[1]); 
             }
             return { images, totalPages: pdf.numPages };
         };
 
-        // Helper function to render PDF first page for fallback (when we only need 1 page)
         const renderPdfFirstPage = async (arrayBuffer) => {
              const { images } = await renderPdfToImages(arrayBuffer, 1);
-             // Convert base64 back to blob to reuse existing runOCR logic if needed
              const byteCharacters = atob(images[0]);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
@@ -294,12 +290,18 @@
             const [showBigText, setShowBigText] = useState(false);
             const [isRealTime, setIsRealTime] = useState(false);
             const [isMarkdownMode, setIsMarkdownMode] = useState(true); 
-            const [usePdfVision, setUsePdfVision] = useState(false); 
+            const [usePdfVision, setUsePdfVision] = useState(false);
+            const [bilingualMode, setBilingualMode] = useState(false); // New Bilingual Mode Toggle
             
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
             const [availableVoices, setAvailableVoices] = useState([]);
             const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
+            
+            const [glossary, setGlossary] = useState(JSON.parse(localStorage.getItem('gemini_glossary') || '[]'));
+            const [newGlossaryTerm, setNewGlossaryTerm] = useState('');
+            const [newGlossaryTrans, setNewGlossaryTrans] = useState('');
+
             const [customInstruction, setCustomInstruction] = useState(localStorage.getItem('gemini_custom_instruction') || '');
             
             const [showCropModal, setShowCropModal] = useState(false);
@@ -344,6 +346,7 @@
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); }, [history]);
             useEffect(() => { localStorage.setItem('gemini_custom_instruction', customInstruction); }, [customInstruction]);
+            useEffect(() => { localStorage.setItem('gemini_glossary', JSON.stringify(glossary)); }, [glossary]);
             
             useEffect(() => {
                 if (mode === 'conversation') {
@@ -382,7 +385,7 @@
                 if (!isRealTime || !sourceText.trim() || mode !== 'text') return;
                 const timer = setTimeout(() => { if (sourceText.length > 1) callAI(currentTask); }, 1200); 
                 return () => clearTimeout(timer);
-            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask, customInstruction]);
+            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask, customInstruction, glossary]);
 
             const addToHistory = (src, res, sLang, tLang) => {
                 if (!src || !res) return;
@@ -391,6 +394,20 @@
             };
 
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) setHistory([]); };
+
+            const addGlossaryTerm = () => {
+                if(newGlossaryTerm && newGlossaryTrans) {
+                    setGlossary([...glossary, { term: newGlossaryTerm, trans: newGlossaryTrans }]);
+                    setNewGlossaryTerm('');
+                    setNewGlossaryTrans('');
+                }
+            };
+
+            const removeGlossaryTerm = (index) => {
+                const newG = [...glossary];
+                newG.splice(index, 1);
+                setGlossary(newG);
+            };
 
             const handleScreenCapture = async () => {
                 try {
@@ -739,16 +756,21 @@
                 const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name;
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
 
+                // Construct Glossary String
+                const glossaryPrompt = glossary.length > 0 
+                    ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n')
+                    : "";
+
                 let systemInstruction = "";
                 // Prompts based on Task Type
                 if (promptType === 'translate') {
-                     systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
+                     systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 } else if (promptType === 'polish') {
-                     systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
+                     systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 } else if (promptType === 'summarize') {
-                     systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
+                     systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 } else if (promptType === 'grammar') {
-                     systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
+                     systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 }
 
                 if(!textOverride) setLoadingStatus("AI 處理中...");
@@ -993,6 +1015,37 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Glossary Section */}
+                                <div className="space-y-3 border-b pb-4">
+                                    <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Book className="w-4 h-4"/> 術語表 (Glossary)</h4>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            placeholder="原文 (例如: Apple)" 
+                                            value={newGlossaryTerm}
+                                            onChange={(e) => setNewGlossaryTerm(e.target.value)}
+                                            className="w-1/2 p-2 border rounded-lg text-sm"
+                                        />
+                                        <input 
+                                            type="text" 
+                                            placeholder="譯文 (例如: 蘋果公司)" 
+                                            value={newGlossaryTrans}
+                                            onChange={(e) => setNewGlossaryTrans(e.target.value)}
+                                            className="w-1/2 p-2 border rounded-lg text-sm"
+                                        />
+                                        <button onClick={addGlossaryTerm} className="bg-blue-500 text-white p-2 rounded-lg">+</button>
+                                    </div>
+                                    <div className="max-h-32 overflow-y-auto space-y-2">
+                                        {glossary.map((item, index) => (
+                                            <div key={index} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm">
+                                                <span>{item.term} → {item.trans}</span>
+                                                <button onClick={() => removeGlossaryTerm(index)} className="text-red-400 hover:text-red-600"><Icons.X className="w-4 h-4"/></button>
+                                            </div>
+                                        ))}
+                                        {glossary.length === 0 && <p className="text-xs text-slate-400 text-center">尚未新增術語</p>}
+                                    </div>
+                                </div>
                                 
                                 {/* Custom Instruction Section */}
                                 <div className="space-y-3 border-b pb-4">
@@ -1170,7 +1223,6 @@
                                         <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
                                         {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
                                         {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
-                                        <button onClick={handleDownload} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Download className="w-5 h-5"/></button>
                                         <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
                                         <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
                                     </div>
