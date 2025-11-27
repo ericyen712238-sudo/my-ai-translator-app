@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手 (完全體)</title>
+    <title>Gemini AI 全能文件助手 (智慧旗艦版)</title>
+    
+    <!-- PWA Manifest (Data URI) -->
+    <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoiR2VtaW5pVHJhbnNsYXRlIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmZmZmZmYiLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsInRoZW1lX2NvbG9yIjoiIzI1NjNlYiIsImljb25zIjpbeyJzcmMiOiJodHRwczovL2Nkbi1pY29ucy1wbmcuZmxhdGljb24uY29tLzUxMi8yODE0LzI4MTQzNjgucG5nIiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3BuZyJdfV0=">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -38,7 +41,7 @@
     <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <!-- html2canvas (New for Image Export) -->
+    <!-- html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
@@ -139,7 +142,8 @@
             FileDown: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></Icon>,
             FileUp: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v6"/><path d="m9 15 3-3 3 3"/></Icon>,
             FileIcon: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></Icon>,
-            SlidersHorizontal: () => <Icon><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></Icon>
+            SlidersHorizontal: () => <Icon><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></Icon>,
+            MousePointerClick: () => <Icon><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
@@ -309,7 +313,7 @@
             const [isMarkdownMode, setIsMarkdownMode] = useState(true); 
             const [usePdfVision, setUsePdfVision] = useState(false); 
             const [globalFontSize, setGlobalFontSize] = useState(18);
-            const [aiTemperature, setAiTemperature] = useState(0.7); // New AI Temperature
+            const [aiTemperature, setAiTemperature] = useState(0.7); 
             
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
@@ -333,6 +337,9 @@
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
 
+            // Selection Menu State
+            const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0, text: '' });
+
             // Search filter for history
             const [historySearchQuery, setHistorySearchQuery] = useState('');
             
@@ -343,7 +350,7 @@
             const imageRef = useRef(null);
             const cropContainerRef = useRef(null);
             const visualContainerRef = useRef(null);
-            const fileInputRef = useRef(null); // Corrected ref name
+            const fileInputRef = useRef(null); 
             const cameraInputRef = useRef(null);
             const requestCounter = useRef(0);
             const chatEndRef = useRef(null);
@@ -393,6 +400,18 @@
                 return () => clearTimeout(timer);
             }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask, customInstruction, glossary, aiTemperature]);
 
+            // Keyboard Shortcuts
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.ctrlKey && e.key === 'Enter') {
+                        callAI(currentTask);
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [currentTask, sourceText, apiProvider, geminiKey, sourceLang, targetLang]);
+
+
             const addToHistory = (src, res, sLang, tLang) => {
                 if (!src || !res) return;
                 const newItem = { id: Date.now(), src, res, sLang, tLang, timestamp: new Date().toLocaleString() };
@@ -431,6 +450,7 @@
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
             };
 
             const handleImportData = (e) => {
@@ -624,7 +644,7 @@
                 }
                 setLoadingStatus(`AI 正在辨識 ${base64Images.length} 頁掃描文件...`);
                 
-                // Use user selected model, not hardcoded
+                // Use user selected model
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
                 
                 const parts = [
@@ -902,23 +922,6 @@
                 window.URL.revokeObjectURL(url);
             };
 
-            const handlePDFExport = () => {
-                if (!translatedText) return;
-                const element = document.createElement('div');
-                element.innerHTML = `
-                    <div style="font-family: 'Zen Maru Gothic', sans-serif; padding: 20px; color: #333;">
-                        <h1 style="text-align: center; margin-bottom: 20px; color: #2563eb;">Gemini 翻譯報告</h1>
-                        <div style="font-size: 14px; line-height: 1.6;">
-                            ${marked.parse(translatedText)}
-                        </div>
-                        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #999;">
-                            Generated by Gemini AI Assistant
-                        </div>
-                    </div>
-                `;
-                html2pdf().from(element).save(`report_${new Date().toISOString().slice(0,10)}.pdf`);
-            };
-
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); if(isS){setCopiedSource(true);setTimeout(()=>setCopiedSource(false),2000)}else{setCopiedTarget(true);setTimeout(()=>setCopiedTarget(false),2000)} };
             const speak = (t, l) => { 
                 if(!t)return; 
@@ -939,6 +942,50 @@
             };
             const clearAll = () => { setSourceText(''); setTranslatedText(''); setFileName(null); setErrorMsg(''); if(fileInputRef.current) fileInputRef.current.value = ''; };
 
+            // --- Smart Selection Handling ---
+            const handleSelection = () => {
+                const selection = window.getSelection();
+                const text = selection.toString().trim();
+
+                if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) {
+                    const range = selection.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+                    setSelectionMenu({
+                        visible: true,
+                        x: rect.left + window.scrollX + rect.width / 2,
+                        y: rect.top + window.scrollY - 10, // Position above text
+                        text: text
+                    });
+                } else {
+                    setSelectionMenu({ ...selectionMenu, visible: false });
+                }
+            };
+            
+            // Attach selection listener to document to catch selections anywhere
+            useEffect(() => {
+                document.addEventListener('mouseup', handleSelection);
+                document.addEventListener('touchend', handleSelection); // Mobile support
+                return () => {
+                    document.removeEventListener('mouseup', handleSelection);
+                    document.removeEventListener('touchend', handleSelection);
+                };
+            }, []);
+
+            const handleSelectionAction = async (action) => {
+                setSelectionMenu({ ...selectionMenu, visible: false });
+                const text = selectionMenu.text;
+                
+                if (action === 'explain') {
+                     await callAI('grammar', `Explain this text briefly: "${text}"`);
+                } else if (action === 'glossary') {
+                    setNewGlossaryTerm(text);
+                    setShowSettings(true);
+                } else if (action === 'speak') {
+                    speak(text, targetLang); // Speak in target lang or auto detect?
+                }
+            };
+
+
             // Render Translated Text (Markdown or Plain)
             const renderResult = () => {
                 if (isMarkdownMode) {
@@ -955,6 +1002,24 @@
 
             return (
                 <div className="pb-12">
+                    {/* Smart Selection Menu */}
+                    {selectionMenu.visible && (
+                        <div 
+                            className="fixed z-50 bg-slate-800 text-white rounded-lg shadow-lg flex items-center gap-1 p-1 text-xs transform -translate-x-1/2 -translate-y-full animate-in fade-in zoom-in-95 duration-100"
+                            style={{ left: selectionMenu.x, top: selectionMenu.y }}
+                            onMouseDown={(e) => e.preventDefault()} // Prevent clearing selection
+                        >
+                            <button onClick={() => handleSelectionAction('explain')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Search className="w-3 h-3"/> 解釋</button>
+                            <div className="w-px h-4 bg-slate-600"></div>
+                            <button onClick={() => handleSelectionAction('glossary')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Book className="w-3 h-3"/> 術語</button>
+                            <div className="w-px h-4 bg-slate-600"></div>
+                            <button onClick={() => handleSelectionAction('speak')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Volume2 className="w-3 h-3"/> 朗讀</button>
+                            
+                            {/* Arrow */}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                        </div>
+                    )}
+
                     {/* Visual Mode Modal */}
                     {showVisualMode && displayImage && (
                         <div className="fixed inset-0 bg-black z-[80] flex flex-col animate-in fade-in duration-200"
@@ -1070,28 +1135,18 @@
                     {showHistory && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
                             <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-4" onClick={e => e.stopPropagation()}>
-                                <div className="flex flex-col justify-between mb-4 border-b pb-2">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
-                                        <button onClick={clearHistory}><Icons.Trash /></button>
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        placeholder="搜尋歷史..." 
-                                        value={historySearchQuery}
-                                        onChange={(e) => setHistorySearchQuery(e.target.value)}
-                                        className="w-full p-2 bg-slate-100 rounded-lg text-sm outline-none"
-                                    />
+                                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                    <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
+                                    <button onClick={clearHistory}><Icons.Trash /></button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto space-y-3">
-                                    {filteredHistory.map(item => (
+                                    {history.map(item => (
                                         <div key={item.id} className="bg-slate-50 p-3 rounded-lg text-sm cursor-pointer" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}>
                                             <div className="text-slate-500 text-xs mb-1">{item.sLang} → {item.tLang}</div>
                                             <div className="font-bold mb-1 line-clamp-2">{item.src}</div>
                                             <div className="text-indigo-600 line-clamp-2">{item.res}</div>
                                         </div>
                                     ))}
-                                    {filteredHistory.length === 0 && <p className="text-center text-slate-400 text-sm py-4">沒有找到相關記錄</p>}
                                 </div>
                             </div>
                         </div>
@@ -1142,16 +1197,40 @@
                                 {/* Voice Settings Section */}
                                 <div className="space-y-3 border-b pb-4">
                                     <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Volume3 className="w-4 h-4"/> 語音設定</h4>
+                                    
                                     <div>
                                         <label className="text-xs text-slate-500 mb-1 block">朗讀語音 (Voice)</label>
-                                        <select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white">
+                                        <select 
+                                            value={selectedVoiceURI} 
+                                            onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                                            className="w-full p-2 border rounded-lg text-sm bg-white"
+                                        >
                                             <option value="">預設 (Default)</option>
-                                            {availableVoices.map(v => (<option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>))}
+                                            {availableVoices.map(v => (
+                                                <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+                                            ))}
                                         </select>
                                     </div>
+
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="text-xs text-slate-500 mb-1 block">語速: {voiceRate}x</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"/></div>
-                                        <div><label className="text-xs text-slate-500 mb-1 block">音調: {voicePitch}</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={(e) => setVoicePitch(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"/></div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 mb-1 block">語速 (Rate): {voiceRate}x</label>
+                                            <input 
+                                                type="range" min="0.5" max="2" step="0.1" 
+                                                value={voiceRate} 
+                                                onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
+                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 mb-1 block">音調 (Pitch): {voicePitch}</label>
+                                            <input 
+                                                type="range" min="0.5" max="2" step="0.1" 
+                                                value={voicePitch} 
+                                                onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
+                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1159,8 +1238,20 @@
                                 <div className="space-y-3 border-b pb-4">
                                     <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Book className="w-4 h-4"/> 術語表 (Glossary)</h4>
                                     <div className="flex gap-2">
-                                        <input type="text" placeholder="原文" value={newGlossaryTerm} onChange={(e) => setNewGlossaryTerm(e.target.value)} className="w-1/2 p-2 border rounded-lg text-sm"/>
-                                        <input type="text" placeholder="譯文" value={newGlossaryTrans} onChange={(e) => setNewGlossaryTrans(e.target.value)} className="w-1/2 p-2 border rounded-lg text-sm"/>
+                                        <input 
+                                            type="text" 
+                                            placeholder="原文 (例如: Apple)" 
+                                            value={newGlossaryTerm}
+                                            onChange={(e) => setNewGlossaryTerm(e.target.value)}
+                                            className="w-1/2 p-2 border rounded-lg text-sm"
+                                        />
+                                        <input 
+                                            type="text" 
+                                            placeholder="譯文 (例如: 蘋果公司)" 
+                                            value={newGlossaryTrans}
+                                            onChange={(e) => setNewGlossaryTrans(e.target.value)}
+                                            className="w-1/2 p-2 border rounded-lg text-sm"
+                                        />
                                         <button onClick={addGlossaryTerm} className="bg-blue-500 text-white p-2 rounded-lg">+</button>
                                     </div>
                                     <div className="max-h-32 overflow-y-auto space-y-2">
@@ -1178,7 +1269,13 @@
                                 <div className="space-y-3 border-b pb-4">
                                     <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂 AI 指令</h4>
                                     <div>
-                                        <textarea value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white h-20 resize-none" placeholder="例如：請保留專有名詞原文、請使用台灣用語..."/>
+                                        <label className="text-xs text-slate-500 mb-1 block">額外提示詞 (Optional)</label>
+                                        <textarea 
+                                            value={customInstruction} 
+                                            onChange={(e) => setCustomInstruction(e.target.value)}
+                                            className="w-full p-2 border rounded-lg text-sm bg-white h-20 resize-none"
+                                            placeholder="例如：請保留專有名詞原文、請使用台灣用語..."
+                                        />
                                     </div>
                                 </div>
 
@@ -1266,8 +1363,15 @@
                         {mode === 'file' && (
                             <div className="flex items-center justify-center">
                                 <label className="flex items-center gap-2 cursor-pointer bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                                    <input type="checkbox" checked={usePdfVision} onChange={(e) => setUsePdfVision(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"/>
-                                    <span className="text-xs font-bold text-blue-700 select-none flex items-center gap-1"><Icons.Eye className="w-3 h-3"/> 強制使用 AI 視覺辨識 (讀取圖表)</span>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={usePdfVision} 
+                                        onChange={(e) => setUsePdfVision(e.target.checked)}
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-xs font-bold text-blue-700 select-none flex items-center gap-1">
+                                        <Icons.Eye className="w-3 h-3"/> 強制使用 AI 視覺辨識 (讀取圖表)
+                                    </span>
                                 </label>
                             </div>
                         )}
