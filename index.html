@@ -68,7 +68,8 @@
         .prose ol { list-style-type: decimal; padding-left: 1.2em; margin-bottom: 0.8em; }
         .prose li { margin-bottom: 0.2em; }
         .prose strong { font-weight: 700; color: #0f172a; background-color: #f1f5f9; padding: 0 2px; rounded: 2px; }
-        .prose blockquote { border-left: 4px solid #6366f1; padding-left: 1em; font-style: italic; color: #475569; background-color: #f8fafc; padding: 0.5em 1em; border-radius: 0 0.5em 0.5em 0; }
+        .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; font-style: italic; color: #475569; background-color: #f8fafc; padding: 0.5em 1em; border-radius: 0 0.5em 0.5em 0; margin-bottom: 1em; }
+        .prose code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.9em; font-family: monospace; color: #ef4444; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-sky-50 via-white to-indigo-50 text-slate-800 min-h-screen">
@@ -129,10 +130,10 @@
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
         const GEMINI_MODELS = [
-            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新)', desc: '預設' },
-            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定)', desc: '快速' },
-            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業)', desc: '高品質' },
-            { id: 'custom', name: '自訂模型', desc: '手動' }
+            { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
+            { id: 'gemini-1.5-flash-001', name: 'Flash 1.5 (穩定版)', desc: '快速' },
+            { id: 'gemini-1.5-pro-001', name: 'Pro 1.5 (專業版)', desc: '高品質' },
+            { id: 'custom', name: '自訂模型 (Custom)', desc: '手動輸入' }
         ];
 
         const LANGUAGES = [
@@ -571,27 +572,34 @@
 
                 try {
                     let text = "";
+                    const arrayBuffer = await file.arrayBuffer(); // Load array buffer once for PDF/Docx
+
                     if (lowerName.endsWith('.pdf')) {
                         if (!window.pdfjsLib) throw new Error("PDF 元件載入中...");
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                        const maxPages = Math.min(pdf.numPages, 30);
+                        
+                        // First attempt: read text layer
+                        const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+                        const maxPages = Math.min(pdfDocument.numPages, 30);
+                        let fullText = "";
                         for (let i = 1; i <= maxPages; i++) {
-                            const page = await pdf.getPage(i);
+                            const page = await pdfDocument.getPage(i);
                             const textContent = await page.getTextContent();
-                            text += textContent.items.map(item => item.str).join(' ') + '\n\n';
+                            fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
                         }
-                        // Fallback for scanned PDF
-                         if ((!text || text.trim().length < 50) && geminiKey) {
+                        
+                        text = fullText;
+                        
+                        // If text is minimal (likely a scanned PDF without text layer), switch to OCR mode (first page only)
+                        if ((!text || text.trim().length < 50) && geminiKey) {
                             setLoadingStatus('PDF 無文字層，嘗試 OCR 辨識第一頁...');
                             const imageBlob = await renderPdfFirstPage(arrayBuffer);
                             const imageFile = new File([imageBlob], "pdf_page_1.jpg", { type: "image/jpeg" });
+                            // Re-route to runOCR flow
                             await runOCR(imageFile);
                             return; 
                         }
                     } else if (lowerName.endsWith('.docx')) {
                         if (!window.mammoth) throw new Error("Word 元件載入中...");
-                        const arrayBuffer = await file.arrayBuffer();
                         const result = await window.mammoth.extractRawText({ arrayBuffer });
                         text = result.value;
                     } else {
@@ -634,51 +642,6 @@
                 };
                 recognitionRef.current = recognition;
                 recognition.start();
-            };
-
-            const startConversationVoice = (lang, speaker) => {
-                if (isListening) return;
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("此瀏覽器不支援語音輸入"); return; }
-
-                const recognition = new SpeechRecognition();
-                let useLang = lang;
-                if (lang === 'auto') useLang = 'en-US';
-                
-                recognition.lang = useLang;
-                recognition.continuous = false;
-                recognition.interimResults = true;
-                recognition.onstart = () => { setIsListening(true); setActiveSpeaker(speaker); setErrorMsg(''); };
-                recognition.onend = () => { setIsListening(false); setActiveSpeaker(null); };
-                recognition.onresult = (event) => {
-                    let final = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) final += event.results[i][0].transcript;
-                    }
-                    if (final) handleConversationTranslate(final, speaker);
-                };
-                recognitionRef.current = recognition;
-                try { recognition.start(); } catch(e) { console.error(e); setIsListening(false); }
-            };
-
-            const stopConversationVoice = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
-
-            const handleConversationTranslate = async (text, speaker) => {
-                if (!text.trim()) return;
-                const sLang = sourceLang === 'auto' ? 'en' : sourceLang;
-                const tLang = targetLang;
-                const fromLang = speaker === 'user' ? tLang : sLang;
-                const toLang = speaker === 'user' ? sLang : tLang;
-                const newMessage = { id: Date.now(), speaker: speaker, text: text, translation: '...', isPending: true };
-                setConversationChat(prev => [...prev, newMessage]);
-
-                try {
-                    const translation = await performTranslation(text, fromLang, toLang);
-                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: translation, isPending: false } : msg));
-                    speak(translation, toLang);
-                } catch (e) {
-                    setConversationChat(prev => prev.map(msg => msg.id === newMessage.id ? { ...msg, translation: "Error", isPending: false } : msg));
-                }
             };
 
             const performTranslation = async (text, sLangCode, tLangCode) => {
@@ -773,9 +736,9 @@
             // Render Translated Text (Markdown or Plain)
             const renderResult = () => {
                 if (isMarkdownMode) {
-                    return <div className="prose prose-sm max-w-none text-slate-800 leading-relaxed overflow-y-auto h-full p-4" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || '') }} />;
+                    return <div className="absolute inset-0 p-4 overflow-y-auto prose prose-sm max-w-none text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || '') }} />;
                 } else {
-                    return <textarea readOnly value={translatedText} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="結果..." />;
+                    return <textarea readOnly value={translatedText} className="absolute inset-0 w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="結果..." />;
                 }
             };
 
