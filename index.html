@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手 (完美分享版)</title>
+    <title>Gemini AI 全能文件助手</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -64,7 +64,7 @@
         
         /* UI Styles */
         .crop-modal { touch-action: none; } 
-        .visual-text-box { touch-action: none; backdrop-filter: blur(4px); }
+        .visual-text-box { touch-action: none; backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
         /* Markdown */
         .prose { font-size: 1.05rem; line-height: 1.7; color: #334155; max-width: none; }
@@ -108,7 +108,7 @@
             Mic: () => <Icon><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             MicOff: () => <Icon><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             FileType: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13v-1h6v1"/><path d="M12 12v6"/><path d="M11 18h2"/></Icon>,
-            Settings: () => <Icon><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>,
+            Settings: () => <Icon><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 1 2 0l.15.08a2 2 0 0 1 2 0l.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>,
             Save: () => <Icon><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>,
             Server: () => <Icon><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></Icon>,
             Camera: () => <Icon><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>,
@@ -256,32 +256,27 @@
             });
         };
 
-        // Helper function to convert PDF pages to images
-        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { // Default high limit
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { 
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const count = Math.min(pdf.numPages, maxPagesToRender);
             const images = [];
             
             for (let i = 1; i <= count; i++) {
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is decent for OCR
+                const viewport = page.getViewport({ scale: 1.5 }); 
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: context, viewport: viewport }).promise;
-                
-                // Get Base64
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                images.push(dataUrl.split(',')[1]); // Remove prefix
+                images.push(dataUrl.split(',')[1]); 
             }
             return { images, totalPages: pdf.numPages };
         };
 
-        // Helper function to render PDF first page for fallback (when we only need 1 page)
         const renderPdfFirstPage = async (arrayBuffer) => {
              const { images } = await renderPdfToImages(arrayBuffer, 1);
-             // Convert base64 back to blob to reuse existing runOCR logic if needed
              const byteCharacters = atob(images[0]);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
@@ -332,7 +327,6 @@
             const [cropSelection, setCropSelection] = useState(null); 
             const [isCropping, setIsCropping] = useState(false);
             
-            // Enhanced Visual Mode State
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
             const [visualTextPos, setVisualTextPos] = useState({ x: 50, y: 50 });
@@ -1079,12 +1073,9 @@
                                 <div className="flex gap-2">
                                     <button onClick={() => setVisualFontSize(s => Math.max(12, s - 2))} className="p-2 bg-white/20 rounded">A-</button>
                                     <button onClick={() => setVisualFontSize(s => Math.min(48, s + 2))} className="p-2 bg-white/20 rounded">A+</button>
-                                    <button onClick={() => setVisualStyle(s => ({ ...s, color: s.color === 'white' ? 'black' : 'white', bg: s.color === 'white' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)' }))} className="p-2 bg-white/20 rounded" title="切換風格"><Icons.Palette className="w-5 h-5"/></button>
+                                    <button onClick={handleSaveVisualImage} className="p-2 bg-white/20 rounded" title="下載圖片"><Icons.Download className="w-5 h-5"/></button>
                                 </div>
-                                <div className="flex gap-2">
-                                     <button onClick={handleShareImage} className="p-2 bg-blue-600 rounded text-white flex gap-1 items-center text-sm font-bold shadow-lg"><Icons.Share className="w-4 h-4"/> 分享</button>
-                                     <button onClick={() => setShowVisualMode(false)} className="p-2 bg-white/20 rounded-full"><Icons.X className="w-6 h-6"/></button>
-                                </div>
+                                <button onClick={() => setShowVisualMode(false)} className="p-2 bg-white/20 rounded-full"><Icons.X className="w-6 h-6"/></button>
                             </div>
                             
                             <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-gray-900" ref={visualContainerRef}>
@@ -1216,18 +1207,9 @@
                     {showHistory && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
                             <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-4" onClick={e => e.stopPropagation()}>
-                                <div className="flex flex-col justify-between mb-4 border-b pb-2">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
-                                        <button onClick={clearHistory}><Icons.Trash /></button>
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        placeholder="搜尋歷史..." 
-                                        value={historySearchQuery}
-                                        onChange={(e) => setHistorySearchQuery(e.target.value)}
-                                        className="w-full p-2 bg-slate-100 rounded-lg text-sm outline-none"
-                                    />
+                                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                    <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
+                                    <button onClick={clearHistory}><Icons.Trash /></button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto space-y-3">
                                     {filteredHistory.map(item => (
@@ -1450,12 +1432,12 @@
                         </div>
 
                         {/* Task Switcher (New Feature) */}
-                        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-1">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 sm:overflow-x-auto sm:hide-scrollbar py-1">
                             {TASKS.map(task => (
                                 <button 
                                     key={task.id} 
                                     onClick={() => setCurrentTask(task.id)}
-                                    className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${currentTask === task.id ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                                    className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${currentTask === task.id ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
                                 >
                                     {task.icon} {task.name}
                                 </button>
@@ -1529,10 +1511,10 @@
                                 <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center">
                                     <span className="text-xs font-bold text-slate-400 uppercase">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span>
                                     <div className="flex gap-1">
-                                        <button onClick={handlePDFExport} className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50" title="匯出 PDF 報告"><Icons.FileDown className="w-5 h-5"/></button>
                                         <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
                                         {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
                                         {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
+                                        <button onClick={handleDownload} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Download className="w-5 h-5"/></button>
                                         <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
                                         <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
                                     </div>
