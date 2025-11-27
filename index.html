@@ -238,7 +238,7 @@
         };
 
         // Helper function to convert PDF pages to images
-        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 20) => {
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { // Default high limit
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const count = Math.min(pdf.numPages, maxPagesToRender);
             const images = [];
@@ -629,14 +629,16 @@
                     if (lowerName.endsWith('.pdf')) {
                         // Check if force vision is enabled
                         if (usePdfVision && geminiKey) {
-                            setLoadingStatus('強制使用 AI 視覺讀取 (前20頁)...');
-                            const { images } = await renderPdfToImages(arrayBuffer.slice(0), 20); 
+                            setLoadingStatus(`強制使用 AI 視覺讀取 (前${arrayBuffer.byteLength > 0 ? '...' : '...'}頁)...`);
+                            // Re-fetch PDF document to get numPages properly for the loop in renderPdfToImages
+                            const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+                            const { images } = await renderPdfToImages(arrayBuffer.slice(0), pdfDoc.numPages); 
                             text = await performGeminiOCR_Multi(images);
                         } else {
                             if (!window.pdfjsLib) throw new Error("PDF 元件載入中...");
                             // Standard Text Extraction
                             const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
-                            const maxPages = Math.min(pdfDocument.numPages, 50); 
+                            const maxPages = pdfDocument.numPages; // No limit on pages for text extraction
                             let fullText = "";
                             for (let i = 1; i <= maxPages; i++) {
                                 const page = await pdfDocument.getPage(i);
@@ -647,8 +649,8 @@
                             
                             // Fallback if text is empty
                             if ((!text || text.trim().length < 50) && geminiKey) {
-                                setLoadingStatus('PDF 無文字層，自動切換至 AI 視覺讀取 (前10頁)...');
-                                const { images } = await renderPdfToImages(arrayBuffer.slice(0), 10);
+                                setLoadingStatus(`PDF 無文字層，自動切換至 AI 視覺讀取 (共${pdfDocument.numPages}頁)...`);
+                                const { images } = await renderPdfToImages(arrayBuffer.slice(0), pdfDocument.numPages);
                                 text = await performGeminiOCR_Multi(images);
                             }
                         }
