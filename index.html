@@ -261,8 +261,7 @@
         // Helper function to render PDF first page for fallback (when we only need 1 page)
         const renderPdfFirstPage = async (arrayBuffer) => {
              const { images } = await renderPdfToImages(arrayBuffer, 1);
-             // Convert base64 back to blob to reuse existing runOCR logic if needed, 
-             // or just return base64. Here we return blob to be consistent with previous logic
+             // Convert base64 back to blob to reuse existing runOCR logic if needed
              const byteCharacters = atob(images[0]);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
@@ -275,7 +274,7 @@
 
         function App() {
             const [mode, setMode] = useState('text'); 
-            const [currentTask, setCurrentTask] = useState('translate'); // New State for Task
+            const [currentTask, setCurrentTask] = useState('translate'); 
             
             const [sourceText, setSourceText] = useState('');
             const [translatedText, setTranslatedText] = useState('');
@@ -292,7 +291,7 @@
             const [showBigText, setShowBigText] = useState(false);
             const [isRealTime, setIsRealTime] = useState(false);
             const [isMarkdownMode, setIsMarkdownMode] = useState(true); 
-            const [usePdfVision, setUsePdfVision] = useState(false); // Toggle for Force Vision
+            const [usePdfVision, setUsePdfVision] = useState(false); 
             
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
@@ -376,9 +375,9 @@
 
             useEffect(() => {
                 if (!isRealTime || !sourceText.trim() || mode !== 'text') return;
-                const timer = setTimeout(() => { if (sourceText.length > 1) callAI(currentTask); }, 1200); // Use currentTask
+                const timer = setTimeout(() => { if (sourceText.length > 1) callAI(currentTask); }, 1200); 
                 return () => clearTimeout(timer);
-            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask]); // Add currentTask dependency
+            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask]);
 
             const addToHistory = (src, res, sLang, tLang) => {
                 if (!src || !res) return;
@@ -439,7 +438,7 @@
                 visualDragStartRef.current = null;
             };
 
-            // --- Crop Handlers (Optimized) ---
+            // --- Crop Handlers ---
             const getClientCoordinates = (e) => {
                 const imgRect = imageRef.current.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -518,8 +517,8 @@
                 }
                 setLoadingStatus(`AI 正在辨識 ${base64Images.length} 頁掃描文件...`);
                 
-                // Force use 1.5 Flash for vision tasks to avoid 400 error on text-only models
-                const modelName = "gemini-1.5-flash"; 
+                // Force use 1.5-flash-001 to avoid 404
+                const modelName = "gemini-1.5-flash-001"; 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${trimmedKey}`;
                 
                 const parts = [
