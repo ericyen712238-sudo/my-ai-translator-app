@@ -331,10 +331,11 @@
             
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
-            const [visualTextPos, setVisualTextPos] = useState({ x: 50, y: 50 });
+            // Visual Box State: Position and Dimensions - x, y in %, w in px, h 'auto'
+            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' }); 
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
-            const [visualWidth, setVisualWidth] = useState(300);
+            const [visualResizing, setVisualResizing] = useState(false);
             const [visualStyle, setVisualStyle] = useState({ color: 'white', bg: 'rgba(0,0,0,0.6)' });
 
             // Selection Menu State
@@ -580,36 +581,62 @@
                 }
             };
 
-            // --- Visual Mode Handlers ---
+            // --- Visual Mode Handlers (New: Scale Logic) ---
             const handleVisualDragStart = (e) => {
-                e.preventDefault(); 
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                visualDragStartRef.current = { x: clientX, y: clientY };
-                setVisualDragging(true);
-            };
-
-            const handleVisualDragMove = (e) => {
-                if (!visualDragging || !visualDragStartRef.current || !visualContainerRef.current) return;
                 e.preventDefault();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                const containerRect = visualContainerRef.current.getBoundingClientRect();
-                const deltaX = ((clientX - visualDragStartRef.current.x) / containerRect.width) * 100;
-                const deltaY = ((clientY - visualDragStartRef.current.y) / containerRect.height) * 100;
-                setVisualTextPos(prev => ({
-                    x: Math.max(0, Math.min(100, prev.x + deltaX)),
-                    y: Math.max(0, Math.min(100, prev.y + deltaY))
-                }));
-                visualDragStartRef.current = { x: clientX, y: clientY };
+                dragStartRef.current = { x: clientX, y: clientY };
+                setVisualDragging(true);
             };
 
-            const handleVisualDragEnd = () => {
+            const handleVisualResizeStart = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                resizeStartRef.current = { x: clientX, w: visualBox.w, fontSize: visualFontSize };
+                setVisualResizing(true);
+            };
+
+            const handleVisualMove = (e) => {
+                if (visualDragging && dragStartRef.current && visualContainerRef.current) {
+                    e.preventDefault();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    
+                    const containerRect = visualContainerRef.current.getBoundingClientRect();
+                    const deltaX = ((clientX - dragStartRef.current.x) / containerRect.width) * 100;
+                    const deltaY = ((clientY - dragStartRef.current.y) / containerRect.height) * 100;
+                    
+                    setVisualBox(prev => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(100, prev.x + deltaX)),
+                        y: Math.max(0, Math.min(100, prev.y + deltaY))
+                    }));
+                    dragStartRef.current = { x: clientX, y: clientY };
+                } else if (visualResizing && resizeStartRef.current) {
+                    e.preventDefault();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const deltaX = clientX - resizeStartRef.current.x;
+                    const newWidth = Math.max(100, resizeStartRef.current.w + deltaX);
+                    
+                    // Scale font size proportionally
+                    const scaleRatio = newWidth / resizeStartRef.current.w;
+                    const newFontSize = Math.max(10, Math.min(60, resizeStartRef.current.fontSize * scaleRatio));
+
+                    setVisualBox(prev => ({ ...prev, w: newWidth }));
+                    setVisualFontSize(newFontSize);
+                }
+            };
+
+            const handleVisualEnd = () => {
                 setVisualDragging(false);
-                visualDragStartRef.current = null;
+                setVisualResizing(false);
+                dragStartRef.current = null;
+                resizeStartRef.current = null;
             };
 
-            // --- Crop Handlers ---
+            // ... (Existing Crop Handlers) ...
             const getClientCoordinates = (e) => {
                 const imgRect = imageRef.current.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -679,386 +706,49 @@
                 runOCR(file);
             };
 
-            // --- Multi-Page OCR API Call ---
+            // ... (Existing API logic) ...
             const performGeminiOCR_Multi = async (base64Images) => {
                 const trimmedKey = geminiKey.trim();
-                if (!trimmedKey) {
-                    setShowSettings(true);
-                    throw new Error("請輸入 Gemini API Key");
-                }
+                if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Gemini API Key"); }
                 setLoadingStatus(`AI 正在辨識 ${base64Images.length} 頁掃描文件...`);
-                
-                // Use user selected model, not hardcoded
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
-                
-                const parts = [
-                    { text: "Transcribe the text from these images sequentially. Output ONLY the text content. Do not describe the layout." }
-                ];
-                
-                base64Images.forEach(b64 => {
-                    parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
-                });
-
+                const parts = [{ text: "Transcribe the text from these images sequentially. Output ONLY the text content. Do not describe the layout." }];
+                base64Images.forEach(b64 => { parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } }); });
                 const payload = { contents: [{ parts }] };
-                
                 const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error("AI 無法辨識圖片中的文字");
                 return text.trim();
             };
-
-            const runOCR = async (file) => {
-                setErrorMsg('');
-                setSourceText('');
-                setIsLoading(true);
-                setLoadingStatus('正在讀取圖片...');
-                const reader = new FileReader();
-                reader.onload = (e) => setDisplayImage(e.target.result);
-                reader.readAsDataURL(file);
-                try {
-                    let text = "";
-                    if (apiProvider === 'gemini') text = await performGeminiOCR(file);
-                    else text = await performLegacyOCR(file);
-                    
-                    if (!text || !text.trim()) throw new Error("無法辨識圖片中的文字");
-                    setSourceText(text);
-                    callAI(currentTask, text); // Auto run current task after OCR
-                } catch (err) {
-                    console.error(err);
-                    setErrorMsg(err.message || "讀取失敗");
-                    setIsLoading(false);
-                }
-            };
-
-            const performGeminiOCR = async (file) => {
-                const trimmedKey = geminiKey.trim();
-                if (!trimmedKey) {
-                    setShowSettings(true);
-                    throw new Error("請輸入 Gemini API Key");
-                }
-                setLoadingStatus('AI 正在壓縮並讀取圖片...');
-                const base64Image = await compressImage(file);
-                const mimeType = 'image/jpeg';
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
-                const payload = {
-                    contents: [{
-                        parts: [
-                            { text: "Please convert the text in this image to plain text. Output ONLY the text found in the image." },
-                            { inline_data: { mime_type: mimeType, data: base64Image } }
-                        ]
-                    }]
-                };
-                const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!text) throw new Error("AI 無法辨識圖片中的文字");
-                return text.trim();
-            };
-
-            const performLegacyOCR = async (file) => {
-                if (!window.Tesseract) throw new Error("OCR 元件載入中...");
-                let tessLang = 'eng'; 
-                if (sourceLang === 'auto') tessLang = 'chi_tra+eng'; 
-                else if (sourceLang.includes('zh')) tessLang = 'chi_tra+eng';
-                else if (sourceLang.includes('ja')) tessLang = 'jpn+eng';
-                else if (sourceLang.includes('ko')) tessLang = 'kor+eng';
-                setLoadingStatus(`下載辨識模型中...`);
-                const { data: { text } } = await Tesseract.recognize(file, tessLang, {
-                    logger: m => { if (m.status === 'recognizing text') setLoadingStatus(`辨識文字中... ${Math.round(m.progress * 100)}%`); }
-                });
-                return text;
-            };
-
-            const processFile = async (file) => {
-                if (!file) return;
-                setFileName(file.name || "File");
-                const lowerName = file.name ? file.name.toLowerCase() : 'image.jpg';
-                const fileType = file.type || '';
-
-                if (fileType.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|bmp|webp)$/)) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        setCropImageSrc(e.target.result);
-                        setDisplayImage(e.target.result);
-                        setCropSelection(null);
-                        setShowCropModal(true);
-                    };
-                    reader.readAsDataURL(file);
-                    return;
-                }
-
-                setMode('text');
-                setSourceText('');
-                setIsLoading(true);
-                setLoadingStatus('正在處理文件...');
-                setDisplayImage(null);
-
-                try {
-                    let text = "";
-                    const arrayBuffer = await file.arrayBuffer(); 
-
-                    if (lowerName.endsWith('.pdf')) {
-                        // Check if force vision is enabled
-                        if (usePdfVision && geminiKey) {
-                            setLoadingStatus(`強制使用 AI 視覺讀取 (前${arrayBuffer.byteLength > 0 ? '...' : '...'}頁)...`);
-                            const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
-                            const { images } = await renderPdfToImages(arrayBuffer.slice(0), pdfDoc.numPages); 
-                            text = await performGeminiOCR_Multi(images);
-                        } else {
-                            if (!window.pdfjsLib) throw new Error("PDF 元件載入中...");
-                            // Standard Text Extraction
-                            const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
-                            const maxPages = pdfDocument.numPages; 
-                            let fullText = "";
-                            for (let i = 1; i <= maxPages; i++) {
-                                const page = await pdfDocument.getPage(i);
-                                const textContent = await page.getTextContent();
-                                fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
-                            }
-                            text = fullText;
-                            
-                            // Fallback if text is empty
-                            if ((!text || text.trim().length < 50) && geminiKey) {
-                                setLoadingStatus(`PDF 無文字層，自動切換至 AI 視覺讀取 (共${pdfDocument.numPages}頁)...`);
-                                const { images } = await renderPdfToImages(arrayBuffer.slice(0), pdfDocument.numPages);
-                                text = await performGeminiOCR_Multi(images);
-                            }
-                        }
-                    } else if (lowerName.endsWith('.docx')) {
-                        if (!window.mammoth) throw new Error("Word 元件載入中...");
-                        const result = await window.mammoth.extractRawText({ arrayBuffer });
-                        text = result.value;
-                    } else {
-                        text = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = e => resolve(e.target.result);
-                            reader.onerror = reject;
-                            reader.readAsText(file);
-                        });
-                    }
-                    
-                    if (!text || !text.trim()) throw new Error("無法讀取文字");
-                    setSourceText(text);
-                    callAI(currentTask, text); 
-                } catch (err) {
-                    console.error(err);
-                    setErrorMsg(err.message || "讀取失敗");
-                    setIsLoading(false);
-                } 
-            };
-
+            const runOCR = async (file) => { setErrorMsg(''); setSourceText(''); setIsLoading(true); setLoadingStatus('正在讀取圖片...'); const reader = new FileReader(); reader.onload = (e) => setDisplayImage(e.target.result); reader.readAsDataURL(file); try { let text = ""; if (apiProvider === 'gemini') text = await performGeminiOCR(file); else text = await performLegacyOCR(file); if (!text || !text.trim()) throw new Error("無法辨識圖片中的文字"); setSourceText(text); callAI(currentTask, text); } catch (err) { console.error(err); setErrorMsg(err.message || "讀取失敗"); setIsLoading(false); } };
+            const performGeminiOCR = async (file) => { const trimmedKey = geminiKey.trim(); if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Gemini API Key"); } setLoadingStatus('AI 正在壓縮並讀取圖片...'); const base64Image = await compressImage(file); const mimeType = 'image/jpeg'; const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: "Please convert the text in this image to plain text. Output ONLY the text found in the image." }, { inline_data: { mime_type: mimeType, data: base64Image } }] }] }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const text = data.candidates?.[0]?.content?.parts?.[0]?.text; if (!text) throw new Error("AI 無法辨識圖片中的文字"); return text.trim(); };
+            const performLegacyOCR = async (file) => { if (!window.Tesseract) throw new Error("OCR 元件載入中..."); let tessLang = 'eng'; if (sourceLang === 'auto') tessLang = 'chi_tra+eng'; else if (sourceLang.includes('zh')) tessLang = 'chi_tra+eng'; else if (sourceLang.includes('ja')) tessLang = 'jpn+eng'; else if (sourceLang.includes('ko')) tessLang = 'kor+eng'; setLoadingStatus(`下載辨識模型中...`); const { data: { text } } = await Tesseract.recognize(file, tessLang, { logger: m => { if (m.status === 'recognizing text') setLoadingStatus(`辨識文字中... ${Math.round(m.progress * 100)}%`); } }); return text; };
+            const processFile = async (file) => { if (!file) return; setFileName(file.name || "File"); const lowerName = file.name ? file.name.toLowerCase() : 'image.jpg'; const fileType = file.type || ''; if (fileType.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|bmp|webp)$/)) { const reader = new FileReader(); reader.onload = (e) => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setCropSelection(null); setShowCropModal(true); }; reader.readAsDataURL(file); return; } setMode('text'); setSourceText(''); setIsLoading(true); setLoadingStatus('正在處理文件...'); setDisplayImage(null); try { let text = ""; const arrayBuffer = await file.arrayBuffer(); if (lowerName.endsWith('.pdf')) { if (usePdfVision && geminiKey) { setLoadingStatus(`強制使用 AI 視覺讀取 (前${arrayBuffer.byteLength > 0 ? '...' : '...'}頁)...`); const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise; const { images } = await renderPdfToImages(arrayBuffer.slice(0), pdfDoc.numPages); text = await performGeminiOCR_Multi(images); } else { if (!window.pdfjsLib) throw new Error("PDF 元件載入中..."); const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise; const maxPages = pdfDocument.numPages; let fullText = ""; for (let i = 1; i <= maxPages; i++) { const page = await pdfDocument.getPage(i); const textContent = await page.getTextContent(); fullText += textContent.items.map(item => item.str).join(' ') + '\n\n'; } text = fullText; if ((!text || text.trim().length < 50) && geminiKey) { setLoadingStatus(`PDF 無文字層，自動切換至 AI 視覺讀取 (共${pdfDocument.numPages}頁)...`); const { images } = await renderPdfToImages(arrayBuffer.slice(0), pdfDocument.numPages); text = await performGeminiOCR_Multi(images); } } } else if (lowerName.endsWith('.docx')) { if (!window.mammoth) throw new Error("Word 元件載入中..."); const result = await window.mammoth.extractRawText({ arrayBuffer }); text = result.value; } else { text = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = e => resolve(e.target.result); reader.onerror = reject; reader.readAsText(file); }); } if (!text || !text.trim()) throw new Error("無法讀取文字"); setSourceText(text); callAI(currentTask, text); } catch (err) { console.error(err); setErrorMsg(err.message || "讀取失敗"); setIsLoading(false); } };
             const handleFileChange = (e) => processFile(e.target.files[0]);
+            const toggleListening = () => { if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; } const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; } const recognition = new SpeechRecognition(); if (sourceLang !== 'auto') recognition.lang = sourceLang; recognition.continuous = true; recognition.interimResults = true; recognition.onstart = () => { setIsListening(true); setErrorMsg(''); }; recognition.onend = () => setIsListening(false); recognition.onresult = (event) => { let final = ''; for (let i = event.resultIndex; i < event.results.length; ++i) { if (event.results[i].isFinal) final += event.results[i][0].transcript; } if (final) setSourceText(prev => prev + (prev ? ' ' : '') + final); }; recognitionRef.current = recognition; recognition.start(); };
+            const performTranslation = async (text, sLangCode, tLangCode) => { const sName = LANGUAGES.find(l => l.code === sLangCode)?.name || sLangCode; const tName = LANGUAGES.find(l => l.code === tLangCode)?.name || tLangCode; let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text.`; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) throw new Error("Key missing"); const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: text }] }], systemInstruction: { parts: [{ text: systemInstruction }] } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory') { const pair = `${sLangCode}|${tLangCode}`; const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`; const res = await fetch(url); const data = await res.json(); return data.responseData.translatedText; } else { return `[${tName}] ${text}`; } };
+            const callAI = async (promptType, textOverride = null) => { const textToUse = textOverride !== null ? textOverride : sourceText; if (!textToUse.trim()) return; if (apiProvider === 'mymemory' && promptType !== 'translate') { setErrorMsg("MyMemory 僅支援基礎翻譯"); return; } const currentRequestId = ++requestCounter.current; setIsLoading(true); setErrorMsg(''); if (!isRealTime && textOverride === null) setTranslatedText(''); const tName = LANGUAGES.find(l => l.code === targetLang)?.name || targetLang; const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name; const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard'; const glossaryPrompt = glossary.length > 0 ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n') : ""; let systemInstruction = ""; if (promptType === 'translate') { systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'polish') { systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'summarize') { systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'grammar') { systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } if(!textOverride) setLoadingStatus("AI 處理中..."); try { let resultText = ""; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Key"); } const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: textToUse }] }], systemInstruction: { parts: [{ text: systemInstruction }] }, generationConfig: { temperature: aiTemperature } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory' && promptType === 'translate') { resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang); } else { resultText = "此模式不支援進階功能"; } if (currentRequestId === requestCounter.current) { setTranslatedText(resultText); if (resultText && !resultText.startsWith("Error") && !resultText.startsWith("此模式")) { addToHistory(textToUse, resultText, sourceLang, targetLang); } } } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } } };
             
-            const toggleListening = () => {
-                if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; }
-                const recognition = new SpeechRecognition();
-                if (sourceLang !== 'auto') recognition.lang = sourceLang;
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.onstart = () => { setIsListening(true); setErrorMsg(''); };
-                recognition.onend = () => setIsListening(false);
-                recognition.onresult = (event) => {
-                    let final = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) final += event.results[i][0].transcript;
-                    }
-                    if (final) setSourceText(prev => prev + (prev ? ' ' : '') + final);
-                };
-                recognitionRef.current = recognition;
-                recognition.start();
-            };
-
-            const performTranslation = async (text, sLangCode, tLangCode) => {
-                const sName = LANGUAGES.find(l => l.code === sLangCode)?.name || sLangCode;
-                const tName = LANGUAGES.find(l => l.code === tLangCode)?.name || tLangCode;
-                let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text.`;
-                
-                if (apiProvider === 'gemini') {
-                    const trimmedKey = geminiKey.trim();
-                    if (!trimmedKey) throw new Error("Key missing");
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
-                    const payload = { contents: [{ parts: [{ text: text }] }], systemInstruction: { parts: [{ text: systemInstruction }] } };
-                    const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error";
-                } else if (apiProvider === 'mymemory') {
-                    const pair = `${sLangCode}|${tLangCode}`;
-                    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`;
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    return data.responseData.translatedText;
-                } else { return `[${tName}] ${text}`; }
-            };
-
-            const callAI = async (promptType, textOverride = null) => {
-                const textToUse = textOverride !== null ? textOverride : sourceText;
-                if (!textToUse.trim()) return;
-                if (apiProvider === 'mymemory' && promptType !== 'translate') { setErrorMsg("MyMemory 僅支援基礎翻譯"); return; }
-
-                const currentRequestId = ++requestCounter.current;
-                setIsLoading(true);
-                setErrorMsg('');
-                if (!isRealTime && textOverride === null) setTranslatedText(''); 
-
-                const tName = LANGUAGES.find(l => l.code === targetLang)?.name || targetLang;
-                const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name;
-                const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
-
-                // Construct Glossary String
-                const glossaryPrompt = glossary.length > 0 
-                    ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n')
-                    : "";
-
-                let systemInstruction = "";
-                // Prompts based on Task Type
-                if (promptType === 'translate') {
-                     systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
-                } else if (promptType === 'polish') {
-                     systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
-                } else if (promptType === 'summarize') {
-                     systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
-                } else if (promptType === 'grammar') {
-                     systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
-                }
-
-                if(!textOverride) setLoadingStatus("AI 處理中...");
-
-                try {
-                    let resultText = "";
-                    if (apiProvider === 'gemini') {
-                        const trimmedKey = geminiKey.trim();
-                        if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Key"); }
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
-                        const payload = { 
-                            contents: [{ parts: [{ text: textToUse }] }], 
-                            systemInstruction: { parts: [{ text: systemInstruction }] },
-                            generationConfig: { temperature: aiTemperature }
-                        };
-                        const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                        resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error";
-                    } else if (apiProvider === 'mymemory' && promptType === 'translate') {
-                        resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang);
-                    } else {
-                        resultText = "此模式不支援進階功能";
-                    }
-
-                    if (currentRequestId === requestCounter.current) {
-                        setTranslatedText(resultText);
-                        if (resultText && !resultText.startsWith("Error") && !resultText.startsWith("此模式")) {
-                            addToHistory(textToUse, resultText, sourceLang, targetLang);
-                        }
-                    }
-                } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } 
-                finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } }
-            };
-
-            const handleDownload = () => {
-                if (!translatedText) return;
-                const blob = new Blob([translatedText], { type: 'text/plain' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `translation_${new Date().toISOString().slice(0,10)}.md`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-            };
-
+            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); if(isS){setCopiedSource(true);setTimeout(()=>setCopiedSource(false),2000)}else{setCopiedTarget(true);setTimeout(()=>setCopiedTarget(false),2000)} };
-            const speak = (t, l) => { 
-                if(!t)return; 
-                window.speechSynthesis.cancel(); 
-                const targetLangCode = LANGUAGES.find(lang => lang.code === l)?.codeFull || l;
-                const u = new SpeechSynthesisUtterance(t); 
-                u.lang = targetLangCode; 
-                u.rate = voiceRate;
-                u.pitch = voicePitch;
-                if (selectedVoiceURI) {
-                    const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
-                    if (selectedVoice) u.voice = selectedVoice;
-                } else {
-                    const matchedVoice = availableVoices.find(v => v.lang === targetLangCode && v.name.includes('Google'));
-                    if (matchedVoice) u.voice = matchedVoice;
-                }
-                window.speechSynthesis.speak(u); 
-            };
+            const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const targetLangCode = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; const u = new SpeechSynthesisUtterance(t); u.lang = targetLangCode; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (selectedVoice) u.voice = selectedVoice; } else { const matchedVoice = availableVoices.find(v => v.lang === targetLangCode && v.name.includes('Google')); if (matchedVoice) u.voice = matchedVoice; } window.speechSynthesis.speak(u); };
             const clearAll = () => { setSourceText(''); setTranslatedText(''); setFileName(null); setErrorMsg(''); if(fileInputRef.current) fileInputRef.current.value = ''; };
-
-            // --- Smart Selection Handling ---
-            const handleSelection = () => {
-                const selection = window.getSelection();
-                const text = selection.toString().trim();
-
-                if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) {
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    setSelectionMenu({
-                        visible: true,
-                        x: rect.left + window.scrollX + rect.width / 2,
-                        y: rect.top + window.scrollY - 10, // Position above text
-                        text: text
-                    });
-                } else {
-                    setSelectionMenu({ ...selectionMenu, visible: false });
-                }
-            };
-            
-            // Attach selection listener to document to catch selections anywhere
-            useEffect(() => {
-                document.addEventListener('mouseup', handleSelection);
-                document.addEventListener('touchend', handleSelection); // Mobile support
-                return () => {
-                    document.removeEventListener('mouseup', handleSelection);
-                    document.removeEventListener('touchend', handleSelection);
-                };
-            }, []);
-
-            const handleSelectionAction = async (action) => {
-                setSelectionMenu({ ...selectionMenu, visible: false });
-                const text = selectionMenu.text;
-                
-                if (action === 'explain') {
-                     await callAI('grammar', `Explain this text briefly: "${text}"`);
-                } else if (action === 'glossary') {
-                    setNewGlossaryTerm(text);
-                    setShowSettings(true);
-                } else if (action === 'speak') {
-                    speak(text, targetLang); // Speak in target lang or auto detect?
-                }
-            };
-
-
-            // Render Translated Text (Markdown or Plain)
-            const renderResult = () => {
-                if (isMarkdownMode) {
-                    return <div className="absolute inset-0 p-4 overflow-y-auto prose prose-sm max-w-none text-slate-800 leading-relaxed" style={{ fontSize: `${globalFontSize}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || '') }} />;
-                } else {
-                    return <textarea readOnly value={translatedText} className="absolute inset-0 w-full h-full p-4 resize-none outline-none bg-transparent text-lg" style={{ fontSize: `${globalFontSize}px` }} placeholder="結果..." />;
-                }
-            };
-
-            const filteredHistory = history.filter(item => 
-                item.src.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
-                item.res.toLowerCase().includes(historySearchQuery.toLowerCase())
-            );
+            const handleSelection = () => { const selection = window.getSelection(); const text = selection.toString().trim(); if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) { const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); setSelectionMenu({ visible: true, x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY - 10, text: text }); } else { setSelectionMenu({ ...selectionMenu, visible: false }); } };
+            useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, []);
+            const handleSelectionAction = async (action) => { setSelectionMenu({ ...selectionMenu, visible: false }); const text = selectionMenu.text; if (action === 'explain') { await callAI('grammar', `Explain this text briefly: "${text}"`); } else if (action === 'glossary') { setNewGlossaryTerm(text); setShowSettings(true); } else if (action === 'speak') { speak(text, targetLang); } };
+            const renderResult = () => { if (isMarkdownMode) { return <div className="absolute inset-0 p-4 overflow-y-auto prose prose-sm max-w-none text-slate-800 leading-relaxed" style={{ fontSize: `${globalFontSize}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || '') }} />; } else { return <textarea readOnly value={translatedText} className="absolute inset-0 w-full h-full p-4 resize-none outline-none bg-transparent text-lg" style={{ fontSize: `${globalFontSize}px` }} placeholder="結果..." />; } };
+            const filteredHistory = history.filter(item => item.src.toLowerCase().includes(historySearchQuery.toLowerCase()) || item.res.toLowerCase().includes(historySearchQuery.toLowerCase()) );
 
             return (
                 <div className="pb-12">
                     {/* Smart Selection Menu */}
                     {selectionMenu.visible && (
-                        <div 
-                            className="fixed z-50 bg-slate-800 text-white rounded-lg shadow-lg flex items-center gap-1 p-1 text-xs transform -translate-x-1/2 -translate-y-full animate-in fade-in zoom-in-95 duration-100"
-                            style={{ left: selectionMenu.x, top: selectionMenu.y }}
-                            onMouseDown={(e) => e.preventDefault()} // Prevent clearing selection
-                        >
+                        <div className="fixed z-50 bg-slate-800 text-white rounded-lg shadow-lg flex items-center gap-1 p-1 text-xs transform -translate-x-1/2 -translate-y-full animate-in fade-in zoom-in-95 duration-100" style={{ left: selectionMenu.x, top: selectionMenu.y }} onMouseDown={(e) => e.preventDefault()}>
                             <button onClick={() => handleSelectionAction('explain')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Search className="w-3 h-3"/> 解釋</button>
                             <div className="w-px h-4 bg-slate-600"></div>
                             <button onClick={() => handleSelectionAction('glossary')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Book className="w-3 h-3"/> 術語</button>
                             <div className="w-px h-4 bg-slate-600"></div>
                             <button onClick={() => handleSelectionAction('speak')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Volume2 className="w-3 h-3"/> 朗讀</button>
-                            
-                            {/* Arrow */}
                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                         </div>
                     )}
@@ -1066,15 +756,14 @@
                     {/* Visual Mode Modal */}
                     {showVisualMode && displayImage && (
                         <div className="fixed inset-0 bg-black z-[80] flex flex-col animate-in fade-in duration-200"
-                             onMouseMove={handleVisualDragMove}
-                             onTouchMove={handleVisualDragMove}
-                             onMouseUp={handleVisualDragEnd}
-                             onTouchEnd={handleVisualDragEnd}
+                             onMouseMove={handleVisualMove}
+                             onTouchMove={handleVisualMove}
+                             onMouseUp={handleVisualEnd}
+                             onTouchEnd={handleVisualEnd}
                         >
                             <div className="flex justify-between items-center p-4 bg-black/50 text-white z-20 absolute top-0 left-0 right-0">
-                                <div className="flex gap-2">
-                                    <button onClick={() => setVisualFontSize(s => Math.max(12, s - 2))} className="p-2 bg-white/20 rounded">A-</button>
-                                    <button onClick={() => setVisualFontSize(s => Math.min(48, s + 2))} className="p-2 bg-white/20 rounded">A+</button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => handleShareImage()} className="p-2 bg-white/20 rounded" title="分享"><Icons.Share className="w-5 h-5"/></button>
                                     <button onClick={handleSaveVisualImage} className="p-2 bg-white/20 rounded" title="下載圖片"><Icons.Download className="w-5 h-5"/></button>
                                 </div>
                                 <button onClick={() => setShowVisualMode(false)} className="p-2 bg-white/20 rounded-full"><Icons.X className="w-6 h-6"/></button>
@@ -1085,21 +774,40 @@
                                 
                                 {translatedText && (
                                     <div 
-                                        className="absolute visual-text-box p-4 rounded-lg cursor-move border border-white/30"
+                                        className="absolute visual-text-box p-4 rounded-lg cursor-move border border-white/30 shadow-lg"
                                         style={{
-                                            left: `${visualTextPos.x}%`,
-                                            top: `${visualTextPos.y}%`,
+                                            left: `${visualBox.x}%`,
+                                            top: `${visualBox.y}%`,
+                                            width: `${visualBox.w}px`,
                                             transform: 'translate(-50%, -50%)',
                                             fontSize: `${visualFontSize}px`,
-                                            maxWidth: '80vw',
-                                            minWidth: '100px',
                                             color: visualStyle.color,
-                                            backgroundColor: visualStyle.bg
+                                            backgroundColor: visualStyle.bg,
+                                            whiteSpace: 'pre-wrap',
+                                            lineHeight: '1.5'
                                         }}
                                         onMouseDown={handleVisualDragStart}
                                         onTouchStart={handleVisualDragStart}
                                     >
                                         {translatedText}
+                                        
+                                        {/* Resize Handle */}
+                                        <div 
+                                            className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize flex items-end justify-end p-1"
+                                            onMouseDown={handleVisualResizeStart}
+                                            onTouchStart={handleVisualResizeStart}
+                                        >
+                                             <Icons.Scaling className="w-4 h-4 text-white/80"/>
+                                        </div>
+
+                                        {/* Color Toggle */}
+                                        <div className="absolute -top-10 left-0 p-2 rounded-full cursor-pointer bg-black/50 hover:bg-black/70 border border-white/20 transition-colors" 
+                                             onMouseDown={(e) => e.stopPropagation()}
+                                             onTouchStart={(e) => e.stopPropagation()}
+                                             onClick={() => setVisualStyle(prev => ({ ...prev, bg: prev.bg === 'rgba(0,0,0,0.6)' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)', color: prev.bg === 'rgba(0,0,0,0.6)' ? 'black' : 'white' }))} 
+                                             title="切換黑/白底">
+                                            <Icons.Palette className="w-4 h-4 text-white"/>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1120,306 +828,99 @@
                             </div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
                                 <div className="relative">
-                                    <img 
-                                        ref={imageRef} 
-                                        src={cropImageSrc} 
-                                        className="max-w-full max-h-[80vh] object-contain no-select block" 
-                                        draggable="false"
-                                        alt="Crop Preview"
-                                        onMouseDown={handleCropStart}
-                                        onTouchStart={handleCropStart}
-                                    />
-                                    {cropSelection && (
-                                        <div 
-                                            className="absolute border-2 border-yellow-400 bg-yellow-400/30 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
-                                            style={{
-                                                left: cropSelection.x,
-                                                top: cropSelection.y,
-                                                width: cropSelection.w,
-                                                height: cropSelection.h
-                                            }}
-                                        />
-                                    )}
+                                    <img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain no-select block" draggable="false" alt="Crop Preview" onMouseDown={handleCropStart} onTouchStart={handleCropStart} />
+                                    {cropSelection && (<div className="absolute border-2 border-yellow-400 bg-yellow-400/30 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{ left: cropSelection.x, top: cropSelection.y, width: cropSelection.w, height: cropSelection.h }} />)}
                                 </div>
                             </div>
                             <div className="p-4 bg-black/80 grid grid-cols-2 gap-4 z-10">
-                                <button onClick={handleFullImageConfirm} className="bg-slate-700 hover:bg-slate-600 text-white py-3.5 rounded-xl font-bold text-sm">
-                                    翻譯整張
-                                </button>
-                                <button onClick={handleCropConfirm} className={`py-3.5 rounded-xl font-bold text-sm ${!cropSelection ? 'bg-indigo-900 text-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`} disabled={!cropSelection}>
-                                    翻譯選取區域
-                                </button>
+                                <button onClick={handleFullImageConfirm} className="bg-slate-700 hover:bg-slate-600 text-white py-3.5 rounded-xl font-bold text-sm">翻譯整張</button>
+                                <button onClick={handleCropConfirm} className={`py-3.5 rounded-xl font-bold text-sm ${!cropSelection ? 'bg-indigo-900 text-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`} disabled={!cropSelection}>翻譯選取區域</button>
                             </div>
                         </div>
                     )}
-
-                    {/* Full Screen Text Modal */}
                     {showBigText && (
-                        <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in fade-in duration-200">
-                            <div className="flex justify-end p-4">
+                        <div className="fixed inset-0 bg-white z-[60] flex flex-col animate-in fade-in duration-200 overflow-hidden">
+                            <div className="flex justify-end p-4 z-20 bg-white/80 backdrop-blur-sm sticky top-0">
                                 <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 rounded-full"><Icons.X className="w-8 h-8 text-slate-600"/></button>
                             </div>
-                            <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-                                {isMarkdownMode ? (
-                                    <div className="prose prose-xl max-w-3xl text-slate-900 leading-relaxed text-center" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
-                                ) : (
-                                    <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap font-['Zen_Maru_Gothic']">
-                                        {translatedText || "尚無翻譯內容"}
-                                    </p>
-                                )}
+                            <div className="flex-1 w-full h-full overflow-y-auto px-4 sm:px-8 pb-24 smooth-scroll" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+                                <div className="max-w-4xl mx-auto min-h-full flex flex-col py-8">
+                                    {bilingualMode && sourceText ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="prose prose-lg text-slate-500"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 border-b pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
+                                            <div className="prose prose-xl text-slate-900"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-indigo-500 border-b pb-2">譯文</h3>{isMarkdownMode ? (<div className="leading-relaxed text-left" style={{ fontSize: `${globalFontSize + 4}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />) : (<p className="leading-relaxed whitespace-pre-wrap font-['Zen_Maru_Gothic']" style={{ fontSize: `${globalFontSize + 4}px` }}>{translatedText || "尚無翻譯內容"}</p>)}</div>
+                                        </div>
+                                    ) : (
+                                        isMarkdownMode ? (<div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left" style={{ fontSize: `${globalFontSize + 4}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />) : (<p className="text-slate-900 leading-relaxed whitespace-pre-wrap font-['Zen_Maru_Gothic']" style={{ fontSize: `${globalFontSize + 4}px` }}>{translatedText || "尚無翻譯內容"}</p>)
+                                    )}
+                                </div>
                             </div>
-                            <div className="p-8 flex justify-center gap-4">
-                                <button onClick={() => speak(translatedText, targetLang)} className="p-4 bg-indigo-600 rounded-full text-white shadow-lg"><Icons.Volume2 className="w-8 h-8"/></button>
+                            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-center gap-4 bg-white border-t border-slate-100 z-20">
+                                <button onClick={() => setBilingualMode(!bilingualMode)} className={`p-4 rounded-full shadow-lg transition-colors ${bilingualMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`} title="雙語對照模式"><Icons.Columns className="w-6 h-6"/></button>
+                                <button onClick={() => speak(translatedText, targetLang)} className="p-4 bg-indigo-600 rounded-full text-white shadow-lg hover:bg-indigo-700 transition-colors"><Icons.Volume2 className="w-8 h-8"/></button>
                             </div>
                         </div>
                     )}
-
-                    {/* History Modal */}
                     {showHistory && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
                             <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-4" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                                    <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
-                                    <button onClick={clearHistory}><Icons.Trash /></button>
+                                <div className="flex flex-col justify-between mb-4 border-b pb-2">
+                                    <div className="flex justify-between items-center mb-2"><h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3><button onClick={clearHistory}><Icons.Trash /></button></div>
+                                    <input type="text" placeholder="搜尋歷史..." value={historySearchQuery} onChange={(e) => setHistorySearchQuery(e.target.value)} className="w-full p-2 bg-slate-100 rounded-lg text-sm outline-none" />
                                 </div>
                                 <div className="flex-1 overflow-y-auto space-y-3">
-                                    {history.map(item => (
-                                        <div key={item.id} className="bg-slate-50 p-3 rounded-lg text-sm cursor-pointer" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}>
-                                            <div className="text-slate-500 text-xs mb-1">{item.sLang} → {item.tLang}</div>
-                                            <div className="font-bold mb-1 line-clamp-2">{item.src}</div>
-                                            <div className="text-indigo-600 line-clamp-2">{item.res}</div>
-                                        </div>
-                                    ))}
+                                    {filteredHistory.map(item => (<div key={item.id} className="bg-slate-50 p-3 rounded-lg text-sm cursor-pointer" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}><div className="text-slate-500 text-xs mb-1">{item.sLang} → {item.tLang}</div><div className="font-bold mb-1 line-clamp-2">{item.src}</div><div className="text-indigo-600 line-clamp-2">{item.res}</div></div>))}
+                                    {filteredHistory.length === 0 && <p className="text-center text-slate-400 text-sm py-4">沒有找到相關記錄</p>}
                                 </div>
                             </div>
                         </div>
                     )}
-                    
-                    {/* Settings Modal */}
                     {showSettings && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                                 <h3 className="font-bold text-lg flex items-center gap-2"><Icons.Settings /> 設定</h3>
-                                
-                                {/* Voice Settings Section */}
-                                <div className="space-y-3 border-b pb-4">
-                                    <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Volume3 className="w-4 h-4"/> 語音設定</h4>
-                                    
-                                    <div>
-                                        <label className="text-xs text-slate-500 mb-1 block">朗讀語音 (Voice)</label>
-                                        <select 
-                                            value={selectedVoiceURI} 
-                                            onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                                            className="w-full p-2 border rounded-lg text-sm bg-white"
-                                        >
-                                            <option value="">預設 (Default)</option>
-                                            {availableVoices.map(v => (
-                                                <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs text-slate-500 mb-1 block">語速 (Rate): {voiceRate}x</label>
-                                            <input 
-                                                type="range" min="0.5" max="2" step="0.1" 
-                                                value={voiceRate} 
-                                                onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-slate-500 mb-1 block">音調 (Pitch): {voicePitch}</label>
-                                            <input 
-                                                type="range" min="0.5" max="2" step="0.1" 
-                                                value={voicePitch} 
-                                                onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
-                                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold">翻譯引擎</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded text-sm ${apiProvider==='gemini'?'bg-indigo-50 border-indigo-500 text-indigo-700':''}`}>Gemini</button>
-                                        <button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded text-sm ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700':''}`}>MyMemory</button>
-                                        <button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded text-sm ${apiProvider==='ollama'?'bg-emerald-50 border-emerald-500 text-emerald-700':''}`}>Ollama</button>
-                                    </div>
-                                </div>
-                                
-                                {apiProvider === 'gemini' && (
-                                    <div className="space-y-3 animate-in fade-in">
-                                        <div className="bg-indigo-50 p-4 rounded-xl space-y-2">
-                                            <label className="text-xs font-bold text-indigo-600 flex items-center gap-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</label>
-                                            <input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2 border border-indigo-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="貼上您的 Key" />
-                                            <div className="text-xs text-indigo-600 font-medium flex items-center gap-1 mt-1">
-                                                <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline flex items-center gap-1 hover:text-indigo-800">
-                                                    👉 點此前往 Google AI Studio 取得免費 Key <Icons.Copy className="w-3 h-3 inline"/>
-                                                </a>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-bold text-slate-500 flex items-center gap-1"><Icons.CPU className="w-3 h-3"/> 選擇模型 (Model)</label>
-                                            <select 
-                                                value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} 
-                                                onChange={(e) => {
-                                                    if (e.target.value === 'custom') setGeminiModel('');
-                                                    else setGeminiModel(e.target.value);
-                                                }} 
-                                                className="w-full p-2 border rounded-lg text-sm bg-white"
-                                            >
-                                                {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}
-                                            </select>
-                                            
-                                            {(GEMINI_MODELS.every(m => m.id !== geminiModel) || geminiModel === '') && (
-                                                <input 
-                                                    type="text" 
-                                                    value={geminiModel}
-                                                    onChange={(e) => setGeminiModel(e.target.value)}
-                                                    placeholder="輸入模型 ID (例如 gemini-3.0-pro)"
-                                                    className="mt-2 w-full p-2 border rounded-lg text-sm font-mono bg-slate-50"
-                                                />
-                                            )}
-                                            
-                                            <p className="text-xs text-slate-400 mt-1">若遇到 404 錯誤，請嘗試切換不同模型。</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {apiProvider === 'ollama' && (
-                                    <div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in">
-                                        <label className="text-xs font-bold text-emerald-600">API URL</label>
-                                        <input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 rounded-lg font-mono text-sm" />
-                                    </div>
-                                )}
-
+                                <div className="space-y-3 border-b pb-4"><h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Monitor className="w-4 h-4"/> 顯示設定</h4><div><label className="text-xs text-slate-500 mb-1 block">字體大小: {globalFontSize}px</label><input type="range" min="12" max="32" step="1" value={globalFontSize} onChange={(e) => setGlobalFontSize(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /></div></div>
+                                <div className="space-y-3 border-b pb-4"><h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.SlidersHorizontal className="w-4 h-4"/> AI 參數</h4><div><label className="text-xs text-slate-500 mb-1 block">創意度 (Temperature): {aiTemperature}</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={(e) => setAiTemperature(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"/><div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>精準</span><span>創意</span></div></div></div>
+                                <div className="space-y-3 border-b pb-4"><h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.FileDown className="w-4 h-4"/> 備份與還原</h4><div className="grid grid-cols-2 gap-2"><button onClick={handleExportData} className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1"><Icons.FileDown className="w-3 h-3"/> 匯出備份</button><label className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1 cursor-pointer"><Icons.FileUp className="w-3 h-3"/> 匯入還原<input type="file" accept=".json" onChange={handleImportData} className="hidden" /></label></div></div>
+                                <div className="space-y-3 border-b pb-4"><h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Volume3 className="w-4 h-4"/> 語音設定</h4><div><label className="text-xs text-slate-500 mb-1 block">朗讀語音 (Voice)</label><select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white"><option value="">預設 (Default)</option>{availableVoices.map(v => (<option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>))}</select></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs text-slate-500 mb-1 block">語速: {voiceRate}x</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"/></div><div><label className="text-xs text-slate-500 mb-1 block">音調: {voicePitch}</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={(e) => setVoicePitch(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"/></div></div></div>
+                                <div className="space-y-3 border-b pb-4"><h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.Book className="w-4 h-4"/> 術語表 (Glossary)</h4><div className="flex gap-2"><input type="text" placeholder="原文 (例如: Apple)" value={newGlossaryTerm} onChange={(e) => setNewGlossaryTerm(e.target.value)} className="w-1/2 p-2 border rounded-lg text-sm"/><input type="text" placeholder="譯文 (例如: 蘋果公司)" value={newGlossaryTrans} onChange={(e) => setNewGlossaryTrans(e.target.value)} className="w-1/2 p-2 border rounded-lg text-sm"/><button onClick={addGlossaryTerm} className="bg-blue-500 text-white p-2 rounded-lg">+</button></div><div className="max-h-32 overflow-y-auto space-y-2">{glossary.map((item, index) => (<div key={index} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm"><span>{item.term} → {item.trans}</span><button onClick={() => removeGlossaryTerm(index)} className="text-red-400 hover:text-red-600"><Icons.X className="w-4 h-4"/></button></div>))}{glossary.length === 0 && <p className="text-xs text-slate-400 text-center">尚未新增術語</p>}</div></div>
+                                <div className="space-y-3 border-b pb-4"><h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂 AI 指令</h4><div><label className="text-xs text-slate-500 mb-1 block">額外提示詞 (Optional)</label><textarea value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} className="w-full p-2 border rounded-lg text-sm bg-white h-20 resize-none" placeholder="例如：請保留專有名詞原文、請使用台灣用語..."/></div></div>
+                                <div className="space-y-2"><label className="text-sm font-bold">翻譯引擎</label><div className="grid grid-cols-3 gap-2"><button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded text-sm ${apiProvider==='gemini'?'bg-indigo-50 border-indigo-500 text-indigo-700':''}`}>Gemini</button><button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded text-sm ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700':''}`}>MyMemory</button><button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded text-sm ${apiProvider==='ollama'?'bg-emerald-50 border-emerald-500 text-emerald-700':''}`}>Ollama</button></div></div>
+                                {apiProvider === 'gemini' && (<div className="space-y-3 animate-in fade-in"><div className="bg-indigo-50 p-4 rounded-xl space-y-2"><label className="text-xs font-bold text-indigo-600 flex items-center gap-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</label><input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2 border border-indigo-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="貼上您的 Key" /><div className="text-xs text-indigo-600 font-medium flex items-center gap-1 mt-1"><a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline flex items-center gap-1 hover:text-indigo-800">👉 點此前往 Google AI Studio 取得免費 Key <Icons.Copy className="w-3 h-3 inline"/></a></div></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 flex items-center gap-1"><Icons.CPU className="w-3 h-3"/> 選擇模型 (Model)</label><select value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} onChange={(e) => { if (e.target.value === 'custom') setGeminiModel(''); else setGeminiModel(e.target.value); }} className="w-full p-2 border rounded-lg text-sm bg-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}</select>{(GEMINI_MODELS.every(m => m.id !== geminiModel) || geminiModel === '') && <input type="text" value={geminiModel} onChange={(e) => setGeminiModel(e.target.value)} placeholder="輸入模型 ID (例如 gemini-3.0-pro)" className="mt-2 w-full p-2 border rounded-lg text-sm font-mono bg-slate-50" />}<p className="text-xs text-slate-400 mt-1">若遇到 404 錯誤，請嘗試切換不同模型。</p></div></div>)}
+                                {apiProvider === 'ollama' && (<div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in"><label className="text-xs font-bold text-emerald-600">API URL</label><input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 rounded-lg font-mono text-sm" /></div>)}
                                 <button onClick={() => setShowSettings(false)} className="w-full bg-slate-900 text-white py-2 rounded-lg shadow-lg hover:bg-slate-800">關閉設定</button>
                             </div>
                         </div>
                     )}
-
                     {/* Header */}
                     <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-20 h-16 flex items-center justify-between px-4">
-                        <div className="flex items-center gap-2 text-blue-700">
-                            <div className="bg-blue-600 text-white p-1.5 rounded-lg"><Icons.Languages className="w-5 h-5" /></div>
-                            <h1 className="font-bold text-slate-900">Gemini 助手</h1>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100"><Icons.Clock className="w-6 h-6" /></button>
-                            <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full ${!geminiKey&&apiProvider==='gemini'?'text-red-500 animate-pulse':'text-slate-400'}`}><Icons.Settings className="w-6 h-6" /></button>
-                        </div>
+                        <div className="flex items-center gap-2 text-blue-700"><div className="bg-blue-600 text-white p-1.5 rounded-lg"><Icons.Languages className="w-5 h-5" /></div><h1 className="font-bold text-slate-900">Gemini 助手</h1></div>
+                        <div className="flex items-center gap-3"><button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100"><Icons.Clock className="w-6 h-6" /></button><button onClick={() => setShowSettings(true)} className={`p-2 rounded-full ${!geminiKey&&apiProvider==='gemini'?'text-red-500 animate-pulse':'text-slate-400'}`}><Icons.Settings className="w-6 h-6" /></button></div>
                     </header>
-
                     <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
-                        {/* Mode Switcher */}
-                        <div className="grid grid-cols-2 gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200">
-                            <button onClick={() => setMode('text')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-500'}`}><Icons.Type className="w-4 h-4"/>一般</button>
-                            <button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button>
-                        </div>
-
-                        {/* Task Switcher (New Feature) */}
-                        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 sm:overflow-x-auto sm:hide-scrollbar py-1">
-                            {TASKS.map(task => (
-                                <button 
-                                    key={task.id} 
-                                    onClick={() => setCurrentTask(task.id)}
-                                    className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${currentTask === task.id ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                                >
-                                    {task.icon} {task.name}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Language Select (Global) */}
-                        <div className="flex gap-2 items-center justify-center bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                            <select value={sourceLang} onChange={e=>setSourceLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 text-center outline-none">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select>
-                            <div onClick={()=>{const t=targetLang;setTargetLang(sourceLang);setSourceLang(t)}} className="p-2 rounded-full bg-slate-50 text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></div>
-                            <select value={targetLang} onChange={e=>setTargetLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 text-center outline-none">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select>
-                        </div>
-
+                        <div className="grid grid-cols-2 gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-slate-200"><button onClick={() => setMode('text')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-500'}`}><Icons.Type className="w-4 h-4"/>一般</button><button onClick={() => setMode('file')} className={`py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-500'}`}><Icons.FileText className="w-4 h-4"/>文件/相機</button></div>
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 sm:overflow-x-auto sm:hide-scrollbar py-1">{TASKS.map(task => (<button key={task.id} onClick={() => setCurrentTask(task.id)} className={`flex items-center justify-center gap-1 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all ${currentTask === task.id ? 'bg-slate-800 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>{task.icon} {task.name}</button>))}</div>
+                        <div className="flex gap-2 items-center justify-center bg-white p-2 rounded-xl shadow-sm border border-slate-200"><select value={sourceLang} onChange={e=>setSourceLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 text-center outline-none">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select><div onClick={()=>{const t=targetLang;setTargetLang(sourceLang);setSourceLang(t)}} className="p-2 rounded-full bg-slate-50 text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></div><select value={targetLang} onChange={e=>setTargetLang(e.target.value)} className="bg-transparent w-full text-sm font-bold text-slate-700 text-center outline-none">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select></div>
+                        {mode === 'file' && (<div className="flex items-center justify-center"><label className="flex items-center gap-2 cursor-pointer bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"><input type="checkbox" checked={usePdfVision} onChange={(e) => setUsePdfVision(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"/><span className="text-xs font-bold text-blue-700 select-none flex items-center gap-1"><Icons.Eye className="w-3 h-3"/> 強制使用 AI 視覺辨識 (讀取圖表)</span></label></div>)}
                         {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-center gap-2 animate-bounce"><Icons.AlertCircle className="w-4 h-4"/>{errorMsg}</div>}
-
-                        {/* Main Input Area */}
                         <div className="grid md:grid-cols-2 gap-4">
-                            {/* Source */}
                             <div className={`bg-white rounded-2xl shadow-sm border flex flex-col h-[300px] md:h-[500px] overflow-hidden relative group ${isListening?'ring-2 ring-red-100 border-red-400':''}`}>
-                                <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => setIsRealTime(!isRealTime)} className={`p-1 rounded ${isRealTime?'bg-yellow-100 text-yellow-600':'text-slate-400'}`} title="即時翻譯"><Icons.Zap className="w-4 h-4"/></button>
-                                        <span className="text-xs font-bold text-slate-400 uppercase">原文 {isListening&&<span className="text-red-500 animate-pulse">●</span>}</span>
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                                        <button onClick={handleScreenCapture} className="p-1.5 rounded hover:bg-slate-100 hidden sm:block" title="截圖"><Icons.Scissors className="w-5 h-5 text-slate-500"/></button>
-                                        <button onClick={() => cameraInputRef.current?.click()} className={`p-1.5 rounded-lg ${apiProvider==='gemini'&&geminiKey?'text-blue-600 bg-blue-50 hover:bg-blue-100':'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`} title={apiProvider==='gemini'?'AI 視覺辨識 (Gemini Vision)':'相機 (Tesseract OCR)'}>
-                                            {apiProvider==='gemini'&&geminiKey ? <Icons.Eye className="w-5 h-5"/> : <Icons.Camera className="w-5 h-5" />}
-                                        </button>
-                                        <button onClick={() => toggleListening()} className={`p-1.5 rounded ${isListening?'bg-red-100 text-red-600':'text-slate-500 hover:bg-slate-100'}`}><Icons.Mic className="w-5 h-5"/></button>
-                                        {sourceText && <button onClick={clearAll} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"><Icons.X className="w-5 h-5"/></button>}
-                                    </div>
-                                </div>
+                                <div className="p-3 border-b bg-slate-50/50 flex justify-between items-center"><div className="flex items-center gap-2"><button onClick={() => setIsRealTime(!isRealTime)} className={`p-1 rounded ${isRealTime?'bg-yellow-100 text-yellow-600':'text-slate-400'}`} title="即時翻譯"><Icons.Zap className="w-4 h-4"/></button><span className="text-xs font-bold text-slate-400 uppercase">原文 {isListening&&<span className="text-red-500 animate-pulse">●</span>}</span></div><div className="flex gap-1"><input type="file" ref={cameraInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /><button onClick={handleScreenCapture} className="p-1.5 rounded hover:bg-slate-100 hidden sm:block" title="截圖"><Icons.Scissors className="w-5 h-5 text-slate-500"/></button><button onClick={() => cameraInputRef.current?.click()} className={`p-1.5 rounded-lg ${apiProvider==='gemini'&&geminiKey?'text-blue-600 bg-blue-50 hover:bg-blue-100':'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`} title={apiProvider==='gemini'?'AI 視覺辨識 (Gemini Vision)':'相機 (Tesseract OCR)'}>{apiProvider==='gemini'&&geminiKey ? <Icons.Eye className="w-5 h-5"/> : <Icons.Camera className="w-5 h-5" />}</button><button onClick={() => toggleListening()} className={`p-1.5 rounded ${isListening?'bg-red-100 text-red-600':'text-slate-500 hover:bg-slate-100'}`}><Icons.Mic className="w-5 h-5"/></button>{sourceText && <button onClick={clearAll} className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500"><Icons.X className="w-5 h-5"/></button>}</div></div>
                                 <div className="flex-1 relative">
-                                    {mode === 'file' && !sourceText ? (
-                                        <div onClick={()=>fileInputRef.current?.click()} className={`absolute inset-3 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:bg-slate-50 ${isDragOver?'border-blue-500 bg-blue-50':''}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={e=>{e.preventDefault();setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}>
-                                            <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.docx,.txt,image/*" onChange={handleFileChange} />
-                                            <Icons.UploadCloud className="w-8 h-8 text-blue-300 mb-2" />
-                                            <p className="text-sm font-bold">拖曳檔案或圖片</p>
-                                            <p className="text-xs mt-1 opacity-70">
-                                                {apiProvider === 'gemini' && geminiKey ? '✨ 支援 Gemini AI 視覺辨識' : '支援圖片 OCR, PDF, Word'}
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" placeholder="輸入文字..." />
-                                    )}
+                                    {mode === 'file' && !sourceText ? (<div onClick={()=>fileInputRef.current?.click()} className={`absolute inset-3 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:bg-slate-50 ${isDragOver?'border-blue-500 bg-blue-50':''}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={e=>{e.preventDefault();setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}><input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.docx,.txt,image/*" onChange={handleFileChange} /><Icons.UploadCloud className="w-8 h-8 text-blue-300 mb-2" /><p className="text-sm font-bold">拖曳檔案或圖片</p><p className="text-xs mt-1 opacity-70">{apiProvider === 'gemini' && geminiKey ? '✨ 支援 Gemini AI 視覺辨識' : '支援圖片 OCR, PDF, Word'}</p></div>) : (<textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="w-full h-full p-4 resize-none outline-none bg-transparent text-lg" style={{ fontSize: `${globalFontSize}px` }} placeholder="輸入文字..." />)}
                                     {fileName && <div className="absolute bottom-2 left-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded flex items-center gap-1"><Icons.FileType className="w-3 h-3"/>{fileName}</div>}
                                 </div>
                             </div>
-
-                            {/* Target */}
                             <div className="bg-slate-50 rounded-2xl border border-slate-200 flex flex-col h-[300px] md:h-[500px] overflow-hidden relative">
-                                <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400 uppercase">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
-                                        {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
-                                        {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
-                                        <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
-                                        <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
-                                    </div>
-                                </div>
+                                <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center"><span className="text-xs font-bold text-slate-400 uppercase">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span><div className="flex gap-1"><button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>{translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}{displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}<button onClick={handleDownload} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Download className="w-5 h-5"/></button><button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button><button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button></div></div>
                                 <div className="flex-1 relative">
                                     {isLoading && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div><span className="text-xs font-bold text-blue-600">{loadingStatus}</span></div>}
                                     {renderResult()}
                                 </div>
                             </div>
                         </div>
-
-                        {/* Bottom Tone/Action Bar (Only for Standard Mode) */}
-                        {mode !== 'conversation' && (
-                            <>
-                                <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
-                                    <span className="text-xs font-bold text-slate-400 px-2">風格</span>
-                                    <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-                                        {TONES.map(t => (
-                                            <button key={t.id} onClick={()=>setSelectedTone(t.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedTone===t.id?'bg-indigo-100 text-indigo-700':'text-slate-500 hover:bg-slate-50'}`}>{t.icon} {t.name.split(' ')[0]}</button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-4 gap-2">
-                                    <button onClick={() => callAI('translate')} disabled={isLoading || !sourceText} className="col-span-4 md:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
-                                        {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : <Icons.Sparkles className="w-5 h-5 text-yellow-300"/>} 翻譯
-                                    </button>
-                                    <button onClick={() => callAI('polish')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Edit3 className="w-4 h-4"/>潤飾</button>
-                                    <button onClick={() => callAI('summarize')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.List className="w-4 h-4"/>摘要</button>
-                                    <button onClick={() => callAI('grammar')} disabled={isLoading || !sourceText} className="bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 text-xs"><Icons.Search className="w-4 h-4"/>分析</button>
-                                </div>
-                            </>
-                        )}
-                        
+                        {(currentTask === 'translate' || currentTask === 'polish') && (<div className="flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar py-1"><span className="text-xs font-bold text-slate-400 whitespace-nowrap px-2">語氣：</span>{TONES.map(t => (<button key={t.id} onClick={() => setSelectedTone(t.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${selectedTone === t.id ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>{t.icon} {t.name}</button>))}</div>)}
+                        <button onClick={() => callAI(currentTask)} disabled={isLoading || !sourceText} className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white transition-colors ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading ? <Icons.RotateCw className="w-6 h-6 animate-spin"/> : <Icons.Sparkles className="w-6 h-6 text-yellow-300"/>} {TASKS.find(t=>t.id===currentTask)?.name}</button>
                         <div className="text-center text-xs text-slate-400 opacity-60">© 2023 Gemini Translate Pro</div>
                     </main>
                 </div>
