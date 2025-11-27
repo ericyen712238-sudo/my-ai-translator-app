@@ -236,18 +236,26 @@
             });
         };
 
-        const renderPdfFirstPage = async (arrayBuffer) => {
+        // Helper function to convert PDF pages to images
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 10) => {
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2.0 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            return new Promise(resolve => {
-                canvas.toBlob(resolve, 'image/jpeg', 0.8);
-            });
+            const count = Math.min(pdf.numPages, maxPagesToRender);
+            const images = [];
+            
+            for (let i = 1; i <= count; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is decent for OCR
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                
+                // Get Base64
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                images.push(dataUrl.split(',')[1]); // Remove prefix
+            }
+            return { images, totalPages: pdf.numPages };
         };
 
         function App() {
@@ -485,6 +493,35 @@
                 runOCR(file);
             };
 
+            // --- Multi-Page OCR API Call ---
+            const performGeminiOCR_Multi = async (base64Images) => {
+                const trimmedKey = geminiKey.trim();
+                if (!trimmedKey) {
+                    setShowSettings(true);
+                    throw new Error("請輸入 Gemini API Key");
+                }
+                setLoadingStatus(`AI 正在辨識 ${base64Images.length} 頁掃描文件...`);
+                
+                // Force use 1.5 Flash for vision tasks to avoid 400 error on text-only models
+                const modelName = "gemini-1.5-flash"; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${trimmedKey}`;
+                
+                const parts = [
+                    { text: "Transcribe the text from these images sequentially. Output ONLY the text content. Do not describe the layout." }
+                ];
+                
+                base64Images.forEach(b64 => {
+                    parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
+                });
+
+                const payload = { contents: [{ parts }] };
+                
+                const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error("AI 無法辨識圖片中的文字");
+                return text.trim();
+            };
+
             const runOCR = async (file) => {
                 setErrorMsg('');
                 setSourceText('');
@@ -572,14 +609,14 @@
 
                 try {
                     let text = "";
-                    const arrayBuffer = await file.arrayBuffer(); // Load array buffer once for PDF/Docx
+                    const arrayBuffer = await file.arrayBuffer(); 
 
                     if (lowerName.endsWith('.pdf')) {
                         if (!window.pdfjsLib) throw new Error("PDF 元件載入中...");
                         
-                        // First attempt: read text layer
+                        // First attempt: read text layer (Limit increased to 50 pages)
                         const pdfDocument = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
-                        const maxPages = Math.min(pdfDocument.numPages, 30);
+                        const maxPages = Math.min(pdfDocument.numPages, 50); 
                         let fullText = "";
                         for (let i = 1; i <= maxPages; i++) {
                             const page = await pdfDocument.getPage(i);
@@ -589,14 +626,11 @@
                         
                         text = fullText;
                         
-                        // If text is minimal (likely a scanned PDF without text layer), switch to OCR mode (first page only)
+                        // Fallback for scanned PDF: Read first 10 pages as images if text is empty
                         if ((!text || text.trim().length < 50) && geminiKey) {
-                            setLoadingStatus('PDF 無文字層，嘗試 OCR 辨識第一頁...');
-                            const imageBlob = await renderPdfFirstPage(arrayBuffer);
-                            const imageFile = new File([imageBlob], "pdf_page_1.jpg", { type: "image/jpeg" });
-                            // Re-route to runOCR flow
-                            await runOCR(imageFile);
-                            return; 
+                            setLoadingStatus('PDF 無文字層，切換至多頁 OCR 模式 (前10頁)...');
+                            const { images } = await renderPdfToImages(arrayBuffer.slice(0), 10); // Render up to 10 pages
+                            text = await performGeminiOCR_Multi(images);
                         }
                     } else if (lowerName.endsWith('.docx')) {
                         if (!window.mammoth) throw new Error("Word 元件載入中...");
@@ -613,7 +647,7 @@
                     
                     if (!text || !text.trim()) throw new Error("無法讀取文字");
                     setSourceText(text);
-                    callAI(currentTask, text); // Auto run current task
+                    callAI(currentTask, text); 
                 } catch (err) {
                     console.error(err);
                     setErrorMsg(err.message || "讀取失敗");
