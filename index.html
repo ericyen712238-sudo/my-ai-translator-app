@@ -258,6 +258,21 @@
             return { images, totalPages: pdf.numPages };
         };
 
+        // Helper function to render PDF first page for fallback (when we only need 1 page)
+        const renderPdfFirstPage = async (arrayBuffer) => {
+             const { images } = await renderPdfToImages(arrayBuffer, 1);
+             // Convert base64 back to blob to reuse existing runOCR logic if needed, 
+             // or just return base64. Here we return blob to be consistent with previous logic
+             const byteCharacters = atob(images[0]);
+             const byteNumbers = new Array(byteCharacters.length);
+             for (let i = 0; i < byteCharacters.length; i++) {
+                 byteNumbers[i] = byteCharacters.charCodeAt(i);
+             }
+             const byteArray = new Uint8Array(byteNumbers);
+             return new Blob([byteArray], {type: 'image/jpeg'});
+        };
+
+
         function App() {
             const [mode, setMode] = useState('text'); 
             const [currentTask, setCurrentTask] = useState('translate'); // New State for Task
