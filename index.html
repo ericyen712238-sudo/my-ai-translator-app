@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手 (修復版)</title>
+    <title>Gemini AI 全能文件助手 (完美分享版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -64,7 +64,7 @@
         
         /* UI Styles */
         .crop-modal { touch-action: none; } 
-        .visual-text-box { touch-action: none; backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .visual-text-box { touch-action: none; backdrop-filter: blur(4px); }
 
         /* Markdown */
         .prose { font-size: 1.05rem; line-height: 1.7; color: #334155; max-width: none; }
@@ -108,7 +108,7 @@
             Mic: () => <Icon><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             MicOff: () => <Icon><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             FileType: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13v-1h6v1"/><path d="M12 12v6"/><path d="M11 18h2"/></Icon>,
-            Settings: () => <Icon><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>,
+            Settings: () => <Icon><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>,
             Save: () => <Icon><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>,
             Server: () => <Icon><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></Icon>,
             Camera: () => <Icon><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>,
@@ -140,12 +140,15 @@
             FileUp: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v6"/><path d="m9 15 3-3 3 3"/></Icon>,
             FileIcon: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></Icon>,
             SlidersHorizontal: () => <Icon><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></Icon>,
-            MousePointerClick: () => <Icon><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></Icon>
+            MousePointerClick: () => <Icon><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></Icon>,
+            Share: () => <Icon><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></Icon>,
+            Palette: () => <Icon><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
+        // Updated Gemini Models List - using safer aliases
         const GEMINI_MODELS = [
             { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
             { id: 'gemini-1.5-flash', name: 'Flash 1.5 (穩定版)', desc: '快速' },
@@ -311,7 +314,8 @@
             const [usePdfVision, setUsePdfVision] = useState(false); 
             const [globalFontSize, setGlobalFontSize] = useState(18);
             const [aiTemperature, setAiTemperature] = useState(0.7); 
-            
+            const [bilingualMode, setBilingualMode] = useState(false); // New state for Bilingual Mode
+
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
             const [availableVoices, setAvailableVoices] = useState([]);
@@ -328,11 +332,13 @@
             const [cropSelection, setCropSelection] = useState(null); 
             const [isCropping, setIsCropping] = useState(false);
             
+            // Enhanced Visual Mode State
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
             const [visualTextPos, setVisualTextPos] = useState({ x: 50, y: 50 });
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
+            const [visualStyle, setVisualStyle] = useState({ color: 'white', bg: 'rgba(0,0,0,0.6)' });
 
             // Selection Menu State
             const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0, text: '' });
@@ -490,13 +496,45 @@
                 reader.readAsText(file);
             };
             
+            // --- Web Share for Images ---
+            const handleShareImage = async () => {
+                 if (!visualContainerRef.current) return;
+                 try {
+                     const canvas = await html2canvas(visualContainerRef.current, {
+                        useCORS: true,
+                        backgroundColor: '#000000',
+                     });
+                     canvas.toBlob(async (blob) => {
+                         if (!blob) return;
+                         const file = new File([blob], "translated_image.png", { type: "image/png" });
+                         
+                         if (navigator.share && navigator.canShare({ files: [file] })) {
+                             await navigator.share({
+                                 files: [file],
+                                 title: 'Gemini Translate Result',
+                                 text: 'Translated by Gemini AI Assistant'
+                             });
+                         } else {
+                             // Fallback to download
+                             const link = document.createElement('a');
+                             link.download = `visual_translation_${new Date().getTime()}.png`;
+                             link.href = canvas.toDataURL('image/png');
+                             link.click();
+                         }
+                     }, 'image/png');
+                 } catch (err) {
+                     console.error("Failed to share image:", err);
+                     alert("分享失敗，請嘗試下載圖片。");
+                 }
+            };
+            
             const handleSaveVisualImage = async () => {
+                // Re-using the share logic fallback for direct download button
                 if (!visualContainerRef.current) return;
                 try {
-                    // Use html2canvas to capture the visual container
                     const canvas = await html2canvas(visualContainerRef.current, {
-                        useCORS: true, // Important for external images
-                        backgroundColor: '#000000', // Ensure background is black
+                        useCORS: true,
+                        backgroundColor: '#000000',
                     });
                     const link = document.createElement('a');
                     link.download = `visual_translation_${new Date().getTime()}.png`;
@@ -504,7 +542,6 @@
                     link.click();
                 } catch (err) {
                     console.error("Failed to save image:", err);
-                    alert("儲存圖片失敗，請稍後再試。");
                 }
             };
 
@@ -1042,9 +1079,12 @@
                                 <div className="flex gap-2">
                                     <button onClick={() => setVisualFontSize(s => Math.max(12, s - 2))} className="p-2 bg-white/20 rounded">A-</button>
                                     <button onClick={() => setVisualFontSize(s => Math.min(48, s + 2))} className="p-2 bg-white/20 rounded">A+</button>
-                                    <button onClick={handleSaveVisualImage} className="p-2 bg-white/20 rounded" title="下載圖片"><Icons.Download className="w-5 h-5"/></button>
+                                    <button onClick={() => setVisualStyle(s => ({ ...s, color: s.color === 'white' ? 'black' : 'white', bg: s.color === 'white' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)' }))} className="p-2 bg-white/20 rounded" title="切換風格"><Icons.Palette className="w-5 h-5"/></button>
                                 </div>
-                                <button onClick={() => setShowVisualMode(false)} className="p-2 bg-white/20 rounded-full"><Icons.X className="w-6 h-6"/></button>
+                                <div className="flex gap-2">
+                                     <button onClick={handleShareImage} className="p-2 bg-blue-600 rounded text-white flex gap-1 items-center text-sm font-bold shadow-lg"><Icons.Share className="w-4 h-4"/> 分享</button>
+                                     <button onClick={() => setShowVisualMode(false)} className="p-2 bg-white/20 rounded-full"><Icons.X className="w-6 h-6"/></button>
+                                </div>
                             </div>
                             
                             <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-gray-900" ref={visualContainerRef}>
@@ -1052,14 +1092,16 @@
                                 
                                 {translatedText && (
                                     <div 
-                                        className="absolute visual-text-box bg-black/60 text-white p-4 rounded-lg cursor-move border border-white/30"
+                                        className="absolute visual-text-box p-4 rounded-lg cursor-move border border-white/30"
                                         style={{
                                             left: `${visualTextPos.x}%`,
                                             top: `${visualTextPos.y}%`,
                                             transform: 'translate(-50%, -50%)',
                                             fontSize: `${visualFontSize}px`,
                                             maxWidth: '80vw',
-                                            minWidth: '100px'
+                                            minWidth: '100px',
+                                            color: visualStyle.color,
+                                            backgroundColor: visualStyle.bg
                                         }}
                                         onMouseDown={handleVisualDragStart}
                                         onTouchStart={handleVisualDragStart}
@@ -1124,18 +1166,47 @@
                             <div className="flex justify-end p-4 z-20 bg-white/80 backdrop-blur-sm sticky top-0">
                                 <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 rounded-full"><Icons.X className="w-8 h-8 text-slate-600"/></button>
                             </div>
-                            <div className="flex-1 w-full h-full overflow-y-auto px-4 sm:px-8 pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
+                            <div className="flex-1 w-full h-full overflow-y-auto px-4 sm:px-8 pb-24 smooth-scroll" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
                                 <div className="max-w-4xl mx-auto min-h-full flex flex-col py-8">
-                                    {isMarkdownMode ? (
-                                        <div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left" style={{ fontSize: `${globalFontSize + 4}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
+                                    {/* Bilingual Mode Split */}
+                                    {bilingualMode && sourceText ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="prose prose-lg text-slate-500">
+                                                <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 border-b pb-2">原文</h3>
+                                                <p className="whitespace-pre-wrap text-base">{sourceText}</p>
+                                            </div>
+                                            <div className="prose prose-xl text-slate-900">
+                                                <h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-indigo-500 border-b pb-2">譯文</h3>
+                                                {isMarkdownMode ? (
+                                                    <div className="leading-relaxed text-left" style={{ fontSize: `${globalFontSize + 4}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
+                                                ) : (
+                                                    <p className="leading-relaxed whitespace-pre-wrap font-['Zen_Maru_Gothic']" style={{ fontSize: `${globalFontSize + 4}px` }}>
+                                                        {translatedText || "尚無翻譯內容"}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
                                     ) : (
-                                        <p className="text-slate-900 leading-relaxed whitespace-pre-wrap font-['Zen_Maru_Gothic']" style={{ fontSize: `${globalFontSize + 4}px` }}>
-                                            {translatedText || "尚無翻譯內容"}
-                                        </p>
+                                        /* Single Column Mode (Original) */
+                                        isMarkdownMode ? (
+                                            <div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left" style={{ fontSize: `${globalFontSize + 4}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
+                                        ) : (
+                                            <p className="text-slate-900 leading-relaxed whitespace-pre-wrap font-['Zen_Maru_Gothic']" style={{ fontSize: `${globalFontSize + 4}px` }}>
+                                                {translatedText || "尚無翻譯內容"}
+                                            </p>
+                                        )
                                     )}
                                 </div>
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-center gap-4 bg-white border-t border-slate-100 z-20">
+                                {/* Bilingual Toggle Button */}
+                                <button 
+                                    onClick={() => setBilingualMode(!bilingualMode)} 
+                                    className={`p-4 rounded-full shadow-lg transition-colors ${bilingualMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                                    title="雙語對照模式"
+                                >
+                                    <Icons.Columns className="w-6 h-6"/>
+                                </button>
                                 <button onClick={() => speak(translatedText, targetLang)} className="p-4 bg-indigo-600 rounded-full text-white shadow-lg hover:bg-indigo-700 transition-colors"><Icons.Volume2 className="w-8 h-8"/></button>
                             </div>
                         </div>
@@ -1145,18 +1216,28 @@
                     {showHistory && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
                             <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-4" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                                    <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
-                                    <button onClick={clearHistory}><Icons.Trash /></button>
+                                <div className="flex flex-col justify-between mb-4 border-b pb-2">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="font-bold flex gap-2"><Icons.Clock /> 歷史</h3>
+                                        <button onClick={clearHistory}><Icons.Trash /></button>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="搜尋歷史..." 
+                                        value={historySearchQuery}
+                                        onChange={(e) => setHistorySearchQuery(e.target.value)}
+                                        className="w-full p-2 bg-slate-100 rounded-lg text-sm outline-none"
+                                    />
                                 </div>
                                 <div className="flex-1 overflow-y-auto space-y-3">
-                                    {history.map(item => (
+                                    {filteredHistory.map(item => (
                                         <div key={item.id} className="bg-slate-50 p-3 rounded-lg text-sm cursor-pointer" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}>
                                             <div className="text-slate-500 text-xs mb-1">{item.sLang} → {item.tLang}</div>
                                             <div className="font-bold mb-1 line-clamp-2">{item.src}</div>
                                             <div className="text-indigo-600 line-clamp-2">{item.res}</div>
                                         </div>
                                     ))}
+                                    {filteredHistory.length === 0 && <p className="text-center text-slate-400 text-sm py-4">沒有找到相關記錄</p>}
                                 </div>
                             </div>
                         </div>
@@ -1407,6 +1488,7 @@
 
                         {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-center gap-2 animate-bounce"><Icons.AlertCircle className="w-4 h-4"/>{errorMsg}</div>}
 
+                        {/* Main Input Area */}
                         <div className="grid md:grid-cols-2 gap-4">
                             {/* Source */}
                             <div className={`bg-white rounded-2xl shadow-sm border flex flex-col h-[300px] md:h-[500px] overflow-hidden relative group ${isListening?'ring-2 ring-red-100 border-red-400':''}`}>
@@ -1447,10 +1529,10 @@
                                 <div className="p-3 border-b bg-slate-100/50 flex justify-between items-center">
                                     <span className="text-xs font-bold text-slate-400 uppercase">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span>
                                     <div className="flex gap-1">
+                                        <button onClick={handlePDFExport} className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50" title="匯出 PDF 報告"><Icons.FileDown className="w-5 h-5"/></button>
                                         <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
                                         {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
                                         {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
-                                        <button onClick={handleDownload} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Download className="w-5 h-5"/></button>
                                         <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
                                         <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
                                     </div>
