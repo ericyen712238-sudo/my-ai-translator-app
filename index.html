@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手</title>
+    <title>Gemini AI 全能文件助手 (生產力版)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -123,12 +123,15 @@
             Crop: () => <Icon><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></Icon>,
             Volume3: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
             Image: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></Icon>,
-            Code: () => <Icon><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></Icon>
+            Code: () => <Icon><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></Icon>,
+            Download: () => <Icon><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>,
+            MessageSquarePlus: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
+        // Updated Gemini Models List - using safer aliases
         const GEMINI_MODELS = [
             { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
             { id: 'gemini-1.5-flash', name: 'Flash 1.5 (穩定版)', desc: '快速' },
@@ -297,6 +300,7 @@
             const [voicePitch, setVoicePitch] = useState(1);
             const [availableVoices, setAvailableVoices] = useState([]);
             const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
+            const [customInstruction, setCustomInstruction] = useState(localStorage.getItem('gemini_custom_instruction') || '');
             
             const [showCropModal, setShowCropModal] = useState(false);
             const [cropImageSrc, setCropImageSrc] = useState(null);
@@ -339,6 +343,7 @@
             useEffect(() => { localStorage.setItem('gemini_api_key', geminiKey); }, [geminiKey]);
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); }, [history]);
+            useEffect(() => { localStorage.setItem('gemini_custom_instruction', customInstruction); }, [customInstruction]);
             
             useEffect(() => {
                 if (mode === 'conversation') {
@@ -377,7 +382,7 @@
                 if (!isRealTime || !sourceText.trim() || mode !== 'text') return;
                 const timer = setTimeout(() => { if (sourceText.length > 1) callAI(currentTask); }, 1200); 
                 return () => clearTimeout(timer);
-            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask]);
+            }, [sourceText, isRealTime, sourceLang, targetLang, apiProvider, selectedTone, mode, currentTask, customInstruction]);
 
             const addToHistory = (src, res, sLang, tLang) => {
                 if (!src || !res) return;
@@ -737,13 +742,13 @@
                 let systemInstruction = "";
                 // Prompts based on Task Type
                 if (promptType === 'translate') {
-                     systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding).`;
+                     systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 } else if (promptType === 'polish') {
-                     systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown.`;
+                     systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 } else if (promptType === 'summarize') {
-                     systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured.`;
+                     systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 } else if (promptType === 'grammar') {
-                     systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown.`;
+                     systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
                 }
 
                 if(!textOverride) setLoadingStatus("AI 處理中...");
@@ -771,6 +776,19 @@
                     }
                 } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } 
                 finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } }
+            };
+
+            const handleDownload = () => {
+                if (!translatedText) return;
+                const blob = new Blob([translatedText], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `translation_${new Date().toISOString().slice(0,10)}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
             };
 
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); if(isS){setCopiedSource(true);setTimeout(()=>setCopiedSource(false),2000)}else{setCopiedTarget(true);setTimeout(()=>setCopiedTarget(false),2000)} };
@@ -893,9 +911,9 @@
                                 <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 rounded-full"><Icons.X className="w-8 h-8 text-slate-600"/></button>
                             </div>
                             <div className="flex-1 overflow-y-auto w-full h-full px-4 sm:px-8 pb-24 smooth-scroll" style={{overscrollBehavior: 'contain'}}>
-                                <div className="max-w-4xl mx-auto">
+                                <div className="max-w-4xl mx-auto min-h-full flex flex-col">
                                     {isMarkdownMode ? (
-                                        <div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left py-4" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
+                                        <div className="prose prose-xl max-w-none text-slate-900 leading-relaxed text-left py-8" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
                                     ) : (
                                         <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap font-['Zen_Maru_Gothic'] py-8">
                                             {translatedText || "尚無翻譯內容"}
@@ -973,6 +991,20 @@
                                                 className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
                                             />
                                         </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Custom Instruction Section */}
+                                <div className="space-y-3 border-b pb-4">
+                                    <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂 AI 指令</h4>
+                                    <div>
+                                        <label className="text-xs text-slate-500 mb-1 block">額外提示詞 (Optional)</label>
+                                        <textarea 
+                                            value={customInstruction} 
+                                            onChange={(e) => setCustomInstruction(e.target.value)}
+                                            className="w-full p-2 border rounded-lg text-sm bg-white h-20 resize-none"
+                                            placeholder="例如：請保留專有名詞原文、請使用台灣用語..."
+                                        />
                                     </div>
                                 </div>
 
@@ -1138,6 +1170,7 @@
                                         <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded ${isMarkdownMode?'text-blue-600 bg-blue-50':'text-slate-400'}`} title="Markdown/純文字 切換"><Icons.Code className="w-5 h-5"/></button>
                                         {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="全螢幕展示"><Icons.Maximize className="w-5 h-5"/></button>}
                                         {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded" title="圖片模式"><Icons.Image className="w-5 h-5"/></button>}
+                                        <button onClick={handleDownload} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Download className="w-5 h-5"/></button>
                                         <button onClick={()=>copy(translatedText,false)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Copy className="w-5 h-5"/></button>
                                         <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-100 rounded"><Icons.Volume2 className="w-5 h-5"/></button>
                                     </div>
