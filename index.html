@@ -50,6 +50,9 @@
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
+        /* Smooth scrolling for iOS */
+        .smooth-scroll { -webkit-overflow-scrolling: touch; }
+        
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
@@ -895,7 +898,7 @@
                             </div>
                             <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
                                 {isMarkdownMode ? (
-                                    <div className="prose prose-xl max-w-3xl text-slate-900 leading-relaxed text-center" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
+                                    <div className="prose prose-xl max-w-3xl text-slate-900 leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
                                 ) : (
                                     <p className="text-4xl md:text-6xl font-bold text-slate-900 leading-tight text-center whitespace-pre-wrap font-['Zen_Maru_Gothic']">
                                         {translatedText || "尚無翻譯內容"}
