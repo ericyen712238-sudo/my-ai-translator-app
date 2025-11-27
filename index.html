@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手</title>
+    <title>Gemini AI 工具</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -68,13 +68,12 @@
             touch-action: none; 
             backdrop-filter: blur(4px); 
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            box-sizing: border-box; /* Ensure padding doesn't break width */
+            box-sizing: border-box; 
             display: flex;
-            align-items: center; /* Center text vertically if height is forced */
-            justify-content: center; /* Center text horizontally */
+            align-items: center; 
+            justify-content: center; 
             text-align: center;
         }
-        /* Hide resize handle on mobile to prevent native conflicts, we use custom one */
         .visual-text-box::-webkit-resizer { display: none; }
 
         /* Markdown */
@@ -119,7 +118,7 @@
             Mic: () => <Icon><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             MicOff: () => <Icon><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></Icon>,
             FileType: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13v-1h6v1"/><path d="M12 12v6"/><path d="M11 18h2"/></Icon>,
-            Settings: () => <Icon><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>,
+            Settings: () => <Icon><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>,
             Save: () => <Icon><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>,
             Server: () => <Icon><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></Icon>,
             Camera: () => <Icon><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>,
@@ -161,7 +160,6 @@
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
-        // Updated Gemini Models List - using safer aliases
         const GEMINI_MODELS = [
             { id: 'gemini-2.5-flash-preview-09-2025', name: 'Flash 2.5 (最新預覽)', desc: '推薦預設' },
             { id: 'gemini-1.5-flash', name: 'Flash 1.5 (穩定版)', desc: '快速' },
@@ -182,7 +180,6 @@
             { code: 'th', name: 'ไทย (Thai)', codeFull: 'th-TH' }, 
         ];
 
-        // Define Task Modes
         const TASKS = [
             { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700', prompt: 'Translate' },
             { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600', prompt: 'Summarize' },
@@ -322,7 +319,7 @@
             const [usePdfVision, setUsePdfVision] = useState(false); 
             const [globalFontSize, setGlobalFontSize] = useState(18);
             const [aiTemperature, setAiTemperature] = useState(0.7); 
-            const [bilingualMode, setBilingualMode] = useState(false); // New state for Bilingual Mode
+            const [bilingualMode, setBilingualMode] = useState(false);
 
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
@@ -342,18 +339,13 @@
             
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
-            // Visual Box State: Position and Dimensions - x, y in %, w, h in px (auto for h by default, but allowing manual)
-            // Changed to allow independent W/H resize.
             const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' }); 
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
             const [visualResizing, setVisualResizing] = useState(false);
             const [visualStyle, setVisualStyle] = useState({ color: 'white', bg: 'rgba(0,0,0,0.6)' });
 
-            // Selection Menu State
             const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0, text: '' });
-
-            // Search filter for history
             const [historySearchQuery, setHistorySearchQuery] = useState('');
             
             const dragStartRef = useRef(null);
@@ -399,7 +391,6 @@
                     setAvailableVoices(voices);
                 };
                 loadVoices();
-                // Some browsers fire this event asynchronously
                 window.speechSynthesis.onvoiceschanged = loadVoices;
             }, []);
 
@@ -505,7 +496,6 @@
                 reader.readAsText(file);
             };
             
-            // --- Web Share for Images ---
             const handleShareImage = async () => {
                  if (!visualContainerRef.current) return;
                  try {
@@ -524,7 +514,6 @@
                                  text: 'Translated by Gemini AI Assistant'
                              });
                          } else {
-                             // Fallback to download
                              const link = document.createElement('a');
                              link.download = `visual_translation_${new Date().getTime()}.png`;
                              link.href = canvas.toDataURL('image/png');
@@ -538,7 +527,6 @@
             };
             
             const handleSaveVisualImage = async () => {
-                // Re-using the share logic fallback for direct download button
                 if (!visualContainerRef.current) return;
                 try {
                     const canvas = await html2canvas(visualContainerRef.current, {
@@ -593,7 +581,7 @@
                 }
             };
 
-            // --- Visual Mode Handlers (New: Scale Logic) ---
+            // --- Visual Mode Handlers (Free Transform + Manual Font) ---
             const handleVisualDragStart = (e) => {
                 e.preventDefault();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -608,13 +596,11 @@
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 
-                // Capture initial box size/font for ratio calculation
                 resizeStartRef.current = { 
                     startX: clientX, 
                     startY: clientY,
                     startW: visualBox.w, 
-                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200, // Approximate initial height if auto
-                    fontSize: visualFontSize 
+                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200
                 };
                 setVisualResizing(true);
             };
@@ -644,16 +630,9 @@
                     const deltaY = clientY - resizeStartRef.current.startY;
                     
                     const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX);
-                    // Allow independent height resizing too (for background box)
-                    // Since height is auto by default, we switch to px
-                    const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY); // Arbitrary min height
+                    const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY);
                     
-                    // Scale font size proportionally based on WIDTH change (standard behavior)
-                    const scaleRatio = newWidth / resizeStartRef.current.startW;
-                    const newFontSize = Math.max(10, Math.min(80, resizeStartRef.current.fontSize * scaleRatio));
-
                     setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight }));
-                    setVisualFontSize(newFontSize);
                 }
             };
 
@@ -791,6 +770,11 @@
                         >
                             <div className="flex justify-between items-center p-4 bg-black/50 text-white z-20 absolute top-0 left-0 right-0">
                                 <div className="flex items-center gap-2">
+                                    <button onClick={() => setVisualFontSize(14)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">S</button>
+                                    <button onClick={() => setVisualFontSize(18)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">M</button>
+                                    <button onClick={() => setVisualFontSize(24)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">L</button>
+                                    <button onClick={() => setVisualFontSize(32)} className="px-3 py-1 bg-white/20 rounded text-sm font-bold">XL</button>
+                                    <div className="w-px h-6 bg-white/20 mx-1"></div>
                                     <button onClick={() => handleShareImage()} className="p-2 bg-white/20 rounded" title="分享"><Icons.Share className="w-5 h-5"/></button>
                                     <button onClick={handleSaveVisualImage} className="p-2 bg-white/20 rounded" title="下載圖片"><Icons.Download className="w-5 h-5"/></button>
                                 </div>
