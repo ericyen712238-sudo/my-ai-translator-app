@@ -64,7 +64,12 @@
         
         /* UI Styles */
         .crop-modal { touch-action: none; } 
-        .visual-text-box { touch-action: none; backdrop-filter: blur(4px); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .visual-text-box { 
+            touch-action: none; 
+            backdrop-filter: blur(4px); 
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            box-sizing: border-box; /* Ensure padding doesn't break width */
+        }
 
         /* Markdown */
         .prose { font-size: 1.05rem; line-height: 1.7; color: #334155; max-width: none; }
@@ -331,7 +336,8 @@
             
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
-            // Visual Box State: Position and Dimensions - x, y in %, w in px, h 'auto'
+            // Visual Box State: Position and Dimensions - x, y in %, w, h in px (auto for h by default, but allowing manual)
+            // Changed to allow independent W/H resize.
             const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' }); 
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
@@ -594,7 +600,16 @@
                 e.preventDefault();
                 e.stopPropagation();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                resizeStartRef.current = { x: clientX, w: visualBox.w, fontSize: visualFontSize };
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                // Capture initial box size/font for ratio calculation
+                resizeStartRef.current = { 
+                    startX: clientX, 
+                    startY: clientY,
+                    startW: visualBox.w, 
+                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200, // Approximate initial height if auto
+                    fontSize: visualFontSize 
+                };
                 setVisualResizing(true);
             };
 
@@ -617,14 +632,21 @@
                 } else if (visualResizing && resizeStartRef.current) {
                     e.preventDefault();
                     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const deltaX = clientX - resizeStartRef.current.x;
-                    const newWidth = Math.max(100, resizeStartRef.current.w + deltaX);
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                     
-                    // Scale font size proportionally
-                    const scaleRatio = newWidth / resizeStartRef.current.w;
-                    const newFontSize = Math.max(10, Math.min(60, resizeStartRef.current.fontSize * scaleRatio));
+                    const deltaX = clientX - resizeStartRef.current.startX;
+                    const deltaY = clientY - resizeStartRef.current.startY;
+                    
+                    const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX);
+                    // Allow independent height resizing too (for background box)
+                    // Since height is auto by default, we switch to px
+                    const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY); // Arbitrary min height
+                    
+                    // Scale font size proportionally based on WIDTH change (standard behavior)
+                    const scaleRatio = newWidth / resizeStartRef.current.startW;
+                    const newFontSize = Math.max(10, Math.min(80, resizeStartRef.current.fontSize * scaleRatio));
 
-                    setVisualBox(prev => ({ ...prev, w: newWidth }));
+                    setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight }));
                     setVisualFontSize(newFontSize);
                 }
             };
@@ -779,6 +801,7 @@
                                             left: `${visualBox.x}%`,
                                             top: `${visualBox.y}%`,
                                             width: `${visualBox.w}px`,
+                                            height: typeof visualBox.h === 'number' ? `${visualBox.h}px` : 'auto',
                                             transform: 'translate(-50%, -50%)',
                                             fontSize: `${visualFontSize}px`,
                                             color: visualStyle.color,
@@ -791,7 +814,7 @@
                                     >
                                         {translatedText}
                                         
-                                        {/* Resize Handle */}
+                                        {/* Resize Handle (SE) */}
                                         <div 
                                             className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize flex items-end justify-end p-1"
                                             onMouseDown={handleVisualResizeStart}
