@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI文件助手</title>
+    <title>Gemini AI 全能文件助手</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -134,6 +134,7 @@
 
         /* Mermaid Diagram Styles */
         .mermaid { display: flex; justify-content: center; padding: 20px; background: white; border-radius: 10px; overflow-x: auto; }
+        /* For dark mode, we let mermaid theme handle the internals, but background should be dark */
         .dark .mermaid { background: #1e293b; }
     </style>
 </head>
@@ -151,7 +152,6 @@
                 theme: 'default',
                 securityLevel: 'loose',
                 fontFamily: 'Zen Maru Gothic',
-                darkMode: document.documentElement.classList.contains('dark')
             });
         }
 
@@ -381,8 +381,8 @@
             );
         };
 
-        // --- Mermaid Component with Error Boundary Logic ---
-        const MermaidDiagram = ({ code }) => {
+        // --- Mermaid Component with Error Boundary Logic & Dark Mode Support ---
+        const MermaidDiagram = ({ code, darkMode }) => {
             const containerRef = useRef(null);
             const [svgContent, setSvgContent] = useState('');
             const [error, setError] = useState(null);
@@ -398,11 +398,14 @@
                     
                     const renderMermaid = async () => {
                         try {
-                            // Basic validation to prevent crashing
-                            if (!code.trim().startsWith('graph') && !code.trim().startsWith('mindmap') && !code.trim().startsWith('flowchart')) {
-                                // Attempt to fix missing header if it looks like mermaid syntax
-                                // but for now, let mermaid validation handle it
-                            }
+                            // Re-initialize to apply theme change
+                            mermaid.initialize({
+                                startOnLoad: true,
+                                theme: darkMode ? 'dark' : 'default', // Switch theme based on mode
+                                securityLevel: 'loose',
+                                fontFamily: 'Zen Maru Gothic',
+                                darkMode: darkMode
+                            });
 
                             const { svg } = await mermaid.render(uniqueId, code);
                             setSvgContent(svg);
@@ -420,7 +423,7 @@
                     const timer = setTimeout(renderMermaid, 100);
                     return () => clearTimeout(timer);
                 }
-            }, [code]);
+            }, [code, darkMode]); // Re-render when darkMode changes
 
             if (error) {
                 return <div className="p-4 text-red-500 bg-red-50 border border-red-200 rounded-lg text-sm">{error}</div>;
@@ -824,7 +827,8 @@
             const renderResult = () => { 
                 if (currentTask === 'mindmap') {
                     // Render Mermaid Diagram if active task is Mindmap
-                    return <div className="absolute inset-0 p-4 overflow-y-auto"><MermaidDiagram code={translatedText} /></div>;
+                    // Pass darkMode prop to component
+                    return <div className="absolute inset-0 p-4 overflow-y-auto"><MermaidDiagram code={translatedText} darkMode={darkMode} /></div>;
                 }
 
                 if (isMarkdownMode) { 
@@ -929,7 +933,7 @@
                                             <div className="prose prose-lg text-slate-500 dark:text-slate-400"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 dark:text-slate-500 border-b dark:border-slate-700 pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
                                             <div className="prose prose-xl text-slate-900 dark:text-slate-100"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-indigo-500 border-b dark:border-slate-700 pb-2">譯文</h3>
                                                 {currentTask === 'mindmap' ? (
-                                                    <MermaidDiagram code={translatedText} />
+                                                    <MermaidDiagram code={translatedText} darkMode={darkMode} />
                                                 ) : isMarkdownMode ? (
                                                     <div className="leading-relaxed text-left" style={{ fontSize: `${fsFontSize}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
                                                 ) : (
@@ -940,7 +944,7 @@
                                     ) : (
                                         currentTask === 'mindmap' ? (
                                             <div style={{ fontSize: `${fsFontSize}px` }}>
-                                                <MermaidDiagram code={translatedText} />
+                                                <MermaidDiagram code={translatedText} darkMode={darkMode} />
                                             </div>
                                         ) : isMarkdownMode ? (
                                             <div className="prose prose-xl max-w-none text-slate-900 dark:text-slate-100 leading-relaxed text-left" style={{ fontSize: `${fsFontSize}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
@@ -983,7 +987,39 @@
                                     ))}
                                 </div>
                                 {activeTab === 'general' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.Monitor className="w-4 h-4"/> 顯示設定</h4><div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800"><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">字體大小: {globalFontSize}px</label><input type="range" min="12" max="32" step="1" value={globalFontSize} onChange={(e) => setGlobalFontSize(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" /></div></div></div>)}
-                                {activeTab === 'ai' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300">翻譯引擎</h4><div className="grid grid-cols-3 gap-2"><button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='gemini'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Gemini</button><button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>MyMemory</button><button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='ollama'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Ollama</button></div></div>{apiProvider === 'gemini' && (<div className="space-y-3 p-3 bg-blue-50 dark:bg-slate-900/50 rounded-xl border border-blue-100 dark:border-slate-700"><div><label className="text-xs font-bold text-blue-600 dark:text-blue-300 flex items-center gap-1 mb-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</label><input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg font-mono text-xs bg-white dark:bg-slate-950 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white dark:placeholder-slate-500" placeholder="貼上您的 Key" /></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-300 flex items-center gap-1 mb-1"><Icons.CPU className="w-3 h-3"/> 模型 (Model)</label><select value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} onChange={(e) => { if (e.target.value === 'custom') setGeminiModel(''); else setGeminiModel(e.target.value); }} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}</select></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-300 mb-1 block">創意度: {aiTemperature}</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={(e) => setAiTemperature(parseFloat(e.target.value))} className="w-full h-1.5 bg-blue-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>)}{apiProvider === 'ollama' && (<div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in"><label className="text-xs font-bold text-emerald-600 dark:text-emerald-400">API URL</label><input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 dark:border-emerald-700 rounded-lg font-mono text-sm dark:bg-slate-900 dark:text-white" /></div>)}<div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂指令</h4><textarea value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 h-20 resize-none outline-none focus:border-blue-500 dark:text-slate-200 dark:placeholder-slate-500" placeholder="例如：請保留專有名詞原文、請使用台灣用語..."/></div></div>)}
+                                {activeTab === 'ai' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-bold text-slate-600 dark:text-slate-300">翻譯引擎</h4>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='gemini'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Gemini</button>
+                                                <button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>MyMemory</button>
+                                                <button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='ollama'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Ollama</button>
+                                            </div>
+                                        </div>
+                                        {apiProvider === 'gemini' && (
+                                            <div className="space-y-3 p-3 bg-blue-50 dark:bg-slate-900/50 rounded-xl border border-blue-100 dark:border-slate-700">
+                                                <div>
+                                                    <label className="text-xs font-bold text-blue-600 dark:text-blue-300 flex items-center justify-between mb-1">
+                                                        <div className="flex items-center gap-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</div>
+                                                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 underline flex items-center gap-1 font-normal">如何取得免費 Key? <Icons.ExternalLink className="w-3 h-3"/></a>
+                                                    </label>
+                                                    <input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg font-mono text-xs bg-white dark:bg-slate-950 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white dark:placeholder-slate-500" placeholder="貼上您的 Key" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-300 flex items-center gap-1 mb-1"><Icons.CPU className="w-3 h-3"/> 模型 (Model)</label>
+                                                    <select value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} onChange={(e) => { if (e.target.value === 'custom') setGeminiModel(''); else setGeminiModel(e.target.value); }} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}</select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-300 mb-1 block">創意度: {aiTemperature}</label>
+                                                    <input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={(e) => setAiTemperature(parseFloat(e.target.value))} className="w-full h-1.5 bg-blue-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-600"/>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {apiProvider === 'ollama' && (<div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in"><label className="text-xs font-bold text-emerald-600 dark:text-emerald-400">API URL</label><input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 dark:border-emerald-700 rounded-lg font-mono text-sm dark:bg-slate-900 dark:text-white" /></div>)}
+                                        <div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂指令</h4><textarea value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 h-20 resize-none outline-none focus:border-blue-500 dark:text-slate-200 dark:placeholder-slate-500" placeholder="例如：請保留專有名詞原文、請使用台灣用語..."/></div>
+                                    </div>
+                                )}
                                 {activeTab === 'voice' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-3 border border-slate-100 dark:border-slate-800"><div><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">朗讀語音 (Voice)</label><select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-950 outline-none dark:text-white"><option value="">預設 (Default)</option>{availableVoices.map(v => (<option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>))}</select></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">語速: {voiceRate}x</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/></div><div><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">音調: {voicePitch}</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={(e) => setVoicePitch(parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/></div></div></div></div>)}
                                 {activeTab === 'data' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.Book className="w-4 h-4"/> 術語表 (Glossary)</h4><div className="flex gap-2"><input type="text" placeholder="原文" value={newGlossaryTerm} onChange={(e) => setNewGlossaryTerm(e.target.value)} className="w-1/2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 dark:text-white outline-none dark:placeholder-slate-500"/><input type="text" placeholder="譯文" value={newGlossaryTrans} onChange={(e) => setNewGlossaryTrans(e.target.value)} className="w-1/2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 dark:text-white outline-none dark:placeholder-slate-500"/><button onClick={addGlossaryTerm} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-sm transition-colors"><Icons.MessageSquarePlus className="w-4 h-4"/></button></div><div className="max-h-40 overflow-y-auto space-y-2 p-1">{glossary.map((item, index) => (<div key={index} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700 p-2 rounded-lg text-xs border border-slate-100 dark:border-slate-600"><span className="dark:text-slate-200 font-mono">{item.term} → {item.trans}</span><button onClick={() => removeGlossaryTerm(index)} className="text-red-400 hover:text-red-600 p-1"><Icons.Trash className="w-3 h-3"/></button></div>))}{glossary.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">尚未新增術語</p>}</div></div><div className="pt-4 border-t border-slate-100 dark:border-slate-700"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-3">資料管理</h4><div className="grid grid-cols-2 gap-3"><button onClick={handleExportData} className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"><Icons.FileDown className="w-4 h-4"/> 匯出備份</button><label className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"><Icons.FileUp className="w-4 h-4"/> 匯入還原<input type="file" accept=".json" onChange={handleImportData} className="hidden" /></label></div></div></div>)}
                                 <button onClick={() => setShowSettings(false)} className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4">完成設定</button>
