@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手</title>
+    <title>Gemini AI文件助手</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -108,11 +108,11 @@
         .prose { font-size: 1.05rem; line-height: 1.7; color: #334155; max-width: none; }
         .dark .prose { color: #e2e8f0; }
         
-        .prose h1, .prose h2, .prose h3, .prose h4 { font-weight: 700; margin: 0.8em 0 0.4em; color: #0f172a; }
-        .dark .prose h1, .dark .prose h2, .dark .prose h3, .dark .prose h4 { color: #f1f5f9; }
+        .prose h1 { font-size: 1.4em; font-weight: 700; margin: 0.8em 0 0.4em; color: #0f172a; }
+        .dark .prose h1 { color: #f1f5f9; }
         
-        .prose h2 { border-bottom: 2px solid #e2e8f0; padding-bottom: 0.2em; }
-        .dark .prose h2 { border-bottom-color: #334155; }
+        .prose h2 { font-size: 1.2em; font-weight: 600; margin: 0.8em 0 0.4em; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.2em; }
+        .dark .prose h2 { color: #e2e8f0; border-bottom-color: #334155; }
         
         .prose ul { list-style-type: disc; padding-left: 1.2em; margin-bottom: 0.8em; }
         .prose ol { list-style-type: decimal; padding-left: 1.2em; margin-bottom: 0.8em; }
@@ -128,16 +128,10 @@
         .dark .prose code { background-color: #1e293b; color: #fca5a5; }
 
         .prose table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
-        .prose th { background-color: #f1f5f9; font-weight: 600; text-align: left; padding: 0.5em; border: 1px solid #e2e8f0; color: #1e293b; }
+        .prose th { background-color: #f1f5f9; font-weight: 600; text-align: left; padding: 0.5em; border: 1px solid #e2e8f0; }
         .dark .prose th { background-color: #334155; border-color: #475569; color: #f8fafc; }
         .prose td { padding: 0.5em; border: 1px solid #e2e8f0; }
-        .dark .prose td { border-color: #475569; color: #e2e8f0; }
-        
-        /* Chat Bubbles */
-        .chat-bubble { padding: 0.75rem 1rem; border-radius: 1rem; max-width: 85%; font-size: 0.95rem; line-height: 1.5; }
-        .chat-user { background-color: #3b82f6; color: white; align-self: flex-end; border-bottom-right-radius: 0.25rem; }
-        .chat-ai { background-color: #f1f5f9; color: #334155; align-self: flex-start; border-bottom-left-radius: 0.25rem; }
-        .dark .chat-ai { background-color: #1e293b; color: #e2e8f0; }
+        .dark .prose td { border-color: #475569; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
@@ -211,7 +205,7 @@
             Moon: () => <Icon><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></Icon>,
             Sun: () => <Icon><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></Icon>,
             Brain: () => <Icon><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>,
-            Send: () => <Icon><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>
+            ExternalLink: () => <Icon><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Icon>,
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
@@ -243,8 +237,7 @@
             { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600', prompt: 'Translate' },
             { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700', prompt: 'Summarize' },
             { id: 'polish', name: '潤飾優化', icon: <Icons.Magic className="w-4 h-4"/>, btnColor: 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700', prompt: 'Polish' },
-            { id: 'grammar', name: '文法分析', icon: <Icons.Search className="w-4 h-4"/>, btnColor: 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700', prompt: 'Analyze' },
-            { id: 'insight', name: '深度解析', icon: <Icons.Brain className="w-4 h-4"/>, btnColor: 'bg-pink-600 hover:bg-pink-700 dark:bg-pink-600 dark:hover:bg-pink-700', prompt: 'DeepDive' }
+            { id: 'grammar', name: '文法分析', icon: <Icons.Search className="w-4 h-4"/>, btnColor: 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700', prompt: 'Analyze' }
         ];
 
         const TONES = [
@@ -425,12 +418,6 @@
             const [historySearchQuery, setHistorySearchQuery] = useState('');
             const [activeTab, setActiveTab] = useState('general'); 
             const [toast, setToast] = useState(null);
-            
-            // New States for Chat
-            const [targetTab, setTargetTab] = useState('result'); // 'result' or 'chat'
-            const [chatInput, setChatInput] = useState('');
-            const [chatHistory, setChatHistory] = useState([]);
-            const [isChatLoading, setIsChatLoading] = useState(false);
 
             const dragStartRef = useRef(null);
             const resizeStartRef = useRef(null);
@@ -444,9 +431,8 @@
             const cameraInputRef = useRef(null);
             const requestCounter = useRef(0);
             const chatEndRef = useRef(null);
-            const chatMessagesEndRef = useRef(null); // Ref for scrolling chat to bottom
 
-            const [conversationChat, setConversationChat] = useState([]); // This seems unused, can be removed in future cleanup, but keeping to avoid breaking if referenced.
+            const [conversationChat, setConversationChat] = useState([]);
             const [activeSpeaker, setActiveSpeaker] = useState(null);
 
             const [apiProvider, setApiProvider] = useState('gemini'); 
@@ -469,11 +455,8 @@
                 localStorage.setItem('gemini_dark_mode', darkMode);
                 if (darkMode) { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); }
             }, [darkMode]);
-            
-            // Auto scroll for chat
-            useEffect(() => {
-                chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, [chatHistory, targetTab]);
+
+            useEffect(() => { if (mode === 'conversation') { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); } }, [conversationChat, mode]);
 
             useEffect(() => {
                 const loadVoices = () => { const voices = window.speechSynthesis.getVoices(); setAvailableVoices(voices); };
@@ -669,104 +652,7 @@
             const handleFileChange = (e) => processFile(e.target.files[0]);
             const toggleListening = () => { if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; } const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; } const recognition = new SpeechRecognition(); if (sourceLang !== 'auto') recognition.lang = sourceLang; recognition.continuous = true; recognition.interimResults = true; recognition.onstart = () => { setIsListening(true); setErrorMsg(''); }; recognition.onend = () => setIsListening(false); recognition.onresult = (event) => { let final = ''; for (let i = event.resultIndex; i < event.results.length; ++i) { if (event.results[i].isFinal) final += event.results[i][0].transcript; } if (final) setSourceText(prev => prev + (prev ? ' ' : '') + final); }; recognitionRef.current = recognition; recognition.start(); };
             const performTranslation = async (text, sLangCode, tLangCode) => { const sName = LANGUAGES.find(l => l.code === sLangCode)?.name || sLangCode; const tName = LANGUAGES.find(l => l.code === tLangCode)?.name || tLangCode; let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text.`; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) throw new Error("Key missing"); const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: text }] }], systemInstruction: { parts: [{ text: systemInstruction }] } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory') { const pair = `${sLangCode}|${tLangCode}`; const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`; const res = await fetch(url); const data = await res.json(); return data.responseData.translatedText; } else { return `[${tName}] ${text}`; } };
-            
-            // --- NEW: Chat Function ---
-            const handleChatSubmit = async () => {
-                if (!chatInput.trim()) return;
-                if (!sourceText) { showToast("請先輸入或上傳要討論的文件", "error"); return; }
-                
-                const userMsg = chatInput.trim();
-                setChatInput('');
-                setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
-                setIsChatLoading(true);
-
-                try {
-                    // Construct context-aware prompt
-                    const contextPrompt = `Based on the following document content:\n\n"${sourceText.substring(0, 10000)}..."\n\nAnswer the user's question: ${userMsg}`;
-                    
-                    let responseText = "";
-                    if (apiProvider === 'gemini') {
-                        const trimmedKey = geminiKey.trim();
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`;
-                        const payload = { contents: [{ parts: [{ text: contextPrompt }] }] };
-                        const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                        responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error getting response.";
-                    } else {
-                         responseText = "Chat mode currently supports Gemini only.";
-                    }
-                    
-                    setChatHistory(prev => [...prev, { role: 'ai', text: responseText }]);
-                } catch (err) {
-                    setChatHistory(prev => [...prev, { role: 'ai', text: "Sorry, I encountered an error." }]);
-                    console.error(err);
-                } finally {
-                    setIsChatLoading(false);
-                }
-            };
-
-            const callAI = async (promptType, textOverride = null) => { 
-                const textToUse = textOverride !== null ? textOverride : sourceText; 
-                if (!textToUse.trim()) return; 
-                
-                // If promptType is 'deep_dive' or 'insight', switch tab to result
-                if(promptType === 'insight') setTargetTab('result');
-
-                if (apiProvider === 'mymemory' && promptType !== 'translate') { setErrorMsg("MyMemory 僅支援基礎翻譯"); return; } 
-                
-                const currentRequestId = ++requestCounter.current; 
-                setIsLoading(true); 
-                setErrorMsg(''); 
-                if (!isRealTime && textOverride === null) setTranslatedText(''); 
-                
-                const tName = LANGUAGES.find(l => l.code === targetLang)?.name || targetLang; 
-                const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name; 
-                const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard'; 
-                const glossaryPrompt = glossary.length > 0 ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n') : ""; 
-                
-                let systemInstruction = ""; 
-                if (promptType === 'translate') { 
-                    systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; 
-                } else if (promptType === 'polish') { 
-                    systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; 
-                } else if (promptType === 'summarize') { 
-                    systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; 
-                } else if (promptType === 'grammar') { 
-                    systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; 
-                } else if (promptType === 'insight') { // New Deep Dive Prompt
-                    systemInstruction = `Analyze the following text deeply and provide a structured report in ${tName} using Markdown. Include: 
-                    1. 📄 **Executive Summary**: A brief overview.
-                    2. 🗝️ **Key Entities**: Important people, dates, locations, or terms defined.
-                    3. 📊 **Sentiment & Tone**: The emotional context or stance of the text.
-                    4. ❓ **Unanswered Questions**: Any gaps or ambiguities in the text.
-                    5. ✅ **Action Items**: If applicable, a list of tasks or next steps derived from the text.
-                    ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`;
-                }
-
-                if(!textOverride) setLoadingStatus("AI 處理中..."); 
-                
-                try { 
-                    let resultText = ""; 
-                    if (apiProvider === 'gemini') { 
-                        const trimmedKey = geminiKey.trim(); 
-                        if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Key"); } 
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; 
-                        const payload = { contents: [{ parts: [{ text: textToUse }] }], systemInstruction: { parts: [{ text: systemInstruction }] }, generationConfig: { temperature: aiTemperature } }; 
-                        const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
-                        resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; 
-                    } else if (apiProvider === 'mymemory' && promptType === 'translate') { 
-                        resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang); 
-                    } else { 
-                        resultText = "此模式不支援進階功能"; 
-                    } 
-                    
-                    if (currentRequestId === requestCounter.current) { 
-                        setTranslatedText(resultText); 
-                        if (resultText && !resultText.startsWith("Error") && !resultText.startsWith("此模式")) { 
-                            addToHistory(textToUse, resultText, sourceLang, targetLang); 
-                        } 
-                    } 
-                } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } } 
-            };
+            const callAI = async (promptType, textOverride = null) => { const textToUse = textOverride !== null ? textOverride : sourceText; if (!textToUse.trim()) return; if (apiProvider === 'mymemory' && promptType !== 'translate') { setErrorMsg("MyMemory 僅支援基礎翻譯"); return; } const currentRequestId = ++requestCounter.current; setIsLoading(true); setErrorMsg(''); if (!isRealTime && textOverride === null) setTranslatedText(''); const tName = LANGUAGES.find(l => l.code === targetLang)?.name || targetLang; const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name; const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard'; const glossaryPrompt = glossary.length > 0 ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n') : ""; let systemInstruction = ""; if (promptType === 'translate') { systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'polish') { systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'summarize') { systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'grammar') { systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } if(!textOverride) setLoadingStatus("AI 處理中..."); try { let resultText = ""; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Key"); } const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: textToUse }] }], systemInstruction: { parts: [{ text: systemInstruction }] }, generationConfig: { temperature: aiTemperature } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory' && promptType === 'translate') { resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang); } else { resultText = "此模式不支援進階功能"; } if (currentRequestId === requestCounter.current) { setTranslatedText(resultText); if (resultText && !resultText.startsWith("Error") && !resultText.startsWith("此模式")) { addToHistory(textToUse, resultText, sourceLang, targetLang); } } } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } } };
             
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); if(isS){ showToast("已複製原文"); } else { showToast("已複製譯文"); } };
             const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const targetLangCode = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; const u = new SpeechSynthesisUtterance(t); u.lang = targetLangCode; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (selectedVoice) u.voice = selectedVoice; } else { const matchedVoice = availableVoices.find(v => v.lang === targetLangCode && v.name.includes('Google')); if (matchedVoice) u.voice = matchedVoice; } window.speechSynthesis.speak(u); };
@@ -781,7 +667,6 @@
                 <div className="pb-12 dark:bg-slate-900 min-h-screen">
                     {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
                     
-                    {/* ... (Selection Menu, Visual Modal, Crop Modal, Full Screen - keep existing) ... */}
                     {selectionMenu.visible && (
                         <div className="fixed z-50 bg-slate-800 text-white rounded-lg shadow-lg flex items-center gap-1 p-1 text-xs transform -translate-x-1/2 -translate-y-full animate-in fade-in zoom-in-95 duration-100" style={{ left: selectionMenu.x, top: selectionMenu.y }} onMouseDown={(e) => e.preventDefault()}>
                             <button onClick={() => handleSelectionAction('explain')} className="px-3 py-1.5 hover:bg-slate-700 rounded flex items-center gap-1"><Icons.Search className="w-3 h-3"/> 解釋</button>
@@ -816,7 +701,12 @@
                         </div>
                     )}
                     {showCropModal && (
-                        <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in duration-200 crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
+                        <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in duration-200 crop-modal"
+                             onMouseMove={handleCropMove}
+                             onTouchMove={handleCropMove}
+                             onMouseUp={handleCropEnd}
+                             onTouchEnd={handleCropEnd}
+                        >
                             <div className="flex justify-between items-center p-4 bg-black/50 text-white z-10">
                                 <h3 className="font-bold">裁切選取區域</h3>
                                 <button onClick={() => { setShowCropModal(false); setCropImageSrc(null); }} className="p-2"><Icons.X className="w-6 h-6"/></button>
@@ -856,7 +746,6 @@
                             </div>
                         </div>
                     )}
-                    {/* History & Settings Modals (Kept as is, make sure styles are correct) */}
                     {showHistory && (
                         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end" onClick={() => setShowHistory(false)}>
                             <div className="bg-white dark:bg-slate-800 w-full max-w-md h-full shadow-2xl flex flex-col p-4" onClick={e => e.stopPropagation()}>
@@ -866,7 +755,7 @@
                                 <div className="mb-4"><input type="text" placeholder="搜尋歷史..." value={historySearchQuery} onChange={(e) => setHistorySearchQuery(e.target.value)} className="w-full p-2 bg-slate-100 dark:bg-slate-900 dark:text-white rounded-lg text-sm outline-none border border-transparent focus:border-blue-500 placeholder:text-slate-400 dark:placeholder:text-slate-600" /></div>
                                 <div className="flex-1 overflow-y-auto space-y-3">
                                     {filteredHistory.map(item => (<div key={item.id} className="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border border-slate-100 dark:border-slate-600" onClick={() => { setSourceText(item.src); setTranslatedText(item.res); setShowHistory(false); }}><div className="text-slate-500 dark:text-slate-400 text-xs mb-1 font-bold">{item.sLang} → {item.tLang}</div><div className="font-medium mb-1 line-clamp-2 dark:text-white text-slate-800">{item.src}</div><div className="text-indigo-600 dark:text-indigo-400 line-clamp-2">{item.res}</div><div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 text-right">{item.timestamp}</div></div>))}
-                                    {filteredHistory.length === 0 && <div className="flex flex-col items-center justify-center h-32 text-slate-400 dark:text-slate-600"><Icons.Clock className="w-8 h-8 mb-2 opacity-50"/><p className="text-sm">沒有找到相關記錄</p></div>}
+                                    {filteredHistory.length === 0 && <p className="text-center text-slate-400 text-sm py-4">沒有找到相關記錄</p>}
                                 </div>
                             </div>
                         </div>
@@ -883,7 +772,7 @@
                                     ))}
                                 </div>
                                 {activeTab === 'general' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.Monitor className="w-4 h-4"/> 顯示設定</h4><div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800"><label className="text-xs text-slate-500 dark:text-slate-400 mb-2 block font-bold">字體大小: {globalFontSize}px</label><input type="range" min="12" max="32" step="1" value={globalFontSize} onChange={(e) => setGlobalFontSize(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" /></div></div></div>)}
-                                {activeTab === 'ai' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300">翻譯引擎</h4><div className="grid grid-cols-3 gap-2"><button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='gemini'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Gemini</button><button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>MyMemory</button><button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='ollama'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Ollama</button></div></div>{apiProvider === 'gemini' && (<div className="space-y-3 p-3 bg-blue-50 dark:bg-slate-900/50 rounded-xl border border-blue-100 dark:border-slate-700"><div><label className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 mb-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</label><input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg font-mono text-xs bg-white dark:bg-slate-950 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white dark:placeholder-slate-500" placeholder="貼上您的 Key" /></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-1"><Icons.CPU className="w-3 h-3"/> 模型 (Model)</label><select value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} onChange={(e) => { if (e.target.value === 'custom') setGeminiModel(''); else setGeminiModel(e.target.value); }} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}</select></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">創意度: {aiTemperature}</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={(e) => setAiTemperature(parseFloat(e.target.value))} className="w-full h-1.5 bg-blue-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>)}{apiProvider === 'ollama' && (<div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in"><label className="text-xs font-bold text-emerald-600 dark:text-emerald-400">API URL</label><input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 dark:border-emerald-700 rounded-lg font-mono text-sm dark:bg-slate-900 dark:text-white" /></div>)}<div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂指令</h4><textarea value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 h-20 resize-none outline-none focus:border-blue-500 dark:text-slate-200 dark:placeholder-slate-500" placeholder="例如：請保留專有名詞原文、請使用台灣用語..."/></div></div>)}
+                                {activeTab === 'ai' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300">翻譯引擎</h4><div className="grid grid-cols-3 gap-2"><button onClick={() => setApiProvider('gemini')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='gemini'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Gemini</button><button onClick={() => setApiProvider('mymemory')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='mymemory'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>MyMemory</button><button onClick={() => setApiProvider('ollama')} className={`p-2 border rounded-lg text-xs font-bold transition-all ${apiProvider==='ollama'?'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300':'bg-white border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Ollama</button></div></div>{apiProvider === 'gemini' && (<div className="space-y-3 p-3 bg-blue-50 dark:bg-slate-900/50 rounded-xl border border-blue-100 dark:border-slate-700"><div><label className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 mb-1"><Icons.Key className="w-3 h-3"/> Gemini API Key</label><input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg font-mono text-xs bg-white dark:bg-slate-950 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white dark:placeholder-slate-500" placeholder="貼上您的 Key" /><div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium flex items-center justify-end gap-1 mt-1.5"><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline hover:text-blue-700 dark:hover:text-blue-300">取得免費 Gemini API Key <Icons.ExternalLink className="w-3 h-3"/></a></div></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-1"><Icons.CPU className="w-3 h-3"/> 模型 (Model)</label><select value={GEMINI_MODELS.some(m => m.id === geminiModel) ? geminiModel : 'custom'} onChange={(e) => { if (e.target.value === 'custom') setGeminiModel(''); else setGeminiModel(e.target.value); }} className="w-full p-2.5 border border-blue-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} - {m.desc}</option>)}</select></div><div><label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">創意度: {aiTemperature}</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={(e) => setAiTemperature(parseFloat(e.target.value))} className="w-full h-1.5 bg-blue-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"/></div></div>)}{apiProvider === 'ollama' && (<div className="bg-emerald-50 p-4 rounded-xl space-y-2 animate-in fade-in"><label className="text-xs font-bold text-emerald-600 dark:text-emerald-400">API URL</label><input type="text" value={ollamaUrl} onChange={e=>setOllamaUrl(e.target.value)} className="w-full p-2 border border-emerald-200 dark:border-emerald-700 rounded-lg font-mono text-sm dark:bg-slate-900 dark:text-white" /></div>)}<div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.MessageSquarePlus className="w-4 h-4"/> 自訂指令</h4><textarea value={customInstruction} onChange={(e) => setCustomInstruction(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 h-20 resize-none outline-none focus:border-blue-500 dark:text-slate-200 dark:placeholder-slate-500" placeholder="例如：請保留專有名詞原文、請使用台灣用語..."/></div></div>)}
                                 {activeTab === 'voice' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-3 border border-slate-100 dark:border-slate-800"><div><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">朗讀語音 (Voice)</label><select value={selectedVoiceURI} onChange={(e) => setSelectedVoiceURI(e.target.value)} className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-950 outline-none dark:text-white"><option value="">預設 (Default)</option>{availableVoices.map(v => (<option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>))}</select></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">語速: {voiceRate}x</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/></div><div><label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block font-bold">音調: {voicePitch}</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={(e) => setVoicePitch(parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/></div></div></div></div>)}
                                 {activeTab === 'data' && (<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200"><div className="space-y-2"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2"><Icons.Book className="w-4 h-4"/> 術語表 (Glossary)</h4><div className="flex gap-2"><input type="text" placeholder="原文" value={newGlossaryTerm} onChange={(e) => setNewGlossaryTerm(e.target.value)} className="w-1/2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 dark:text-white outline-none dark:placeholder-slate-500"/><input type="text" placeholder="譯文" value={newGlossaryTrans} onChange={(e) => setNewGlossaryTrans(e.target.value)} className="w-1/2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-white dark:bg-slate-950 dark:text-white outline-none dark:placeholder-slate-500"/><button onClick={addGlossaryTerm} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-sm transition-colors"><Icons.MessageSquarePlus className="w-4 h-4"/></button></div><div className="max-h-40 overflow-y-auto space-y-2 p-1">{glossary.map((item, index) => (<div key={index} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700 p-2 rounded-lg text-xs border border-slate-100 dark:border-slate-600"><span className="dark:text-slate-200 font-mono">{item.term} → {item.trans}</span><button onClick={() => removeGlossaryTerm(index)} className="text-red-400 hover:text-red-600 p-1"><Icons.Trash className="w-3 h-3"/></button></div>))}{glossary.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">尚未新增術語</p>}</div></div><div className="pt-4 border-t border-slate-100 dark:border-slate-700"><h4 className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-3">資料管理</h4><div className="grid grid-cols-2 gap-3"><button onClick={handleExportData} className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"><Icons.FileDown className="w-4 h-4"/> 匯出備份</button><label className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"><Icons.FileUp className="w-4 h-4"/> 匯入還原<input type="file" accept=".json" onChange={handleImportData} className="hidden" /></label></div></div></div>)}
                                 <button onClick={() => setShowSettings(false)} className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform mt-4">完成設定</button>
@@ -911,63 +800,20 @@
                             </div>
                             <div className="flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative">
                                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:inline-block">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span>
-                                        <div className="flex bg-slate-200 dark:bg-slate-700 p-0.5 rounded-lg">
-                                            <button onClick={() => setTargetTab('result')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${targetTab==='result' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>結果</button>
-                                            <button onClick={() => setTargetTab('chat')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${targetTab==='chat' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>對話</button>
-                                        </div>
-                                    </div>
+                                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">結果 ({TASKS.find(t=>t.id===currentTask)?.name})</span>
                                     <div className="flex gap-1">
-                                        {targetTab === 'result' && (
-                                            <>
-                                                <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded-lg transition-all ${isMarkdownMode?'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400':'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Markdown/純文字"><Icons.Code className="w-4 h-4"/></button>
-                                                {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="全螢幕"><Icons.Maximize className="w-4 h-4"/></button>}
-                                                {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="圖片模式"><Icons.Image className="w-4 h-4"/></button>}
-                                                <button onClick={handleDownload} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="下載文字"><Icons.Download className="w-4 h-4"/></button>
-                                                <button onClick={()=>copy(translatedText,false)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="複製"><Icons.Copy className="w-4 h-4"/></button>
-                                                <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="朗讀"><Icons.Volume2 className="w-4 h-4"/></button>
-                                            </>
-                                        )}
+                                        <button onClick={() => setIsMarkdownMode(!isMarkdownMode)} className={`p-1.5 rounded-lg transition-all ${isMarkdownMode?'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400':'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Markdown/純文字"><Icons.Code className="w-4 h-4"/></button>
+                                        {translatedText && <button onClick={() => setShowBigText(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="全螢幕"><Icons.Maximize className="w-4 h-4"/></button>}
+                                        {displayImage && <button onClick={() => setShowVisualMode(true)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="圖片模式"><Icons.Image className="w-4 h-4"/></button>}
+                                        <button onClick={handleDownload} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="下載文字"><Icons.Download className="w-4 h-4"/></button>
+                                        <button onClick={()=>copy(translatedText,false)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="複製"><Icons.Copy className="w-4 h-4"/></button>
+                                        <button onClick={()=>speak(translatedText,targetLang)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all" title="朗讀"><Icons.Volume2 className="w-4 h-4"/></button>
                                     </div>
                                 </div>
-                                <div className="flex-1 relative bg-slate-50/30 dark:bg-slate-900/30 overflow-hidden">
-                                    {targetTab === 'result' ? (
-                                        <>
-                                            {isLoading && (<div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 animate-in fade-in"><div className="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-3"></div><span className="text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse">{loadingStatus}</span></div>)}
-                                            {renderResult()}
-                                            <div className="absolute bottom-2 right-4 text-[10px] text-slate-300 dark:text-slate-600 font-mono pointer-events-none select-none">{translatedText.length} chars</div>
-                                        </>
-                                    ) : (
-                                        <div className="flex flex-col h-full">
-                                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                                {chatHistory.length === 0 && (
-                                                    <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 opacity-60">
-                                                        <Icons.MessageSquarePlus className="w-12 h-12 mb-2" />
-                                                        <p className="text-sm">針對此文件提問...</p>
-                                                    </div>
-                                                )}
-                                                {chatHistory.map((msg, i) => (
-                                                    <div key={i} className={`chat-bubble ${msg.role === 'user' ? 'chat-user' : 'chat-ai'}`}>
-                                                        <p className="whitespace-pre-wrap">{msg.text}</p>
-                                                    </div>
-                                                ))}
-                                                {isChatLoading && <div className="chat-bubble chat-ai"><div className="flex gap-1"><div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div><div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></div><div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></div></div></div>}
-                                                <div ref={chatMessagesEndRef} />
-                                            </div>
-                                            <div className="p-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex gap-2">
-                                                <input 
-                                                    type="text" 
-                                                    value={chatInput}
-                                                    onChange={(e) => setChatInput(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleChatSubmit()}
-                                                    placeholder="輸入問題..." 
-                                                    className="flex-1 p-2 bg-slate-100 dark:bg-slate-900 dark:text-white rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:placeholder-slate-500"
-                                                />
-                                                <button onClick={handleChatSubmit} disabled={!chatInput.trim() || isChatLoading} className="p-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-700 transition-colors"><Icons.Send className="w-4 h-4"/></button>
-                                            </div>
-                                        </div>
-                                    )}
+                                <div className="flex-1 relative bg-slate-50/30 dark:bg-slate-900/30">
+                                    {isLoading && (<div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 animate-in fade-in"><div className="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-3"></div><span className="text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse">{loadingStatus}</span></div>)}
+                                    {renderResult()}
+                                    <div className="absolute bottom-2 right-4 text-[10px] text-slate-300 dark:text-slate-600 font-mono pointer-events-none select-none">{translatedText.length} chars</div>
                                 </div>
                             </div>
                         </div>
