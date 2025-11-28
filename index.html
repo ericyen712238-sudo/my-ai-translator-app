@@ -225,6 +225,7 @@
             { code: 'th', name: 'ไทย (Thai)', codeFull: 'th-TH' }, 
         ];
 
+        // Define Task Modes
         const TASKS = [
             { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600', prompt: 'Translate' },
             { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700', prompt: 'Summarize' },
@@ -346,6 +347,7 @@
                 const timer = setTimeout(onClose, 3000);
                 return () => clearTimeout(timer);
             }, [onClose]);
+
             return (
                 <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type === 'success' ? 'bg-slate-800/90' : 'bg-red-500/90'}`}>
                     {type === 'success' ? <Icons.Check className="w-4 h-4 text-green-400"/> : <Icons.AlertCircle className="w-4 h-4 text-white"/>}
@@ -354,7 +356,9 @@
             );
         };
 
+
         function App() {
+            // ... (State definitions)
             const [mode, setMode] = useState('text'); 
             const [currentTask, setCurrentTask] = useState('translate'); 
             
@@ -397,16 +401,17 @@
             
             const [showVisualMode, setShowVisualMode] = useState(false);
             const [displayImage, setDisplayImage] = useState(null);
-            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' });
+            const [visualTextPos, setVisualTextPos] = useState({ x: 50, y: 50 });
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
             const [visualResizing, setVisualResizing] = useState(false);
             const [visualStyle, setVisualStyle] = useState({ color: 'white', bg: 'rgba(0,0,0,0.6)' });
+            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' });
 
             const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0, text: '' });
             const [historySearchQuery, setHistorySearchQuery] = useState('');
-            const [activeTab, setActiveTab] = useState('general'); 
-            const [toast, setToast] = useState(null);
+            const [activeTab, setActiveTab] = useState('general'); // Settings Tab
+            const [toast, setToast] = useState(null); // Toast State
 
             const dragStartRef = useRef(null);
             const resizeStartRef = useRef(null);
@@ -421,9 +426,9 @@
             const requestCounter = useRef(0);
             const chatEndRef = useRef(null);
 
+            // ... (Effects)
             const [conversationChat, setConversationChat] = useState([]);
             const [activeSpeaker, setActiveSpeaker] = useState(null);
-
             const [apiProvider, setApiProvider] = useState('gemini'); 
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key') || '');
             const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model') || 'gemini-2.5-flash-preview-09-2025');
@@ -485,11 +490,13 @@
 
             const showToast = (msg, type = 'success') => { setToast({ message: msg, type }); };
 
+            // ... (Helper functions: addToHistory, clearHistory, etc.)
             const addToHistory = (src, res, sLang, tLang) => { if (!src || !res) return; const newItem = { id: Date.now(), src, res, sLang, tLang, timestamp: new Date().toLocaleString() }; setHistory(prev => [newItem, ...prev].slice(0, 50)); };
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) { setHistory([]); showToast("歷史紀錄已清除"); } };
             const addGlossaryTerm = () => { if(newGlossaryTerm && newGlossaryTrans) { setGlossary([...glossary, { term: newGlossaryTerm, trans: newGlossaryTrans }]); setNewGlossaryTerm(''); setNewGlossaryTrans(''); showToast("術語已新增"); } };
             const removeGlossaryTerm = (index) => { const newG = [...glossary]; newG.splice(index, 1); setGlossary(newG); };
             
+            // ... (Data Export/Import) ...
             const handleExportData = () => {
                 const data = { settings: { geminiKey, geminiModel, customInstruction, voiceRate, voicePitch, globalFontSize, aiTemperature }, glossary, history };
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -522,6 +529,7 @@
                 reader.readAsText(file);
             };
 
+            // ... (Screen Capture, PDF Export) ...
             const handleScreenCapture = async () => {
                 try {
                     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
@@ -540,6 +548,7 @@
                 showToast("PDF 已匯出");
             };
 
+            // ... (Visual Mode Handlers - Same as before) ...
             const handleSaveVisualImage = async () => {
                 if (!visualContainerRef.current) return;
                 try {
@@ -560,71 +569,14 @@
                      }, 'image/png');
                  } catch (err) { console.error("Failed to share image:", err); showToast("分享失敗，請嘗試下載圖片", "error"); }
             };
-
-            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
-
-            const handleVisualDragStart = (e) => {
-                e.preventDefault();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                dragStartRef.current = { x: clientX, y: clientY };
-                setVisualDragging(true);
-            };
-
-            const handleVisualResizeStart = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                
-                resizeStartRef.current = { 
-                    startX: clientX, 
-                    startY: clientY,
-                    startW: visualBox.w, 
-                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200, 
-                    fontSize: visualFontSize 
-                };
-                setVisualResizing(true);
-            };
-
-            const handleVisualMove = (e) => {
-                if (visualDragging && dragStartRef.current && visualContainerRef.current) {
-                    e.preventDefault();
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    
-                    const containerRect = visualContainerRef.current.getBoundingClientRect();
-                    const deltaX = ((clientX - dragStartRef.current.x) / containerRect.width) * 100;
-                    const deltaY = ((clientY - dragStartRef.current.y) / containerRect.height) * 100;
-                    
-                    setVisualBox(prev => ({
-                        ...prev,
-                        x: Math.max(0, Math.min(100, prev.x + deltaX)),
-                        y: Math.max(0, Math.min(100, prev.y + deltaY))
-                    }));
-                    dragStartRef.current = { x: clientX, y: clientY };
-                } else if (visualResizing && resizeStartRef.current) {
-                    e.preventDefault();
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    
-                    const deltaX = clientX - resizeStartRef.current.startX;
-                    const deltaY = clientY - resizeStartRef.current.startY;
-                    
-                    const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX);
-                    const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY); 
-                    
-                    const scaleRatio = newWidth / resizeStartRef.current.startW;
-                    const newFontSize = Math.max(10, Math.min(100, resizeStartRef.current.fontSize * scaleRatio));
-
-                    setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight }));
-                    setVisualFontSize(newFontSize);
-                }
-            };
-
+            
+            // ... (Visual Handlers)
+            const handleVisualDragStart = (e) => { e.preventDefault(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; dragStartRef.current = { x: clientX, y: clientY }; setVisualDragging(true); };
+            const handleVisualResizeStart = (e) => { e.preventDefault(); e.stopPropagation(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; resizeStartRef.current = { startX: clientX, startY: clientY, startW: visualBox.w, startH: typeof visualBox.h === 'number' ? visualBox.h : 200, fontSize: visualFontSize }; setVisualResizing(true); };
+            const handleVisualMove = (e) => { if (visualDragging && dragStartRef.current && visualContainerRef.current) { e.preventDefault(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const containerRect = visualContainerRef.current.getBoundingClientRect(); const deltaX = ((clientX - dragStartRef.current.x) / containerRect.width) * 100; const deltaY = ((clientY - dragStartRef.current.y) / containerRect.height) * 100; setVisualBox(prev => ({ ...prev, x: Math.max(0, Math.min(100, prev.x + deltaX)), y: Math.max(0, Math.min(100, prev.y + deltaY)) })); dragStartRef.current = { x: clientX, y: clientY }; } else if (visualResizing && resizeStartRef.current) { e.preventDefault(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const deltaX = clientX - resizeStartRef.current.startX; const deltaY = clientY - resizeStartRef.current.startY; const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX); const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY); const scaleRatio = newWidth / resizeStartRef.current.startW; const newFontSize = Math.max(10, Math.min(100, resizeStartRef.current.fontSize * scaleRatio)); setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight })); setVisualFontSize(newFontSize); } };
             const handleVisualEnd = () => { setVisualDragging(false); setVisualResizing(false); dragStartRef.current = null; resizeStartRef.current = null; };
 
-            // ... (Crop Handlers) ...
+            // ... (Crop Handlers - Same as before) ...
              const getClientCoordinates = (e) => { const imgRect = imageRef.current.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; let x = clientX - imgRect.left; let y = clientY - imgRect.top; x = Math.max(0, Math.min(x, imgRect.width)); y = Math.max(0, Math.min(y, imgRect.height)); return { x, y }; };
             const handleCropStart = (e) => { if(e.type === 'mousedown') e.preventDefault(); if(!cropImageSrc) return; const coords = getClientCoordinates(e); dragStartRef.current = coords; isDraggingRef.current = true; setCropSelection({ x: coords.x, y: coords.y, w: 0, h: 0 }); };
             const handleCropMove = (e) => { if (e.cancelable && e.type.startsWith('touch')) e.preventDefault(); if (!isDraggingRef.current || !dragStartRef.current) return; const coords = getClientCoordinates(e); const start = dragStartRef.current; const currentX = coords.x; const currentY = coords.y; const x = Math.min(start.x, currentX); const y = Math.min(start.y, currentY); const w = Math.abs(currentX - start.x); const h = Math.abs(currentY - start.y); setCropSelection({ x, y, w, h }); };
@@ -643,6 +595,7 @@
             const performTranslation = async (text, sLangCode, tLangCode) => { const sName = LANGUAGES.find(l => l.code === sLangCode)?.name || sLangCode; const tName = LANGUAGES.find(l => l.code === tLangCode)?.name || tLangCode; let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text.`; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) throw new Error("Key missing"); const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: text }] }], systemInstruction: { parts: [{ text: systemInstruction }] } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory') { const pair = `${sLangCode}|${tLangCode}`; const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`; const res = await fetch(url); const data = await res.json(); return data.responseData.translatedText; } else { return `[${tName}] ${text}`; } };
             const callAI = async (promptType, textOverride = null) => { const textToUse = textOverride !== null ? textOverride : sourceText; if (!textToUse.trim()) return; if (apiProvider === 'mymemory' && promptType !== 'translate') { setErrorMsg("MyMemory 僅支援基礎翻譯"); return; } const currentRequestId = ++requestCounter.current; setIsLoading(true); setErrorMsg(''); if (!isRealTime && textOverride === null) setTranslatedText(''); const tName = LANGUAGES.find(l => l.code === targetLang)?.name || targetLang; const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name; const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard'; const glossaryPrompt = glossary.length > 0 ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n') : ""; let systemInstruction = ""; if (promptType === 'translate') { systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'polish') { systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'summarize') { systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'grammar') { systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } if(!textOverride) setLoadingStatus("AI 處理中..."); try { let resultText = ""; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Key"); } const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: textToUse }] }], systemInstruction: { parts: [{ text: systemInstruction }] }, generationConfig: { temperature: aiTemperature } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory' && promptType === 'translate') { resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang); } else { resultText = "此模式不支援進階功能"; } if (currentRequestId === requestCounter.current) { setTranslatedText(resultText); if (resultText && !resultText.startsWith("Error") && !resultText.startsWith("此模式")) { addToHistory(textToUse, resultText, sourceLang, targetLang); } } } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } } };
             
+            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); if(isS){ showToast("已複製原文"); } else { showToast("已複製譯文"); } };
             const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const targetLangCode = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; const u = new SpeechSynthesisUtterance(t); u.lang = targetLangCode; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (selectedVoice) u.voice = selectedVoice; } else { const matchedVoice = availableVoices.find(v => v.lang === targetLangCode && v.name.includes('Google')); if (matchedVoice) u.voice = matchedVoice; } window.speechSynthesis.speak(u); };
             const clearAll = () => { setSourceText(''); setTranslatedText(''); setFileName(null); setErrorMsg(''); if(fileInputRef.current) fileInputRef.current.value = ''; };
@@ -773,7 +726,7 @@
                         <div className="flex items-center gap-2"><button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換深色模式">{darkMode ? <Icons.Sun className="w-5 h-5 text-yellow-400"/> : <Icons.Moon className="w-5 h-5 text-slate-600"/>}</button><button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><Icons.Clock className="w-5 h-5" /></button><button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!geminiKey&&apiProvider==='gemini'?'text-red-500 animate-pulse bg-red-50 dark:bg-red-900/20':'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><Icons.Settings className="w-5 h-5" /></button></div>
                     </header>
                     <main className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-                        <div className="flex flex-col sm:flex-row gap-3"><div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"><button onClick={() => setMode('text')} className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode==='text'?'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm':'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icons.Type className="w-4 h-4"/>文字</button><button onClick={() => setMode('file')} className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode==='file'?'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm':'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icons.FileText className="w-4 h-4"/>文件</button></div><div className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-x-auto hide-scrollbar">{TASKS.map(task => (<button key={task.id} onClick={() => setCurrentTask(task.id)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 transition-all ${currentTask === task.id ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>{task.icon} {task.name}</button>))}</div></div>
+                        <div className="flex flex-col sm:flex-row gap-3"><div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"><button onClick={() => setMode('text')} className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode==='text'?'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm':'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icons.Type className="w-4 h-4"/>文字</button><button onClick={() => setMode('file')} className={`flex-1 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${mode==='file'?'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm':'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}><Icons.FileText className="w-4 h-4"/>文件</button></div><div className="grid grid-cols-2 sm:flex sm:items-center sm:gap-2 sm:overflow-x-auto sm:hide-scrollbar gap-2 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">{TASKS.map(task => (<button key={task.id} onClick={() => setCurrentTask(task.id)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1 transition-all ${currentTask === task.id ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900 shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>{task.icon} {task.name}</button>))}</div></div>
                         <div className="flex items-center justify-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"><select value={sourceLang} onChange={e=>setSourceLang(e.target.value)} className="bg-transparent w-32 text-sm font-bold text-slate-600 dark:text-slate-300 text-center outline-none cursor-pointer py-1">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select><button onClick={()=>{const t=targetLang;setTargetLang(sourceLang);setSourceLang(t)}} className="p-2 rounded-full bg-slate-50 dark:bg-slate-700 text-blue-500 hover:rotate-180 transition-transform"><Icons.ArrowRightLeft className="w-4 h-4"/></button><select value={targetLang} onChange={e=>setTargetLang(e.target.value)} className="bg-transparent w-32 text-sm font-bold text-slate-600 dark:text-slate-300 text-center outline-none cursor-pointer py-1">{LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name.split(' ')[0]}</option>)}</select></div>
                         {mode === 'file' && (<div className="flex justify-center"><label className="flex items-center gap-2 cursor-pointer bg-blue-50/50 dark:bg-blue-900/20 px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"><input type="checkbox" checked={usePdfVision} onChange={(e) => setUsePdfVision(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"/><span className="text-xs font-bold text-blue-600 dark:text-blue-400 select-none flex items-center gap-1"><Icons.Eye className="w-3 h-3"/> 強制使用 AI 視覺辨識 (讀取圖表)</span></label></div>)}
                         {errorMsg && <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-xl text-sm flex items-center gap-2 animate-bounce border border-red-100 dark:border-red-900"><Icons.AlertCircle className="w-5 h-5"/>{errorMsg}</div>}
