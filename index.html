@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手</title>
+    <title>Gemini AI文件助手</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -1028,7 +1028,7 @@
                     )}
                     {/* Header */}
                     <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20 h-16 flex items-center justify-between px-4 transition-colors duration-300">
-                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400"><div className="bg-blue-600 text-white p-1.5 rounded-lg shadow-md shadow-blue-200 dark:shadow-none"><Icons.Languages className="w-5 h-5" /></div><h1 className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">Gemini 助手 <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-1">Pro</span></h1></div>
+                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400"><div className="bg-blue-600 text-white p-1.5 rounded-lg shadow-md shadow-blue-200 dark:shadow-none"><Icons.Languages className="w-5 h-5" /></div><h1 className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">Gemini 助手 <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-1">MindMap</span></h1></div>
                         <div className="flex items-center gap-2"><button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="切換深色模式">{darkMode ? <Icons.Sun className="w-5 h-5 text-yellow-400"/> : <Icons.Moon className="w-5 h-5 text-slate-600"/>}</button><button onClick={() => setShowHistory(true)} className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><Icons.Clock className="w-5 h-5" /></button><button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-colors ${!geminiKey&&apiProvider==='gemini'?'text-red-500 animate-pulse bg-red-50 dark:bg-red-900/20':'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><Icons.Settings className="w-5 h-5" /></button></div>
                     </header>
                     <main className="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -1070,7 +1070,7 @@
                             {(currentTask === 'translate' || currentTask === 'polish') && (<div className="flex items-center justify-center gap-2 overflow-x-auto hide-scrollbar py-1"><span className="text-xs font-bold text-slate-400 whitespace-nowrap px-2">語氣：</span>{TONES.map(t => (<button key={t.id} onClick={() => setSelectedTone(t.id)} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${selectedTone === t.id ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:ring-blue-800' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'}`}>{t.icon} {t.name}</button>))}</div>)}
                             <button onClick={() => callAI(currentTask)} disabled={isLoading || !sourceText} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 dark:shadow-none active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white transition-all ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading ? <Icons.RotateCw className="w-6 h-6 animate-spin"/> : <Icons.Sparkles className="w-6 h-6 text-yellow-300"/>} {isLoading ? 'AI 思考中...' : TASKS.find(t=>t.id===currentTask)?.name}</button>
                         </div>
-                        <div className="text-center text-xs text-slate-400 dark:text-slate-600 opacity-80 pt-4">© 2023 Gemini AI Assistant • Pro Version</div>
+                        <div className="text-center text-xs text-slate-400 dark:text-slate-600 opacity-80 pt-4">© 2023 Gemini AI Assistant • MindMap Version</div>
                     </main>
                 </div>
             );
