@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手 (智慧自適應版)</title>
+    <title>Gemini AI 全能文件助手</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,6 +57,7 @@
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
         ::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -66,56 +72,42 @@
         .crop-modal { touch-action: none; } 
         .visual-text-box { 
             touch-action: none; 
-            backdrop-filter: blur(6px); 
-            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px); 
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
             box-sizing: border-box;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: left; /* Better for reading paragraphs */
-            height: auto !important; /* Force auto height */
-            min-height: 40px;
+            text-align: center;
+            overflow: hidden; 
         }
-        
-        /* Custom Resize Handle - Enhanced for Mobile */
-        .resize-handle-area {
-            position: absolute;
-            bottom: -10px;
-            right: -10px;
-            width: 40px;
-            height: 40px;
-            cursor: nwse-resize;
-            touch-action: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-        }
-        .resize-icon {
-            width: 20px;
-            height: 20px;
-            background: rgba(255,255,255,0.9);
-            border: 2px solid #3b82f6;
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+        .visual-text-box::-webkit-resizer { display: none; }
 
-        /* Markdown */
+        /* Markdown Light/Dark */
         .prose { font-size: 1.05rem; line-height: 1.7; color: #334155; max-width: none; }
+        .dark .prose { color: #e2e8f0; }
+        
         .prose h1 { font-size: 1.4em; font-weight: 700; margin: 0.8em 0 0.4em; color: #0f172a; }
+        .dark .prose h1 { color: #f1f5f9; }
+        
         .prose h2 { font-size: 1.2em; font-weight: 600; margin: 0.8em 0 0.4em; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.2em; }
+        .dark .prose h2 { color: #e2e8f0; border-bottom-color: #334155; }
+        
         .prose ul { list-style-type: disc; padding-left: 1.2em; margin-bottom: 0.8em; }
         .prose ol { list-style-type: decimal; padding-left: 1.2em; margin-bottom: 0.8em; }
         .prose li { margin-bottom: 0.2em; }
+        
         .prose strong { font-weight: 700; color: #0f172a; background-color: #f1f5f9; padding: 0 2px; rounded: 2px; }
+        .dark .prose strong { color: #f8fafc; background-color: #334155; }
+        
         .prose blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; font-style: italic; color: #475569; background-color: #f8fafc; padding: 0.5em 1em; border-radius: 0 0.5em 0.5em 0; margin-bottom: 1em; }
+        .dark .prose blockquote { border-left-color: #60a5fa; color: #94a3b8; background-color: #1e293b; }
+        
         .prose code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.9em; font-family: monospace; color: #ef4444; }
+        .dark .prose code { background-color: #1e293b; color: #fca5a5; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-sky-50 via-white to-indigo-50 text-slate-800 min-h-screen">
+<body class="bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
 
     <div id="root"></div>
 
@@ -181,7 +173,9 @@
             Share: () => <Icon><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></Icon>,
             Palette: () => <Icon><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></Icon>,
             MoveHorizontal: () => <Icon><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" y1="12" x2="22" y2="12"/></Icon>,
-            Scaling: () => <Icon><path d="M16 16l5 5"/><path d="M15 21h6v-6"/><path d="M21 9v-6h-6"/><path d="M21 3l-5 5"/><path d="M3 9v-6h6"/><path d="M3 3l5 5"/><path d="M9 21h-6v-6"/><path d="M3 21l5-5"/></Icon>
+            Scaling: () => <Icon><path d="M16 16l5 5"/><path d="M15 21h6v-6"/><path d="M21 9v-6h-6"/><path d="M21 3l-5 5"/><path d="M3 9v-6h6"/><path d="M3 3l5 5"/><path d="M9 21h-6v-6"/><path d="M3 21l5-5"/></Icon>,
+            Moon: () => <Icon><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></Icon>,
+            Sun: () => <Icon><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></Icon>
         };
 
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
@@ -210,10 +204,10 @@
 
         // Define Task Modes
         const TASKS = [
-            { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700', prompt: 'Translate' },
-            { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600', prompt: 'Summarize' },
-            { id: 'polish', name: '潤飾優化', icon: <Icons.Magic className="w-4 h-4"/>, btnColor: 'bg-purple-600 hover:bg-purple-700', prompt: 'Polish' },
-            { id: 'grammar', name: '文法分析', icon: <Icons.Search className="w-4 h-4"/>, btnColor: 'bg-emerald-600 hover:bg-emerald-700', prompt: 'Analyze' }
+            { id: 'translate', name: '一般翻譯', icon: <Icons.Languages className="w-4 h-4"/>, btnColor: 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600', prompt: 'Translate' },
+            { id: 'summarize', name: '摘要整理', icon: <Icons.List className="w-4 h-4"/>, btnColor: 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700', prompt: 'Summarize' },
+            { id: 'polish', name: '潤飾優化', icon: <Icons.Magic className="w-4 h-4"/>, btnColor: 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700', prompt: 'Polish' },
+            { id: 'grammar', name: '文法分析', icon: <Icons.Search className="w-4 h-4"/>, btnColor: 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700', prompt: 'Analyze' }
         ];
 
         const TONES = [
@@ -295,32 +289,27 @@
             });
         };
 
-        // Helper function to convert PDF pages to images
-        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { // Default high limit
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { 
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const count = Math.min(pdf.numPages, maxPagesToRender);
             const images = [];
             
             for (let i = 1; i <= count; i++) {
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is decent for OCR
+                const viewport = page.getViewport({ scale: 1.5 }); 
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: context, viewport: viewport }).promise;
-                
-                // Get Base64
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                images.push(dataUrl.split(',')[1]); // Remove prefix
+                images.push(dataUrl.split(',')[1]); 
             }
             return { images, totalPages: pdf.numPages };
         };
 
-        // Helper function to render PDF first page for fallback (when we only need 1 page)
         const renderPdfFirstPage = async (arrayBuffer) => {
              const { images } = await renderPdfToImages(arrayBuffer, 1);
-             // Convert base64 back to blob to reuse existing runOCR logic if needed
              const byteCharacters = atob(images[0]);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
@@ -353,7 +342,8 @@
             const [usePdfVision, setUsePdfVision] = useState(false); 
             const [globalFontSize, setGlobalFontSize] = useState(18);
             const [aiTemperature, setAiTemperature] = useState(0.7); 
-            const [bilingualMode, setBilingualMode] = useState(false); // New state for Bilingual Mode
+            const [bilingualMode, setBilingualMode] = useState(false); 
+            const [darkMode, setDarkMode] = useState(() => localStorage.getItem('gemini_dark_mode') === 'true');
 
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
@@ -375,7 +365,7 @@
             const [displayImage, setDisplayImage] = useState(null);
             // Visual Box State: Position and Dimensions - x, y in %, w in px, h 'auto'
             // Changed to allow independent W/H resize.
-            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300 }); 
+            const [visualBox, setVisualBox] = useState({ x: 50, y: 50, w: 300, h: 'auto' }); 
             const [visualFontSize, setVisualFontSize] = useState(18);
             const [visualDragging, setVisualDragging] = useState(false);
             const [visualResizing, setVisualResizing] = useState(false);
@@ -418,6 +408,15 @@
             useEffect(() => { localStorage.setItem('gemini_custom_instruction', customInstruction); }, [customInstruction]);
             useEffect(() => { localStorage.setItem('gemini_glossary', JSON.stringify(glossary)); }, [glossary]);
             
+            useEffect(() => {
+                localStorage.setItem('gemini_dark_mode', darkMode);
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }, [darkMode]);
+
             useEffect(() => {
                 if (mode === 'conversation') {
                     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -624,7 +623,7 @@
                 }
             };
 
-            // --- Visual Mode Handlers (New: Auto Scale Logic) ---
+            // --- Visual Mode Handlers (New: Scale Logic) ---
             const handleVisualDragStart = (e) => {
                 e.preventDefault();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -671,11 +670,10 @@
                     const deltaX = clientX - resizeStartRef.current.startX;
                     const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX);
                     
-                    // Calculate auto-scale font size based on width ratio
+                    // Scale font size proportionally based on width ratio
                     const scaleRatio = newWidth / resizeStartRef.current.startW;
                     const newFontSize = Math.max(10, Math.min(100, resizeStartRef.current.fontSize * scaleRatio));
 
-                    // Only update Width (Height is auto-handled by CSS), and Font Size
                     setVisualBox(prev => ({ ...prev, w: newWidth }));
                     setVisualFontSize(newFontSize);
                 }
@@ -846,13 +844,11 @@
                                         
                                         {/* Resize Handle (SE) */}
                                         <div 
-                                            className="resize-handle-area"
+                                            className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize flex items-end justify-end p-1"
                                             onMouseDown={handleVisualResizeStart}
                                             onTouchStart={handleVisualResizeStart}
                                         >
-                                             <div className="resize-icon">
-                                                <Icons.Scaling className="w-3 h-3 text-blue-500"/>
-                                             </div>
+                                             <Icons.Scaling className="w-4 h-4 text-white/80"/>
                                         </div>
 
                                         {/* Color Toggle */}
