@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 全能文件助手 (完美版)</title>
+    <title>Gemini AI文件助手</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -202,7 +202,6 @@
             Brain: () => <Icon><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>
         };
 
-        // ... (Constants: DEFAULT_OLLAMA_URL, DEFAULT_OLLAMA_MODEL, GEMINI_MODELS, LANGUAGES, TASKS, TONES)
         const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
         const DEFAULT_OLLAMA_MODEL = "gemma:2b";
 
@@ -312,32 +311,27 @@
             });
         };
 
-        // Helper function to convert PDF pages to images
-        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { // Default high limit
+        const renderPdfToImages = async (arrayBuffer, maxPagesToRender = 1000) => { 
             const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const count = Math.min(pdf.numPages, maxPagesToRender);
             const images = [];
             
             for (let i = 1; i <= count; i++) {
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 1.5 }); // 1.5 scale is decent for OCR
+                const viewport = page.getViewport({ scale: 1.5 }); 
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: context, viewport: viewport }).promise;
-                
-                // Get Base64
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                images.push(dataUrl.split(',')[1]); // Remove prefix
+                images.push(dataUrl.split(',')[1]); 
             }
             return { images, totalPages: pdf.numPages };
         };
 
-        // Helper function to render PDF first page for fallback (when we only need 1 page)
         const renderPdfFirstPage = async (arrayBuffer) => {
              const { images } = await renderPdfToImages(arrayBuffer, 1);
-             // Convert base64 back to blob to reuse existing runOCR logic if needed
              const byteCharacters = atob(images[0]);
              const byteNumbers = new Array(byteCharacters.length);
              for (let i = 0; i < byteCharacters.length; i++) {
@@ -347,13 +341,11 @@
              return new Blob([byteArray], {type: 'image/jpeg'});
         };
 
-        // --- Toast Component ---
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => {
                 const timer = setTimeout(onClose, 3000);
                 return () => clearTimeout(timer);
             }, [onClose]);
-
             return (
                 <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type === 'success' ? 'bg-slate-800/90' : 'bg-red-500/90'}`}>
                     {type === 'success' ? <Icons.Check className="w-4 h-4 text-green-400"/> : <Icons.AlertCircle className="w-4 h-4 text-white"/>}
@@ -362,9 +354,7 @@
             );
         };
 
-
         function App() {
-            // ... (State definitions)
             const [mode, setMode] = useState('text'); 
             const [currentTask, setCurrentTask] = useState('translate'); 
             
@@ -415,8 +405,8 @@
 
             const [selectionMenu, setSelectionMenu] = useState({ visible: false, x: 0, y: 0, text: '' });
             const [historySearchQuery, setHistorySearchQuery] = useState('');
-            const [activeTab, setActiveTab] = useState('general'); // Settings Tab
-            const [toast, setToast] = useState(null); // Toast State
+            const [activeTab, setActiveTab] = useState('general'); 
+            const [toast, setToast] = useState(null);
 
             const dragStartRef = useRef(null);
             const resizeStartRef = useRef(null);
@@ -571,7 +561,8 @@
                  } catch (err) { console.error("Failed to share image:", err); showToast("分享失敗，請嘗試下載圖片", "error"); }
             };
 
-            // --- Visual Mode Handlers (New: Scale Logic) ---
+            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
+
             const handleVisualDragStart = (e) => {
                 e.preventDefault();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -590,7 +581,7 @@
                     startX: clientX, 
                     startY: clientY,
                     startW: visualBox.w, 
-                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200, // Default height
+                    startH: typeof visualBox.h === 'number' ? visualBox.h : 200, 
                     fontSize: visualFontSize 
                 };
                 setVisualResizing(true);
@@ -621,10 +612,8 @@
                     const deltaY = clientY - resizeStartRef.current.startY;
                     
                     const newWidth = Math.max(100, resizeStartRef.current.startW + deltaX);
-                    // Height is now independent
                     const newHeight = Math.max(50, resizeStartRef.current.startH + deltaY); 
                     
-                    // Scale font based on width change ratio
                     const scaleRatio = newWidth / resizeStartRef.current.startW;
                     const newFontSize = Math.max(10, Math.min(100, resizeStartRef.current.fontSize * scaleRatio));
 
@@ -634,8 +623,6 @@
             };
 
             const handleVisualEnd = () => { setVisualDragging(false); setVisualResizing(false); dragStartRef.current = null; resizeStartRef.current = null; };
-            
-            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
 
             // ... (Crop Handlers) ...
              const getClientCoordinates = (e) => { const imgRect = imageRef.current.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; let x = clientX - imgRect.left; let y = clientY - imgRect.top; x = Math.max(0, Math.min(x, imgRect.width)); y = Math.max(0, Math.min(y, imgRect.height)); return { x, y }; };
@@ -655,6 +642,7 @@
             const toggleListening = () => { if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; } const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音輸入"); return; } const recognition = new SpeechRecognition(); if (sourceLang !== 'auto') recognition.lang = sourceLang; recognition.continuous = true; recognition.interimResults = true; recognition.onstart = () => { setIsListening(true); setErrorMsg(''); }; recognition.onend = () => setIsListening(false); recognition.onresult = (event) => { let final = ''; for (let i = event.resultIndex; i < event.results.length; ++i) { if (event.results[i].isFinal) final += event.results[i][0].transcript; } if (final) setSourceText(prev => prev + (prev ? ' ' : '') + final); }; recognitionRef.current = recognition; recognition.start(); };
             const performTranslation = async (text, sLangCode, tLangCode) => { const sName = LANGUAGES.find(l => l.code === sLangCode)?.name || sLangCode; const tName = LANGUAGES.find(l => l.code === tLangCode)?.name || tLangCode; let systemInstruction = `Translate the following text from ${sName} to ${tName}. Output ONLY the translated text.`; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) throw new Error("Key missing"); const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: text }] }], systemInstruction: { parts: [{ text: systemInstruction }] } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory') { const pair = `${sLangCode}|${tLangCode}`; const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`; const res = await fetch(url); const data = await res.json(); return data.responseData.translatedText; } else { return `[${tName}] ${text}`; } };
             const callAI = async (promptType, textOverride = null) => { const textToUse = textOverride !== null ? textOverride : sourceText; if (!textToUse.trim()) return; if (apiProvider === 'mymemory' && promptType !== 'translate') { setErrorMsg("MyMemory 僅支援基礎翻譯"); return; } const currentRequestId = ++requestCounter.current; setIsLoading(true); setErrorMsg(''); if (!isRealTime && textOverride === null) setTranslatedText(''); const tName = LANGUAGES.find(l => l.code === targetLang)?.name || targetLang; const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name; const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard'; const glossaryPrompt = glossary.length > 0 ? "\nUse the following glossary for specific terms:\n" + glossary.map(g => `- ${g.term}: ${g.trans}`).join('\n') : ""; let systemInstruction = ""; if (promptType === 'translate') { systemInstruction = `Translate input to ${tName}. Source: ${sName}. Tone: ${toneInfo}. Rules: Output ONLY translated text. Use Markdown for formatting (paragraphs, lists, bolding). ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'polish') { systemInstruction = `Rewrite text into ${tName} to be professional/fluent. Tone: ${toneInfo}. Output ONLY rewritten text in Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'summarize') { systemInstruction = `Summarize the following text into ${tName}. Format: Markdown with Title, Bullet Points, and Conclusion. Keep it concise and structured. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } else if (promptType === 'grammar') { systemInstruction = `Analyze text. 1. ID Source Lang. 2. Grammar errors. 3. Key vocab. 4. Corrected version. Output in ${tName} using Markdown. ${glossaryPrompt} ${customInstruction ? 'Additional Instructions: ' + customInstruction : ''}`; } if(!textOverride) setLoadingStatus("AI 處理中..."); try { let resultText = ""; if (apiProvider === 'gemini') { const trimmedKey = geminiKey.trim(); if (!trimmedKey) { setShowSettings(true); throw new Error("請輸入 Key"); } const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${trimmedKey}`; const payload = { contents: [{ parts: [{ text: textToUse }] }], systemInstruction: { parts: [{ text: systemInstruction }] }, generationConfig: { temperature: aiTemperature } }; const data = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Error"; } else if (apiProvider === 'mymemory' && promptType === 'translate') { resultText = await performTranslation(textToUse, sourceLang === 'auto' ? 'Autodetect' : sourceLang, targetLang); } else { resultText = "此模式不支援進階功能"; } if (currentRequestId === requestCounter.current) { setTranslatedText(resultText); if (resultText && !resultText.startsWith("Error") && !resultText.startsWith("此模式")) { addToHistory(textToUse, resultText, sourceLang, targetLang); } } } catch (error) { if (currentRequestId === requestCounter.current) setErrorMsg(error.message); } finally { if (currentRequestId === requestCounter.current) { setIsLoading(false); setLoadingStatus(''); } } };
+            
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); if(isS){ showToast("已複製原文"); } else { showToast("已複製譯文"); } };
             const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const targetLangCode = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; const u = new SpeechSynthesisUtterance(t); u.lang = targetLangCode; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const selectedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (selectedVoice) u.voice = selectedVoice; } else { const matchedVoice = availableVoices.find(v => v.lang === targetLangCode && v.name.includes('Google')); if (matchedVoice) u.voice = matchedVoice; } window.speechSynthesis.speak(u); };
             const clearAll = () => { setSourceText(''); setTranslatedText(''); setFileName(null); setErrorMsg(''); if(fileInputRef.current) fileInputRef.current.value = ''; };
