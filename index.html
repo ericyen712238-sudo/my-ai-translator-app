@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gemini AI 文件助手</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
         tailwind.config = {
@@ -22,7 +21,6 @@
         }
     </script>
     
-    <!-- Fonts & Libs -->
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -34,7 +32,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- Mermaid -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 
     <style>
@@ -321,8 +318,8 @@
             const processFile = async (f) => {
                 if(!f)return; setFileName(f.name); 
                 if(f.type.startsWith('image/')) {
-                     const r = new FileReader(); r.onload = e => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setShowCropModal(true); }; r.readAsDataURL(f);
-                     return;
+                      const r = new FileReader(); r.onload = e => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setShowCropModal(true); }; r.readAsDataURL(f);
+                      return;
                 }
                 setMode('text'); setIsLoading(true); setLoadingStatus('讀取中...'); setErrorMsg('');
                 try {
@@ -736,6 +733,27 @@
                             </div>}
                         </div>
 
+                        {/* 這裡補回了語言選擇與語氣選擇 */}
+                        {mode !== 'conversation' && (
+                            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
+                                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                                    <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
+                                        {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
+                                    </select>
+                                    <button onClick={()=>{const t=targetLang; setTargetLang(sourceLang==='auto'?'en':sourceLang); setSourceLang(t);}} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></button>
+                                    <select value={targetLang} onChange={(e)=>setTargetLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
+                                        {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400 font-bold hidden md:inline">語氣:</span>
+                                    <select value={selectedTone} onChange={(e)=>setSelectedTone(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white min-w-[100px]">
+                                        {TONES.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
                         {mode!=='conversation' && (
                             <div className="grid md:grid-cols-2 gap-4 h-[550px]">
                                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 overflow-hidden relative">
@@ -953,9 +971,9 @@
                                 <img src={displayImage} className="max-w-full max-h-full object-contain pointer-events-none select-none" alt="Original" />
                                 {translatedText && (
                                     <div className="absolute visual-text-box p-4 rounded-lg cursor-move border border-white/30 shadow-lg" style={{ left: `${visualBox.x}%`, top: `${visualBox.y}%`, width: `${visualBox.w}px`, height: typeof visualBox.h === 'number' ? `${visualBox.h}px` : 'auto', transform: 'translate(-50%, -50%)', fontSize: `${visualFontSize}px`, color: visualStyle.color, backgroundColor: visualStyle.bg, whiteSpace: 'pre-wrap', lineHeight: '1.5' }} onMouseDown={handleVisualDragStart} onTouchStart={handleVisualDragStart}>
-                                        {translatedText}
-                                        <div className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize flex items-end justify-end p-1" onMouseDown={handleVisualResizeStart} onTouchStart={handleVisualResizeStart}><Icons.Scaling className="w-4 h-4 text-white/80"/></div>
-                                        <div className="absolute -top-10 left-0 p-2 rounded-full cursor-pointer bg-black/50 hover:bg-black/70 border border-white/20 transition-colors" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={() => setVisualStyle(prev => ({ ...prev, bg: prev.bg === 'rgba(0,0,0,0.6)' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)', color: prev.bg === 'rgba(0,0,0,0.6)' ? 'black' : 'white' }))} title="切換黑/白底"><Icons.Palette className="w-4 h-4 text-white"/></div>
+                                            {translatedText}
+                                            <div className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize flex items-end justify-end p-1" onMouseDown={handleVisualResizeStart} onTouchStart={handleVisualResizeStart}><Icons.Scaling className="w-4 h-4 text-white/80"/></div>
+                                            <div className="absolute -top-10 left-0 p-2 rounded-full cursor-pointer bg-black/50 hover:bg-black/70 border border-white/20 transition-colors" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onClick={() => setVisualStyle(prev => ({ ...prev, bg: prev.bg === 'rgba(0,0,0,0.6)' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)', color: prev.bg === 'rgba(0,0,0,0.6)' ? 'black' : 'white' }))} title="切換黑/白底"><Icons.Palette className="w-4 h-4 text-white"/></div>
                                     </div>
                                 )}
                             </div>
