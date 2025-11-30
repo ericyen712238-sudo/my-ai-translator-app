@@ -722,12 +722,12 @@
                                 <button onClick={()=>setMode('file')} className={`flex-1 px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                                 <button onClick={()=>setMode('conversation')} className={`flex-1 px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
-                            {mode!=='conversation' && <div className="flex overflow-x-auto hide-scrollbar gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700">
+                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-7 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700">
                                 {TASKS.map(t => (
                                     <button 
                                         key={t.id} 
                                         onClick={() => { setCurrentTask(t.id); setTranslatedText(''); setErrorMsg(''); }} 
-                                        className={`flex-shrink-0 px-3 py-2 text-sm font-bold rounded-md flex items-center justify-center gap-2 transition-all whitespace-nowrap ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         {t.icon} 
                                         <span>{t.name}</span>
