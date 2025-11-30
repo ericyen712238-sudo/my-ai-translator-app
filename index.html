@@ -12,10 +12,15 @@
             darkMode: 'class',
             theme: {
                 extend: {
-                    animation: { 'slide-up': 'slideUp 0.3s ease-out forwards', 'fade-out': 'fadeOut 0.3s ease-in forwards' },
+                    animation: { 
+                        'slide-up': 'slideUp 0.3s ease-out forwards', 
+                        'fade-out': 'fadeOut 0.3s ease-in forwards',
+                        'pop-in': 'popIn 0.2s ease-out forwards' 
+                    },
                     keyframes: {
                         slideUp: { '0%': { transform: 'translate(-50%, 100%)', opacity: '0' }, '100%': { transform: 'translate(-50%, -1rem)', opacity: '1' } },
-                        fadeOut: { '0%': { opacity: '1' }, '100%': { opacity: '0' } }
+                        fadeOut: { '0%': { opacity: '1' }, '100%': { opacity: '0' } },
+                        popIn: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
                     }
                 }
             }
@@ -833,8 +838,8 @@
                     </main>
                     
                     {showHistory && (
-                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowHistory(false)}>
-                            <div className="bg-white dark:bg-slate-800 w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[80vh] flex flex-col animate-slide-up" onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowHistory(false)}>
+                            <div className="bg-white dark:bg-slate-800 w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[80vh] flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
                                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
                                     <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Icons.Clock className="w-5 h-5 text-blue-500"/> 歷史紀錄</h3>
                                     <div className="flex gap-2">
