@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gemini AI 文件助手</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
         tailwind.config = {
@@ -21,6 +22,7 @@
         }
     </script>
     
+    <!-- Fonts & Libs -->
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -32,6 +34,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Mermaid -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 
     <style>
@@ -719,15 +722,15 @@
                                 <button onClick={()=>setMode('file')} className={`flex-1 px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                                 <button onClick={()=>setMode('conversation')} className={`flex-1 px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
-                            {mode!=='conversation' && <div className="grid grid-cols-4 gap-2 md:flex md:overflow-x-auto md:hide-scrollbar bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700">
+                            {mode!=='conversation' && <div className="flex overflow-x-auto hide-scrollbar gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700">
                                 {TASKS.map(t => (
                                     <button 
                                         key={t.id} 
                                         onClick={() => { setCurrentTask(t.id); setTranslatedText(''); setErrorMsg(''); }} 
-                                        className={`px-2 py-2 text-xs font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 md:px-3 md:py-1.5 md:flex-shrink-0 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        className={`flex-shrink-0 px-3 py-2 text-sm font-bold rounded-md flex items-center justify-center gap-2 transition-all whitespace-nowrap ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
                                         {t.icon} 
-                                        <span className="scale-90 md:scale-100">{t.name}</span>
+                                        <span>{t.name}</span>
                                     </button>
                                 ))}
                             </div>}
