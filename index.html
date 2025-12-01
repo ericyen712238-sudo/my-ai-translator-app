@@ -201,62 +201,6 @@
         
         const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
-        const compressImage = (file) => new Promise((resolve, reject) => {
-            const r = new FileReader(); r.readAsDataURL(file);
-            r.onload = e => {
-                const img = new Image(); img.src = e.target.result;
-                img.onload = () => {
-                    const c = document.createElement('canvas');
-                    let w=img.width, h=img.height, m=1500;
-                    if(w>h && w>m){h*=m/w;w=m;} else if(h>m){w*=m/h;h=m;}
-                    c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
-                    resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);
-                };
-                img.onerror = reject;
-            };
-            r.onerror = reject;
-        });
-
-        const renderPdfToImages = async (ab) => {
-            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
-            const imgs = [];
-            const count = Math.min(pdf.numPages, 5); 
-            for(let i=1;i<=count;i++){
-                const p = await pdf.getPage(i);
-                const v = p.getViewport({scale:1.5});
-                const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
-                await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
-                imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
-            }
-            return imgs;
-        };
-
-        const MermaidDiagram = ({code, darkMode}) => {
-            const [svg, setSvg] = useState('');
-            const [err, setErr] = useState(null);
-            useEffect(() => {
-                setSvg(''); setErr(null);
-                if(code && typeof mermaid !== 'undefined') {
-                    const id = `mermaid-${Date.now()}`;
-                    const run = async () => {
-                        try {
-                            mermaid.initialize({startOnLoad:true, theme:darkMode?'dark':'default', securityLevel:'loose', fontFamily:'Zen Maru Gothic', darkMode});
-                            const {svg} = await mermaid.render(id, code);
-                            setSvg(svg);
-                        } catch(e) { console.error(e); setErr('無法繪製圖表'); const el=document.getElementById(id); if(el)el.remove(); }
-                    };
-                    setTimeout(run, 100);
-                }
-            }, [code, darkMode]);
-            if(err) return <div className="text-red-500 text-sm p-4 bg-red-50 rounded">{err}<br/><span className="text-xs text-gray-500">Code: {code.substring(0,50)}...</span></div>;
-            return <div className="w-full overflow-x-auto flex justify-center bg-white dark:bg-slate-800 p-4 rounded-lg" dangerouslySetInnerHTML={{__html:svg}}/>;
-        };
-        
-        const Toast = ({ message, type, onClose }) => {
-            useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
-            return <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type==='success'?'bg-slate-800/90':'bg-red-500/90'}`}>{type==='success'?<Icons.Check className="w-4 h-4 text-green-400"/>:<Icons.AlertCircle className="w-4 h-4 text-white"/>}{message}</div>;
-        };
-
         function App() {
             const [mode, setMode] = useState('text');
             const [currentTask, setCurrentTask] = useState('notes');
@@ -380,27 +324,24 @@
                 }
             };
             
-            // 1. 定義 fetchWithRetry (包含自動暫停與降級邏輯)
+            // Robust fetchWithRetry with explicit 429 waiting
             const fetchWithRetry = async (url, options, retries = 5, delay = 2000) => {
                 try {
                     const res = await fetch(url, options);
                     
                     if (res.status === 429) {
                         if (retries > 0) {
-                            // 暫停邏輯：顯示倒數計時
-                            const seconds = delay / 1000;
-                            setLoadingStatus(`達到請求限制，暫停 ${seconds} 秒後繼續...`);
+                            // Visual Countdown for 429
+                            const seconds = Math.ceil(delay / 1000);
+                            for(let i = seconds; i > 0; i--) {
+                                setLoadingStatus(`⚠️ 系統忙碌 (429)... 倒數 ${i} 秒後自動重試`);
+                                await new Promise(r => setTimeout(r, 1000));
+                            }
                             
-                            // 等待指定時間
-                            await new Promise(r => setTimeout(r, delay));
-                            
-                            // 指數退避：每次失敗等待時間加倍，例如 2s -> 4s -> 8s...
-                            // 這裡設定上限例如 16秒，避免等太久
+                            // Exponential backoff
                             const nextDelay = Math.min(delay * 2, 16000);
-                            
                             return fetchWithRetry(url, options, retries - 1, nextDelay);
                         }
-                        // 重試次數用盡，拋出特定錯誤以便後續降級
                         throw new Error("429_TOO_MANY_REQUESTS");
                     }
 
@@ -410,10 +351,8 @@
                     }
                     return await res.json();
                 } catch (e) {
-                    // 遇到 404 或 429 時直接往上拋，讓 runGeminiRequest 處理降級
                     if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
                     
-                    // 其他網路錯誤的重試邏輯
                     if (retries > 0) {
                         setLoadingStatus(`連線不穩，${delay/1000} 秒後重試...`);
                         await new Promise(r => setTimeout(r, delay));
@@ -423,7 +362,6 @@
                 }
             };
 
-            // 2. 定義 runGeminiRequest (使用 fetchWithRetry 並處理降級)
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
@@ -438,7 +376,6 @@
                 try {
                     return await attemptRequest(preferredModel);
                 } catch (e) {
-                    // 當遇到 404 (找不到模型) 或 429 (請求過多且重試無效) 時，自動降級到 Flash 2.5
                     if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") && preferredModel !== FALLBACK_MODEL) {
                          const errorType = e.message === "404_NOT_FOUND" ? "模型不支援" : "系統忙碌";
                          showToast(`${errorType}，自動切換至 Flash 2.5`, "error");
@@ -628,8 +565,12 @@
                     }
                 } catch(e) { 
                     if(currentRequestId === requestCounter.current) {
-                        setErrorMsg(e.message); 
-                        setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
+                        if (e.message === "429_TOO_MANY_REQUESTS") {
+                             setTranslatedText("系統目前流量過大，已嘗試多次連線仍失敗。\n請稍待幾分鐘後再試。");
+                        } else {
+                             setErrorMsg(e.message); 
+                             setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
+                        }
                     }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
@@ -680,7 +621,13 @@
                     }
 
                     setChatMessages(p=>[...p,{role:'model',text:responseText}]);
-                } catch(e) { setChatMessages(p=>[...p,{role:'model',text:"Error: "+e.message}]); }
+                } catch(e) { 
+                    let errMsg = "Error: " + e.message;
+                    if (e.message === "429_TOO_MANY_REQUESTS") {
+                        errMsg = "系統目前流量過大，請稍後再試。";
+                    }
+                    setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
+                }
                 setIsLoading(false);
             };
 
@@ -765,9 +712,6 @@
                 const recognition = new SpeechRecognition();
                 recognitionRef.current = recognition;
                 
-                // Use 'zh-TW' as a safe default for most scenarios unless a specific supported language code is available.
-                // Standard browsers support 'zh-TW', 'en-US', etc. 'nan' or 'yue' might not be supported everywhere.
-                // Mapping 'auto' to 'zh-TW'.
                 let langCode = sourceLang;
                 if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
                 
