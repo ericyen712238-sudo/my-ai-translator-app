@@ -102,6 +102,7 @@
             UploadCloud: () => <Icon><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></Icon>,
             ArrowRightLeft: () => <Icon><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></Icon>,
             Copy: () => <Icon><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></Icon>,
+            Paste: () => <Icon><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></Icon>,
             Check: () => <Icon className="w-4 h-4 text-green-500"><polyline points="20 6 9 17 4 12"/></Icon>,
             Volume2: () => <Icon><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></Icon>,
             X: () => <Icon><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>,
@@ -330,6 +331,17 @@
                     setChatMessages([]);
                     setFileName(null);
                     showToast("已清除所有內容", "success");
+                }
+            };
+            
+            const handlePasteClick = async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    setSourceText(prev => prev + text);
+                    showToast("已貼上剪貼簿內容", "success");
+                } catch (err) {
+                    console.error('Failed to read clipboard contents: ', err);
+                    showToast("無法讀取剪貼簿，請使用 Ctrl+V", "error");
                 }
             };
 
@@ -788,6 +800,7 @@
                                         </div>
                                         <div className="flex gap-1">
                                             <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                                            <button onClick={handlePasteClick} className="p-1 text-slate-400 hover:text-blue-600" title="貼上"><Icons.Paste className="w-4 h-4"/></button>
                                             <button onClick={handleScreenCapture} className="p-1 text-slate-400 hover:text-blue-600" title="截圖"><Icons.Scissors className="w-4 h-4"/></button>
                                             <button onClick={() => cameraInputRef.current?.click()} className="p-1 text-slate-400 hover:text-blue-600" title="上傳圖片/拍照"><Icons.Camera className="w-4 h-4"/></button>
                                             <button onClick={toggleListening} className={`p-1 ${isListening ? 'text-red-500' : 'text-slate-400 hover:text-blue-600'}`} title="語音輸入"><Icons.Mic className="w-4 h-4"/></button>
