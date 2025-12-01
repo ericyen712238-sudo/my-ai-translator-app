@@ -317,6 +317,7 @@
             const [isDragOver, setIsDragOver] = useState(false);
             const fsContentRef = useRef(null);
             const fsInnerRef = useRef(null);
+            const recognitionRef = useRef(null);
 
             useEffect(()=>{localStorage.setItem('gemini_api_key',geminiKey)},[geminiKey]);
             useEffect(()=>{localStorage.setItem('gemini_model',geminiModel)},[geminiModel]);
@@ -694,21 +695,60 @@
                 } catch (err) { showToast("儲存失敗", "error"); }
             };
             
-            const toggleListening = () => { 
-                 if (isListening) { /* stop logic */ setIsListening(false); return; }
-                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                 if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援"); return; }
-                 const recognition = new SpeechRecognition();
-                 recognition.lang = sourceLang==='auto'?'zh-TW':sourceLang;
-                 recognition.continuous = true; recognition.interimResults = true;
-                 recognition.onstart = () => setIsListening(true);
-                 recognition.onend = () => setIsListening(false);
-                 recognition.onresult = (e) => {
-                     let final = '';
-                     for (let i = e.resultIndex; i < e.results.length; ++i) if (e.results[i].isFinal) final += e.results[i][0].transcript;
-                     if(final) setSourceText(prev => prev + (prev ? ' ' : '') + final);
-                 };
-                 recognition.start();
+            const toggleListening = () => {
+                if (isListening) {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.stop();
+                    }
+                    setIsListening(false);
+                    return;
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    setErrorMsg("瀏覽器不支援語音辨識");
+                    return;
+                }
+
+                const recognition = new SpeechRecognition();
+                recognitionRef.current = recognition;
+                
+                // Use 'zh-TW' as a safe default for most scenarios unless a specific supported language code is available.
+                // Standard browsers support 'zh-TW', 'en-US', etc. 'nan' or 'yue' might not be supported everywhere.
+                // Mapping 'auto' to 'zh-TW'.
+                let langCode = sourceLang;
+                if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
+                
+                recognition.lang = langCode;
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
+                recognition.onstart = () => setIsListening(true);
+                recognition.onend = () => setIsListening(false);
+                recognition.onerror = (e) => {
+                    console.error("Speech recognition error", e);
+                    setIsListening(false);
+                    showToast("語音辨識錯誤: " + e.error, "error");
+                };
+
+                recognition.onresult = (e) => {
+                    let final = '';
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {
+                        if (e.results[i].isFinal) {
+                            final += e.results[i][0].transcript;
+                        }
+                    }
+                    
+                    if (final) {
+                        if (mode === 'conversation') {
+                            setChatInput(prev => prev + final);
+                        } else {
+                            setSourceText(prev => prev + (prev ? ' ' : '') + final);
+                        }
+                    }
+                };
+
+                recognition.start();
             };
             
              const handleSelection = () => { 
@@ -1148,7 +1188,7 @@
                         </div>
                     )}
 
-                    {showCropModal && (
+                     {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
                             <div className="flex justify-between items-center p-4 text-white z-10"><h3 className="font-bold">裁切圖片</h3><button onClick={()=>{setShowCropModal(false);setCropImageSrc(null);}}><Icons.X/></button></div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden"><div className="relative"><img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain block no-select" onMouseDown={handleCropStart} onTouchStart={handleCropStart} draggable="false"/>{cropSelection && <div className="absolute border-2 border-yellow-400 bg-yellow-400/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{left:cropSelection.x,top:cropSelection.y,width:cropSelection.w,height:cropSelection.h}}/>}</div></div>
