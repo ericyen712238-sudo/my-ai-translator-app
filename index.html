@@ -519,7 +519,10 @@
 
                 const msg = {role:'user',text:chatInput}; setChatMessages(p=>[...p,msg]); setChatInput(''); setIsLoading(true);
                 try {
-                    const ctx = `Context:\nSource:${sourceText}\nResult:${translatedText}\n\nUser:${msg.text}`;
+                    let ctx = `Context:\nSource:${sourceText}\nResult:${translatedText}`;
+                    if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
+                    ctx += `\n\nUser:${msg.text}`;
+
                     const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({contents:[{parts:[{text:ctx}]}]})
@@ -1028,7 +1031,7 @@
                         </div>
                     )}
 
-                     {showCropModal && (
+                    {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
                             <div className="flex justify-between items-center p-4 text-white z-10"><h3 className="font-bold">裁切圖片</h3><button onClick={()=>{setShowCropModal(false);setCropImageSrc(null);}}><Icons.X/></button></div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden"><div className="relative"><img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain block no-select" onMouseDown={handleCropStart} onTouchStart={handleCropStart} draggable="false"/>{cropSelection && <div className="absolute border-2 border-yellow-400 bg-yellow-400/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{left:cropSelection.x,top:cropSelection.y,width:cropSelection.w,height:cropSelection.h}}/>}</div></div>
