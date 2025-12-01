@@ -892,6 +892,15 @@
                                         <div className="space-y-4">
                                             <div><label className="text-xs font-bold text-slate-500 dark:text-slate-400">API Key <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 ml-1">取得免費 Key</a></label><input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2 border rounded mt-1 dark:bg-slate-900 dark:text-white dark:border-slate-700"/></div>
                                             <div><label className="text-xs font-bold text-slate-500 dark:text-slate-400">模型</label><select value={geminiModel} onChange={e=>setGeminiModel(e.target.value)} className="w-full p-2 border rounded mt-1 dark:bg-slate-900 dark:text-white dark:border-slate-700">{GEMINI_MODELS.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400">自訂規則 (System Instruction)</label>
+                                                <textarea 
+                                                    value={customInstruction} 
+                                                    onChange={e=>setCustomInstruction(e.target.value)} 
+                                                    className="w-full p-2 border rounded mt-1 dark:bg-slate-900 dark:text-white dark:border-slate-700 h-24 resize-none text-sm" 
+                                                    placeholder="例如：請用有禮貌的口氣回應，並使用繁體中文。"
+                                                />
+                                            </div>
                                             <div><label className="text-xs font-bold text-slate-500 dark:text-slate-400">創意度: {aiTemperature}</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={e=>setAiTemperature(parseFloat(e.target.value))} className="w-full"/></div>
                                             <div><label className="text-xs font-bold text-slate-500 dark:text-slate-400">PDF 強制 AI 視覺讀取</label><input type="checkbox" checked={usePdfVision} onChange={e=>setUsePdfVision(e.target.checked)} className="ml-2"/></div>
                                         </div>
