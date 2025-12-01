@@ -454,18 +454,19 @@
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
                 
                 // Base prompt logic
-                let sys = `Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
+                const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                let sys = `Current DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
                 
                 if(promptType==='translate') {
                     if (targetLang === 'nan') {
-                        sys = `Translate the following text to Taiwanese Hokkien (台語). You may use Traditional Chinese characters (漢字) or Pe̍h-ōe-jī (POJ) mixed as appropriate for natural Taiwanese reading. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
+                        sys = `Current DateTime: ${now}. Translate the following text to Taiwanese Hokkien (台語). You may use Traditional Chinese characters (漢字) or Pe̍h-ōe-jī (POJ) mixed as appropriate for natural Taiwanese reading. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
                     } else if (targetLang === 'yue') {
-                        sys = `Translate the following text to Cantonese (粵語). Use Traditional Chinese characters. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
+                        sys = `Current DateTime: ${now}. Translate the following text to Cantonese (粵語). Use Traditional Chinese characters. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
                     } else {
-                        sys = `Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
+                        sys = `Current DateTime: ${now}. Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
                     }
                 } else if(promptType==='mindmap') {
-                    sys = `Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
+                    sys = `Current DateTime: ${now}. Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
                 }
                 
                 if(glossary.length>0) sys += `\nGlossary:${JSON.stringify(glossary)}`;
@@ -538,7 +539,8 @@
 
                 const msg = {role:'user',text:chatInput}; setChatMessages(p=>[...p,msg]); setChatInput(''); setIsLoading(true);
                 try {
-                    let ctx = `Context:\nSource:${sourceText}\nResult:${translatedText}`;
+                    const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                    let ctx = `Current DateTime: ${now}.\nContext:\nSource:${sourceText}\nResult:${translatedText}`;
                     if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
                     ctx += `\n\nUser:${msg.text}`;
 
@@ -1050,7 +1052,7 @@
                         </div>
                     )}
 
-                    {showCropModal && (
+                     {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
                             <div className="flex justify-between items-center p-4 text-white z-10"><h3 className="font-bold">裁切圖片</h3><button onClick={()=>{setShowCropModal(false);setCropImageSrc(null);}}><Icons.X/></button></div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden"><div className="relative"><img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain block no-select" onMouseDown={handleCropStart} onTouchStart={handleCropStart} draggable="false"/>{cropSelection && <div className="absolute border-2 border-yellow-400 bg-yellow-400/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{left:cropSelection.x,top:cropSelection.y,width:cropSelection.w,height:cropSelection.h}}/>}</div></div>
