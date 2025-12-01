@@ -308,7 +308,7 @@
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
             const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.5-flash-preview-09-2025');
-            const [history, setHistory] = useState(JSON.parse(localStorage.getItem('translate_history')||'[]'));
+            const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
             const [showCropModal, setShowCropModal] = useState(false);
@@ -342,7 +342,7 @@
             const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
             const [voiceRate, setVoiceRate] = useState(1);
             const [voicePitch, setVoicePitch] = useState(1);
-            const [glossary, setGlossary] = useState(JSON.parse(localStorage.getItem('gemini_glossary') || '[]'));
+            const [glossary, setGlossary] = useState(() => { try { return JSON.parse(localStorage.getItem('gemini_glossary') || '[]'); } catch(e) { return []; } });
             const [newGlossaryTerm, setNewGlossaryTerm] = useState('');
             const [newGlossaryTrans, setNewGlossaryTrans] = useState('');
             const [customInstruction, setCustomInstruction] = useState(localStorage.getItem('gemini_custom_instruction') || '');
