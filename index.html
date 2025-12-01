@@ -201,6 +201,11 @@
         
         const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
+        const Toast = ({ message, type, onClose }) => {
+            useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
+            return <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type==='success'?'bg-slate-800/90':'bg-red-500/90'}`}>{type==='success'?<Icons.Check className="w-4 h-4 text-green-400"/>:<Icons.AlertCircle className="w-4 h-4 text-white"/>}{message}</div>;
+        };
+
         function App() {
             const [mode, setMode] = useState('text');
             const [currentTask, setCurrentTask] = useState('notes');
@@ -295,6 +300,37 @@
                 window.addEventListener('paste', handlePaste);
                 return () => window.removeEventListener('paste', handlePaste);
             }, [mode]);
+            
+            // Helper functions defined inside App to avoid "not defined" errors
+            const compressImage = (file) => new Promise((resolve, reject) => {
+                const r = new FileReader(); r.readAsDataURL(file);
+                r.onload = e => {
+                    const img = new Image(); img.src = e.target.result;
+                    img.onload = () => {
+                        const c = document.createElement('canvas');
+                        let w=img.width, h=img.height, m=1500;
+                        if(w>h && w>m){h*=m/w;w=m;} else if(h>m){w*=m/h;h=m;}
+                        c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+                        resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+                    };
+                    img.onerror = reject;
+                };
+                r.onerror = reject;
+            });
+
+            const renderPdfToImages = async (ab) => {
+                const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
+                const imgs = [];
+                const count = Math.min(pdf.numPages, 5); 
+                for(let i=1;i<=count;i++){
+                    const p = await pdf.getPage(i);
+                    const v = p.getViewport({scale:1.5});
+                    const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
+                    await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
+                    imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+                }
+                return imgs;
+            };
 
             const addToHistory = (src, res, s, t) => setHistory(prev => [{ id: Date.now(), src, res, s, t, timestamp: new Date().toLocaleString() }, ...prev].slice(0, 50));
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) { setHistory([]); } };
@@ -324,21 +360,18 @@
                 }
             };
             
-            // Robust fetchWithRetry with explicit 429 waiting
             const fetchWithRetry = async (url, options, retries = 5, delay = 2000) => {
                 try {
                     const res = await fetch(url, options);
                     
                     if (res.status === 429) {
                         if (retries > 0) {
-                            // Visual Countdown for 429
                             const seconds = Math.ceil(delay / 1000);
                             for(let i = seconds; i > 0; i--) {
                                 setLoadingStatus(`⚠️ 系統忙碌 (429)... 倒數 ${i} 秒後自動重試`);
                                 await new Promise(r => setTimeout(r, 1000));
                             }
                             
-                            // Exponential backoff
                             const nextDelay = Math.min(delay * 2, 16000);
                             return fetchWithRetry(url, options, retries - 1, nextDelay);
                         }
@@ -565,12 +598,8 @@
                     }
                 } catch(e) { 
                     if(currentRequestId === requestCounter.current) {
-                        if (e.message === "429_TOO_MANY_REQUESTS") {
-                             setTranslatedText("系統目前流量過大，已嘗試多次連線仍失敗。\n請稍待幾分鐘後再試。");
-                        } else {
-                             setErrorMsg(e.message); 
-                             setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
-                        }
+                        setErrorMsg(e.message); 
+                        setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
                     }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
