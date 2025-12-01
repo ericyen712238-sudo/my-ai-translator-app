@@ -27,6 +27,11 @@
         }
     </script>
     
+    <!-- KaTeX for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
     <!-- Fonts & Libs -->
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -79,6 +84,8 @@
 
         const SafeMarkdown = ({ content, fontSize, isUser }) => {
             const [html, setHtml] = useState('');
+            const containerRef = useRef(null);
+
             useEffect(() => {
                 try {
                     if (typeof marked === 'function') setHtml(marked(content));
@@ -87,10 +94,26 @@
                 } catch (e) { setHtml(content); }
             }, [content]);
             
+            useEffect(() => {
+                if(containerRef.current && typeof renderMathInElement === 'function') {
+                    try {
+                        renderMathInElement(containerRef.current, {
+                            delimiters: [
+                                {left: "$$", right: "$$", display: true},
+                                {left: "$", right: "$", display: false},
+                                {left: "\\(", right: "\\)", display: false},
+                                {left: "\\[", right: "\\]", display: true}
+                            ],
+                            throwOnError: false
+                        });
+                    } catch(e) { console.error("KaTeX render error", e); }
+                }
+            }, [html]);
+
             const userClasses = "text-white [&_*]:text-white";
             const aiClasses = "prose prose-sm dark:prose-invert max-w-none leading-relaxed";
             
-            return <div className={isUser ? userClasses : aiClasses} style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{__html: html}} />;
+            return <div ref={containerRef} className={isUser ? userClasses : aiClasses} style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{__html: html}} />;
         };
 
         const Icon = ({ children, className = "w-6 h-6" }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>;
@@ -381,6 +404,7 @@
                 }
             };
             
+            // Consolidated Gemini Request with Fallback
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
