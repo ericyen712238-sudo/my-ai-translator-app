@@ -144,7 +144,7 @@
         };
 
         const GEMINI_MODELS = [{id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5'},{id:'gemini-1.5-flash',name:'Flash 1.5'},{id:'gemini-1.5-pro',name:'Pro 1.5'}];
-        const LANGUAGES = [{code:'auto',name:'自動'},{code:'zh-TW',name:'繁中'},{code:'en',name:'English'},{code:'ja',name:'日本語'},{code:'ko',name:'韓語'},{code:'vi',name:'越南'},{code:'th',name:'泰文'}];
+        const LANGUAGES = [{code:'auto',name:'自動'},{code:'zh-TW',name:'繁中'},{code:'en',name:'English'},{code:'ja',name:'日本語'},{code:'ko',name:'韓語'},{code:'vi',name:'越南'},{code:'th',name:'泰文'},{code:'nan',name:'台語'}];
         const TASKS = [
             {id:'notes',name:'筆記',icon:<Icons.Notebook/>,btnColor:'bg-teal-600'},
             {id:'translate',name:'翻譯',icon:<Icons.Languages/>,btnColor:'bg-blue-600'},
@@ -444,7 +444,11 @@
                 let sys = `Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
                 
                 if(promptType==='translate') {
-                    sys = `Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
+                    if (targetLang === 'nan') {
+                        sys = `Translate the following text to Taiwanese Hokkien (台語). You may use Traditional Chinese characters (漢字) or Pe̍h-ōe-jī (POJ) mixed as appropriate for natural Taiwanese reading. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
+                    } else {
+                        sys = `Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
+                    }
                 } else if(promptType==='mindmap') {
                     sys = `Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
                 }
@@ -1031,7 +1035,7 @@
                         </div>
                     )}
 
-                    {showCropModal && (
+                     {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
                             <div className="flex justify-between items-center p-4 text-white z-10"><h3 className="font-bold">裁切圖片</h3><button onClick={()=>{setShowCropModal(false);setCropImageSrc(null);}}><Icons.X/></button></div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden"><div className="relative"><img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain block no-select" onMouseDown={handleCropStart} onTouchStart={handleCropStart} draggable="false"/>{cropSelection && <div className="absolute border-2 border-yellow-400 bg-yellow-400/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{left:cropSelection.x,top:cropSelection.y,width:cropSelection.w,height:cropSelection.h}}/>}</div></div>
