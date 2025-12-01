@@ -201,8 +201,7 @@
         
         const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
-        // Robust fetchWithRetry with exponential backoff specifically for 429
-        const fetchWithRetry = async (url, options, retries=5, delay=1000) => {
+        const fetchWithRetry = async (url, options, retries=3, delay=2000) => {
             try {
                 const res = await fetch(url, options);
                 if (!res.ok) {
@@ -405,7 +404,6 @@
                 }
             };
             
-            // Consolidated Gemini Request with Fallback
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
@@ -414,15 +412,14 @@
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify(payload)
                     };
-                    // Use fetchWithRetry here
                     return await fetchWithRetry(url, options);
                 };
 
                 try {
                     return await attemptRequest(preferredModel);
                 } catch (e) {
-                    if (e.message === "404_NOT_FOUND" && preferredModel !== FALLBACK_MODEL) {
-                         showToast("此模型在當前環境不可用，自動切換至 Flash 2.5", "error");
+                    if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") && preferredModel !== FALLBACK_MODEL) {
+                         showToast("此模型暫時不可用，自動切換至 Flash 2.5", "error");
                          return await attemptRequest(FALLBACK_MODEL);
                     }
                     throw e;
