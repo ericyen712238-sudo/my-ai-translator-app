@@ -428,12 +428,17 @@
                 const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name;
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
                 
+                // Base prompt logic
                 let sys = `Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
-                if(promptType==='translate') sys = `Translate to ${tName}. Source: Auto. Tone: ${toneInfo}. Output ONLY result in Markdown.`;
-                else if(promptType==='mindmap') sys = `Generate a Mind Map for the text in Mermaid JS syntax. Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for nodes.`;
+                
+                if(promptType==='translate') {
+                    sys = `Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
+                } else if(promptType==='mindmap') {
+                    sys = `Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
+                }
                 
                 if(glossary.length>0) sys += `\nGlossary:${JSON.stringify(glossary)}`;
-                if(customInstruction) sys += `\nInstruction:${customInstruction}`;
+                if(customInstruction) sys += `\nSystem Instruction:${customInstruction}`;
 
                 try {
                     let out = "";
