@@ -144,10 +144,9 @@
         };
 
         const GEMINI_MODELS = [
-            {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5'},
+            {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
-            {id:'gemini-1.5-pro',name:'Pro 1.5'},
-            {id:'gemini-3.0-pro-preview',name:'Pro 3.0 (Preview)'}
+            {id:'gemini-1.5-pro',name:'Pro 1.5'}
         ];
         
         const LANGUAGES = [
@@ -178,7 +177,10 @@
         const fetchWithRetry = async (url, options, retries=3) => {
             try {
                 const res = await fetch(url, options);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (!res.ok) {
+                     if (res.status === 404) throw new Error("HTTP 404: 此模型不存在或目前環境不支援。請切換模型 (建議 Flash 2.5)。");
+                     throw new Error(`HTTP ${res.status}`);
+                }
                 return await res.json();
             } catch (e) {
                 if (retries > 0) { await new Promise(r=>setTimeout(r,1000)); return fetchWithRetry(url,options,retries-1); }
@@ -482,11 +484,32 @@
                     let out = "";
                     if(apiProvider === 'gemini') {
                         if(!geminiKey) { setShowSettings(true); throw new Error("請輸入 API Key"); }
+                        
+                        const safetySettings = [
+                            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+                            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+                            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+                            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                        ];
+
                         const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
                             method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({contents:[{parts:[{text:sys}]}], generationConfig:{temperature:aiTemperature}})
+                            body: JSON.stringify({
+                                contents:[{parts:[{text:sys}]}], 
+                                generationConfig:{temperature:aiTemperature},
+                                safetySettings: safetySettings
+                            })
                         });
-                        out = res.candidates?.[0]?.content?.parts?.[0]?.text || "Error";
+                        
+                        const candidate = res.candidates?.[0];
+                        if (!candidate) {
+                           throw new Error("No response from AI. Please check API Key or Model.");
+                        }
+                        if (candidate.finishReason !== "STOP" && !candidate.content) {
+                           throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
+                        }
+                        
+                        out = candidate.content?.parts?.[0]?.text || "Error: Empty content";
                     } else if (apiProvider === 'mymemory' && promptType === 'translate') {
                         out = await performTranslation(textToUse, sourceLang, targetLang);
                     } else if (apiProvider === 'ollama') {
@@ -526,7 +549,12 @@
                         }
                         if(!out.startsWith('Error') && !out.startsWith('此模式')) addToHistory(textToUse, out, sourceLang, targetLang);
                     }
-                } catch(e) { if(currentRequestId === requestCounter.current) setErrorMsg(e.message); }
+                } catch(e) { 
+                    if(currentRequestId === requestCounter.current) {
+                        setErrorMsg(e.message); 
+                        setTranslatedText(`錯誤: ${e.message}\n請檢查 API Key 或更換模型。`);
+                    }
+                }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
             };
 
@@ -549,12 +577,33 @@
                     let ctx = `Current DateTime: ${now}.\nContext:\nSource:${sourceText}\nResult:${translatedText}`;
                     if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
                     ctx += `\n\nUser:${msg.text}`;
+                    
+                    const safetySettings = [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                    ];
 
                     const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({contents:[{parts:[{text:ctx}]}]})
+                        body: JSON.stringify({
+                            contents:[{parts:[{text:ctx}]}],
+                            safetySettings: safetySettings
+                        })
                     });
-                    setChatMessages(p=>[...p,{role:'model',text:res.candidates?.[0]?.content?.parts?.[0]?.text||"Error"}]);
+                    
+                    const candidate = res.candidates?.[0];
+                    let responseText = "Error";
+                    if (!candidate) {
+                        responseText = "Error: No response from AI.";
+                    } else if (candidate.finishReason !== "STOP" && !candidate.content) {
+                        responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
+                    } else {
+                        responseText = candidate.content?.parts?.[0]?.text || "Error";
+                    }
+
+                    setChatMessages(p=>[...p,{role:'model',text:responseText}]);
                 } catch(e) { setChatMessages(p=>[...p,{role:'model',text:"Error: "+e.message}]); }
                 setIsLoading(false);
             };
@@ -1058,7 +1107,7 @@
                         </div>
                     )}
 
-                     {showCropModal && (
+                    {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
                             <div className="flex justify-between items-center p-4 text-white z-10"><h3 className="font-bold">裁切圖片</h3><button onClick={()=>{setShowCropModal(false);setCropImageSrc(null);}}><Icons.X/></button></div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden"><div className="relative"><img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain block no-select" onMouseDown={handleCropStart} onTouchStart={handleCropStart} draggable="false"/>{cropSelection && <div className="absolute border-2 border-yellow-400 bg-yellow-400/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{left:cropSelection.x,top:cropSelection.y,width:cropSelection.w,height:cropSelection.h}}/>}</div></div>
