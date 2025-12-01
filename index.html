@@ -146,7 +146,8 @@
         const GEMINI_MODELS = [
             {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
-            {id:'gemini-1.5-pro',name:'Pro 1.5'}
+            {id:'gemini-1.5-pro',name:'Pro 1.5'},
+            {id:'gemini-3.0-pro-preview',name:'Pro 3.0 (Preview)'}
         ];
         
         const LANGUAGES = [
@@ -173,16 +174,21 @@
             {id:'mindmap',name:'心智圖',icon:<Icons.Brain/>,btnColor:'bg-indigo-600'}
         ];
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
+        
+        const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
         const fetchWithRetry = async (url, options, retries=3) => {
             try {
                 const res = await fetch(url, options);
                 if (!res.ok) {
-                     if (res.status === 404) throw new Error("HTTP 404: 此模型不存在或目前環境不支援。請切換模型 (建議 Flash 2.5)。");
-                     throw new Error(`HTTP ${res.status}`);
+                    if (res.status === 404) {
+                        throw new Error("404_NOT_FOUND"); // Special marker
+                    }
+                    throw new Error(`HTTP ${res.status}`);
                 }
                 return await res.json();
             } catch (e) {
+                if (e.message === "404_NOT_FOUND") throw e; // Don't retry 404s with same model
                 if (retries > 0) { await new Promise(r=>setTimeout(r,1000)); return fetchWithRetry(url,options,retries-1); }
                 throw e;
             }
@@ -365,6 +371,29 @@
                     showToast("無法讀取剪貼簿，請使用 Ctrl+V", "error");
                 }
             };
+            
+            // Consolidated Gemini Request with Fallback
+            const runGeminiRequest = async (payload, preferredModel) => {
+                const attemptRequest = async (modelId) => {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
+                    const res = await fetch(url, {
+                        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                    });
+                    if (res.status === 404) throw new Error("404_NOT_FOUND");
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return await res.json();
+                };
+
+                try {
+                    return await attemptRequest(preferredModel);
+                } catch (e) {
+                    if (e.message === "404_NOT_FOUND" && preferredModel !== FALLBACK_MODEL) {
+                         showToast("此模型在當前環境不可用，自動切換至 Flash 2.5", "error");
+                         return await attemptRequest(FALLBACK_MODEL);
+                    }
+                    throw e;
+                }
+            };
 
             const processFile = async (f) => {
                 if(!f)return; setFileName(f.name); 
@@ -405,20 +434,16 @@
 
             const performGeminiOCR = async (file) => {
                 const b64 = await compressImage(file);
-                const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({contents:[{parts:[{text:"OCR this image. Output text only."},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]})
-                });
+                const payload = {contents:[{parts:[{text:"OCR this image. Output text only."},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
+                const res = await runGeminiRequest(payload, geminiModel);
                 return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
             };
 
             const performGeminiOCR_Multi = async (imgs) => {
                 const parts = [{text:"OCR these pages sequentially. Output text only."}];
                 imgs.forEach(b64 => parts.push({inline_data:{mime_type:'image/jpeg',data:b64}}));
-                const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({contents:[{parts}]})
-                });
+                const payload = {contents:[{parts}]};
+                const res = await runGeminiRequest(payload, geminiModel);
                 return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
             };
             
@@ -492,14 +517,13 @@
                             { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
                         ];
 
-                        const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
-                            method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({
-                                contents:[{parts:[{text:sys}]}], 
-                                generationConfig:{temperature:aiTemperature},
-                                safetySettings: safetySettings
-                            })
-                        });
+                        const payload = {
+                            contents:[{parts:[{text:sys}]}], 
+                            generationConfig:{temperature:aiTemperature},
+                            safetySettings: safetySettings
+                        };
+
+                        const res = await runGeminiRequest(payload, geminiModel);
                         
                         const candidate = res.candidates?.[0];
                         if (!candidate) {
@@ -552,7 +576,7 @@
                 } catch(e) { 
                     if(currentRequestId === requestCounter.current) {
                         setErrorMsg(e.message); 
-                        setTranslatedText(`錯誤: ${e.message}\n請檢查 API Key 或更換模型。`);
+                        setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
                     }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
@@ -585,13 +609,12 @@
                         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
                     ];
 
-                    const res = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            contents:[{parts:[{text:ctx}]}],
-                            safetySettings: safetySettings
-                        })
-                    });
+                    const payload = {
+                        contents:[{parts:[{text:ctx}]}],
+                        safetySettings: safetySettings
+                    };
+
+                    const res = await runGeminiRequest(payload, geminiModel);
                     
                     const candidate = res.candidates?.[0];
                     let responseText = "Error";
@@ -1107,7 +1130,7 @@
                         </div>
                     )}
 
-                    {showCropModal && (
+                     {showCropModal && (
                         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col animate-in fade-in crop-modal" onMouseMove={handleCropMove} onTouchMove={handleCropMove} onMouseUp={handleCropEnd} onTouchEnd={handleCropEnd}>
                             <div className="flex justify-between items-center p-4 text-white z-10"><h3 className="font-bold">裁切圖片</h3><button onClick={()=>{setShowCropModal(false);setCropImageSrc(null);}}><Icons.X/></button></div>
                             <div className="flex-1 relative flex items-center justify-center overflow-hidden"><div className="relative"><img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain block no-select" onMouseDown={handleCropStart} onTouchStart={handleCropStart} draggable="false"/>{cropSelection && <div className="absolute border-2 border-yellow-400 bg-yellow-400/30 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" style={{left:cropSelection.x,top:cropSelection.y,width:cropSelection.w,height:cropSelection.h}}/>}</div></div>
