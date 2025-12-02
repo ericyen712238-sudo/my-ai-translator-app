@@ -82,6 +82,65 @@
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
+        // --- Global Helper Functions ---
+        const compressImage = (file) => new Promise((resolve, reject) => {
+            const r = new FileReader(); r.readAsDataURL(file);
+            r.onload = e => {
+                const img = new Image(); img.src = e.target.result;
+                img.onload = () => {
+                    const c = document.createElement('canvas');
+                    let w=img.width, h=img.height, m=1500;
+                    if(w>h && w>m){h*=m/w;w=m;} else if(h>m){w*=m/h;h=m;}
+                    c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+                    resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+                };
+                img.onerror = reject;
+            };
+            r.onerror = reject;
+        });
+
+        const renderPdfToImages = async (ab) => {
+            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
+            const imgs = [];
+            const count = Math.min(pdf.numPages, 5); 
+            for(let i=1;i<=count;i++){
+                const p = await pdf.getPage(i);
+                const v = p.getViewport({scale:1.5});
+                const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
+                await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
+                imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+            }
+            return imgs;
+        };
+
+        const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
+            try {
+                const res = await fetch(url, options);
+                if (res.status === 429) {
+                    if (retries > 0) {
+                        if(onRetry) onRetry(delay / 1000);
+                        await new Promise(r => setTimeout(r, delay));
+                        const nextDelay = Math.min(delay * 2, 16000);
+                        return fetchWithRetry(url, options, retries - 1, nextDelay, onRetry);
+                    }
+                    throw new Error("429_TOO_MANY_REQUESTS");
+                }
+                if (!res.ok) {
+                    if (res.status === 404) throw new Error("404_NOT_FOUND");
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                return await res.json();
+            } catch (e) {
+                if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
+                if (retries > 0) {
+                    if(onRetry) onRetry(delay / 1000);
+                    await new Promise(r => setTimeout(r, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
+                }
+                throw e;
+            }
+        };
+
         const SafeMarkdown = ({ content, fontSize, isUser }) => {
             const [html, setHtml] = useState('');
             const containerRef = useRef(null);
@@ -275,63 +334,7 @@
             const fsInnerRef = useRef(null);
             const recognitionRef = useRef(null);
 
-            useEffect(()=>{localStorage.setItem('gemini_api_key',geminiKey)},[geminiKey]);
-            useEffect(()=>{localStorage.setItem('gemini_model',geminiModel)},[geminiModel]);
-            useEffect(()=>{localStorage.setItem('translate_history',JSON.stringify(history))},[history]);
-            useEffect(()=>{localStorage.setItem('gemini_custom_instruction',customInstruction)},[customInstruction]);
-            useEffect(()=>{localStorage.setItem('gemini_glossary',JSON.stringify(glossary))},[glossary]);
-            useEffect(()=>{localStorage.setItem('gemini_dark_mode',darkMode); if(darkMode)document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');},[darkMode]);
-            useEffect(()=>{if(mode==='conversation')chatEndRef.current?.scrollIntoView({behavior:'smooth'})},[chatMessages,mode]);
-            useEffect(()=>{const v=window.speechSynthesis.getVoices(); setAvailableVoices(v); window.speechSynthesis.onvoiceschanged=()=>setAvailableVoices(window.speechSynthesis.getVoices());},[]);
-
-             useEffect(() => {
-                if (mode !== 'text' && mode !== 'file') return;
-                const handlePaste = (e) => {
-                    const items = e.clipboardData?.items;
-                    if (!items) return;
-                    for (let i = 0; i < items.length; i++) {
-                        if (items[i].type.indexOf('image') !== -1) {
-                            e.preventDefault();
-                            processFile(items[i].getAsFile());
-                            break;
-                        }
-                    }
-                };
-                window.addEventListener('paste', handlePaste);
-                return () => window.removeEventListener('paste', handlePaste);
-            }, [mode]);
-            
-            // Helper functions defined inside App to avoid "not defined" errors
-            const compressImage = (file) => new Promise((resolve, reject) => {
-                const r = new FileReader(); r.readAsDataURL(file);
-                r.onload = e => {
-                    const img = new Image(); img.src = e.target.result;
-                    img.onload = () => {
-                        const c = document.createElement('canvas');
-                        let w=img.width, h=img.height, m=1500;
-                        if(w>h && w>m){h*=m/w;w=m;} else if(h>m){w*=m/h;h=m;}
-                        c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
-                        resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);
-                    };
-                    img.onerror = reject;
-                };
-                r.onerror = reject;
-            });
-
-            const renderPdfToImages = async (ab) => {
-                const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
-                const imgs = [];
-                const count = Math.min(pdf.numPages, 5); 
-                for(let i=1;i<=count;i++){
-                    const p = await pdf.getPage(i);
-                    const v = p.getViewport({scale:1.5});
-                    const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
-                    await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
-                    imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
-                }
-                return imgs;
-            };
-
+            // All Helper Functions Defined BEFORE useEffect
             const addToHistory = (src, res, s, t) => setHistory(prev => [{ id: Date.now(), src, res, s, t, timestamp: new Date().toLocaleString() }, ...prev].slice(0, 50));
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) { setHistory([]); } };
             const addGlossaryTerm = () => { if(newGlossaryTerm && newGlossaryTrans) { setGlossary([...glossary, { term: newGlossaryTerm, trans: newGlossaryTrans }]); setNewGlossaryTerm(''); setNewGlossaryTrans(''); } };
@@ -359,41 +362,6 @@
                     showToast("無法讀取剪貼簿，請使用 Ctrl+V", "error");
                 }
             };
-            
-            const fetchWithRetry = async (url, options, retries = 5, delay = 2000) => {
-                try {
-                    const res = await fetch(url, options);
-                    
-                    if (res.status === 429) {
-                        if (retries > 0) {
-                            const seconds = Math.ceil(delay / 1000);
-                            for(let i = seconds; i > 0; i--) {
-                                setLoadingStatus(`⚠️ 系統忙碌 (429)... 倒數 ${i} 秒後自動重試`);
-                                await new Promise(r => setTimeout(r, 1000));
-                            }
-                            
-                            const nextDelay = Math.min(delay * 2, 16000);
-                            return fetchWithRetry(url, options, retries - 1, nextDelay);
-                        }
-                        throw new Error("429_TOO_MANY_REQUESTS");
-                    }
-
-                    if (!res.ok) {
-                        if (res.status === 404) throw new Error("404_NOT_FOUND");
-                        throw new Error(`HTTP ${res.status}`);
-                    }
-                    return await res.json();
-                } catch (e) {
-                    if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
-                    
-                    if (retries > 0) {
-                        setLoadingStatus(`連線不穩，${delay/1000} 秒後重試...`);
-                        await new Promise(r => setTimeout(r, delay));
-                        return fetchWithRetry(url, options, retries - 1, delay * 1.5);
-                    }
-                    throw e;
-                }
-            };
 
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
@@ -403,7 +371,9 @@
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify(payload)
                     };
-                    return await fetchWithRetry(url, options);
+                    return await fetchWithRetry(url, options, 5, 2000, (seconds) => {
+                        setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後自動重試`);
+                    });
                 };
 
                 try {
@@ -416,82 +386,6 @@
                     }
                     throw e;
                 }
-            };
-
-            const processFile = async (f) => {
-                if(!f)return; setFileName(f.name); 
-                if(f.type.startsWith('image/')) {
-                      const r = new FileReader(); r.onload = e => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setShowCropModal(true); }; r.readAsDataURL(f);
-                      return;
-                }
-                setMode('text'); setIsLoading(true); setLoadingStatus('讀取中...'); setErrorMsg('');
-                try {
-                    let text = "";
-                    if(f.name.endsWith('.pdf')) {
-                        const ab = await f.arrayBuffer();
-                        if(usePdfVision && geminiKey) {
-                            setLoadingStatus('AI 視覺讀取 PDF...');
-                            const imgs = await renderPdfToImages(ab);
-                            text = await performGeminiOCR_Multi(imgs.images || imgs); 
-                        } else {
-                            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
-                            for(let i=1;i<=pdf.numPages;i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(' ')+'\n';
-                            if((!text || text.length<50) && geminiKey) {
-                                setLoadingStatus('文字過少，切換至 AI 視覺讀取...');
-                                const imgs = await renderPdfToImages(ab);
-                                text = await performGeminiOCR_Multi(imgs.images || imgs);
-                            }
-                        }
-                    } else if(f.name.endsWith('.docx')) {
-                        text = (await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
-                    } else {
-                        text = await new Promise(r=>{const rd=new FileReader(); rd.onload=e=>r(e.target.result); rd.readAsText(f);});
-                    }
-                    if(!text.trim()) throw new Error("無法讀取文字");
-                    setSourceText(text);
-                    callAI(currentTask, text);
-                } catch(e) { console.error(e); setErrorMsg(e.message||"讀取失敗"); setIsLoading(false); }
-            };
-            
-            const handleFileChange = (e) => { const f = e.target.files[0]; if(f) processFile(f); e.target.value = ''; };
-
-            const performGeminiOCR = async (file) => {
-                const b64 = await compressImage(file);
-                const payload = {contents:[{parts:[{text:"OCR this image. Output text only."},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
-                const res = await runGeminiRequest(payload, geminiModel);
-                return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            };
-
-            const performGeminiOCR_Multi = async (imgs) => {
-                const parts = [{text:"OCR these pages sequentially. Output text only."}];
-                imgs.forEach(b64 => parts.push({inline_data:{mime_type:'image/jpeg',data:b64}}));
-                const payload = {contents:[{parts}]};
-                const res = await runGeminiRequest(payload, geminiModel);
-                return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            };
-            
-            const performLegacyOCR = async (file) => {
-                 setLoadingStatus('Tesseract 辨識中...');
-                 const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+eng');
-                 return text;
-            };
-
-            const runOCR = async (file) => {
-                setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
-                try {
-                    let text = "";
-                    if(geminiKey) text = await performGeminiOCR(file); else text = await performLegacyOCR(file);
-                    if(!text.trim()) throw new Error("無法辨識文字");
-                    setSourceText(text);
-                    callAI(currentTask, text);
-                } catch(e) { setErrorMsg(e.message); setIsLoading(false); }
-            };
-
-            const performTranslation = async (text, sLangCode, tLangCode) => { 
-                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sLangCode}|${tLangCode}`; 
-                const res = await fetch(url); 
-                const data = await res.json(); 
-                return data.responseData.translatedText; 
             };
 
             const callAI = async (promptType, textOverride = null) => {
@@ -509,7 +403,6 @@
                 const sName = sourceLang === 'auto' ? 'Auto Detect' : LANGUAGES.find(l => l.code === sourceLang)?.name;
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
                 
-                // Base prompt logic
                 const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
                 let sys = `Current DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
                 
@@ -603,6 +496,87 @@
                     }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
+            };
+
+            const processFile = async (f) => {
+                if(!f)return; setFileName(f.name); 
+                if(f.type.startsWith('image/')) {
+                      const r = new FileReader(); r.onload = e => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setShowCropModal(true); }; r.readAsDataURL(f);
+                      return;
+                }
+                setMode('text'); setIsLoading(true); setLoadingStatus('讀取中...'); setErrorMsg('');
+                try {
+                    let text = "";
+                    if(f.name.endsWith('.pdf')) {
+                        const ab = await f.arrayBuffer();
+                        if(usePdfVision && geminiKey) {
+                            setLoadingStatus('AI 視覺讀取 PDF...');
+                            const imgs = await renderPdfToImages(ab);
+                            text = await performGeminiOCR_Multi(imgs.images || imgs); 
+                        } else {
+                            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
+                            for(let i=1;i<=pdf.numPages;i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(' ')+'\n';
+                            if((!text || text.length<50) && geminiKey) {
+                                setLoadingStatus('文字過少，切換至 AI 視覺讀取...');
+                                const imgs = await renderPdfToImages(ab);
+                                text = await performGeminiOCR_Multi(imgs.images || imgs);
+                            }
+                        }
+                    } else if(f.name.endsWith('.docx')) {
+                        text = (await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
+                    } else {
+                        text = await new Promise(r=>{const rd=new FileReader(); rd.onload=e=>r(e.target.result); rd.readAsText(f);});
+                    }
+                    if(!text.trim()) throw new Error("無法讀取文字");
+                    setSourceText(text);
+                    callAI(currentTask, text);
+                } catch(e) { console.error(e); setErrorMsg(e.message||"讀取失敗"); setIsLoading(false); }
+            };
+            
+            // THIS WAS MISSING OR OUT OF ORDER IN PREVIOUS CODE causing ReferenceError
+            const handleFileChange = (e) => { 
+                const f = e.target.files[0]; 
+                if(f) processFile(f); 
+                e.target.value = ''; 
+            };
+
+            const performGeminiOCR = async (file) => {
+                const b64 = await compressImage(file);
+                const payload = {contents:[{parts:[{text:"OCR this image. Output text only."},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
+                const res = await runGeminiRequest(payload, geminiModel);
+                return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            };
+
+            const performGeminiOCR_Multi = async (imgs) => {
+                const parts = [{text:"OCR these pages sequentially. Output text only."}];
+                imgs.forEach(b64 => parts.push({inline_data:{mime_type:'image/jpeg',data:b64}}));
+                const payload = {contents:[{parts}]};
+                const res = await runGeminiRequest(payload, geminiModel);
+                return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            };
+            
+            const performLegacyOCR = async (file) => {
+                 setLoadingStatus('Tesseract 辨識中...');
+                 const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+eng');
+                 return text;
+            };
+
+            const runOCR = async (file) => {
+                setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
+                try {
+                    let text = "";
+                    if(geminiKey) text = await performGeminiOCR(file); else text = await performLegacyOCR(file);
+                    if(!text.trim()) throw new Error("無法辨識文字");
+                    setSourceText(text);
+                    callAI(currentTask, text);
+                } catch(e) { setErrorMsg(e.message); setIsLoading(false); }
+            };
+
+            const performTranslation = async (text, sLangCode, tLangCode) => { 
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sLangCode}|${tLangCode}`; 
+                const res = await fetch(url); 
+                const data = await res.json(); 
+                return data.responseData.translatedText; 
             };
 
             const switchToChat = () => {
@@ -901,6 +875,34 @@
             };
 
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
+
+            // --- useEffect Hooks (Last) ---
+            useEffect(()=>{localStorage.setItem('gemini_api_key',geminiKey)},[geminiKey]);
+            useEffect(()=>{localStorage.setItem('gemini_model',geminiModel)},[geminiModel]);
+            useEffect(()=>{localStorage.setItem('translate_history',JSON.stringify(history))},[history]);
+            useEffect(()=>{localStorage.setItem('gemini_custom_instruction',customInstruction)},[customInstruction]);
+            useEffect(()=>{localStorage.setItem('gemini_glossary',JSON.stringify(glossary))},[glossary]);
+            useEffect(()=>{localStorage.setItem('gemini_dark_mode',darkMode); if(darkMode)document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');},[darkMode]);
+            useEffect(()=>{if(mode==='conversation')chatEndRef.current?.scrollIntoView({behavior:'smooth'})},[chatMessages,mode]);
+            useEffect(()=>{const v=window.speechSynthesis.getVoices(); setAvailableVoices(v); window.speechSynthesis.onvoiceschanged=()=>setAvailableVoices(window.speechSynthesis.getVoices());},[]);
+
+            useEffect(() => {
+                if (mode !== 'text' && mode !== 'file') return;
+                const handlePaste = (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image') !== -1) {
+                            e.preventDefault();
+                            processFile(items[i].getAsFile());
+                            break;
+                        }
+                    }
+                };
+                window.addEventListener('paste', handlePaste);
+                return () => window.removeEventListener('paste', handlePaste);
+            }, [mode]);
+
 
             return (
                 <div className="pb-12 dark:bg-slate-900 min-h-screen transition-colors flex flex-col">
