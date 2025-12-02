@@ -85,66 +85,6 @@
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
-        // --- Global Helper Functions (Defined outside App to prevent ReferenceErrors) ---
-        
-        const compressImage = (file) => new Promise((resolve, reject) => {
-            const r = new FileReader(); r.readAsDataURL(file);
-            r.onload = e => {
-                const img = new Image(); img.src = e.target.result;
-                img.onload = () => {
-                    const c = document.createElement('canvas');
-                    let w=img.width, h=img.height, m=1500;
-                    if(w>h && w>m){h*=m/w;w=m;} else if(h>m){w*=m/h;h=m;}
-                    c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
-                    resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);
-                };
-                img.onerror = reject;
-            };
-            r.onerror = reject;
-        });
-
-        const renderPdfToImages = async (ab) => {
-            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
-            const imgs = [];
-            const count = Math.min(pdf.numPages, 5); 
-            for(let i=1;i<=count;i++){
-                const p = await pdf.getPage(i);
-                const v = p.getViewport({scale:1.5});
-                const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
-                await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
-                imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
-            }
-            return imgs;
-        };
-
-        const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
-            try {
-                const res = await fetch(url, options);
-                if (res.status === 429) {
-                    if (retries > 0) {
-                        if(onRetry) onRetry(delay / 1000);
-                        await new Promise(r => setTimeout(r, delay));
-                        const nextDelay = Math.min(delay * 2, 16000);
-                        return fetchWithRetry(url, options, retries - 1, nextDelay, onRetry);
-                    }
-                    throw new Error("429_TOO_MANY_REQUESTS");
-                }
-                if (!res.ok) {
-                    if (res.status === 404) throw new Error("404_NOT_FOUND");
-                    throw new Error(`HTTP ${res.status}`);
-                }
-                return await res.json();
-            } catch (e) {
-                if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
-                if (retries > 0) {
-                    if(onRetry) onRetry(delay / 1000);
-                    await new Promise(r => setTimeout(r, delay));
-                    return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
-                }
-                throw e;
-            }
-        };
-
         const SafeMarkdown = ({ content, fontSize, isUser }) => {
             const [html, setHtml] = useState('');
             const containerRef = useRef(null);
@@ -264,6 +204,86 @@
         
         const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
+        // Global Helper Functions to prevent ReferenceErrors
+        const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
+            try {
+                const res = await fetch(url, options);
+                if (res.status === 429) {
+                    if (retries > 0) {
+                        if(onRetry) onRetry(delay / 1000);
+                        await new Promise(r => setTimeout(r, delay));
+                        const nextDelay = Math.min(delay * 2, 16000);
+                        return fetchWithRetry(url, options, retries - 1, nextDelay, onRetry);
+                    }
+                    throw new Error("429_TOO_MANY_REQUESTS");
+                }
+                if (!res.ok) {
+                    if (res.status === 404) throw new Error("404_NOT_FOUND");
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                return await res.json();
+            } catch (e) {
+                if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
+                if (retries > 0) {
+                    if(onRetry) onRetry(delay / 1000);
+                    await new Promise(r => setTimeout(r, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
+                }
+                throw e;
+            }
+        };
+
+        const compressImage = (file) => new Promise((resolve, reject) => {
+            const r = new FileReader(); r.readAsDataURL(file);
+            r.onload = e => {
+                const img = new Image(); img.src = e.target.result;
+                img.onload = () => {
+                    const c = document.createElement('canvas');
+                    let w=img.width, h=img.height, m=1500;
+                    if(w>h && w>m){h*=m/w;w=m;} else if(h>m){w*=m/h;h=m;}
+                    c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+                    resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+                };
+                img.onerror = reject;
+            };
+            r.onerror = reject;
+        });
+
+        const renderPdfToImages = async (ab) => {
+            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
+            const imgs = [];
+            const count = Math.min(pdf.numPages, 5); 
+            for(let i=1;i<=count;i++){
+                const p = await pdf.getPage(i);
+                const v = p.getViewport({scale:1.5});
+                const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
+                await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
+                imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
+            }
+            return imgs;
+        };
+
+        const MermaidDiagram = ({code, darkMode}) => {
+            const [svg, setSvg] = useState('');
+            const [err, setErr] = useState(null);
+            useEffect(() => {
+                setSvg(''); setErr(null);
+                if(code && typeof mermaid !== 'undefined') {
+                    const id = `mermaid-${Date.now()}`;
+                    const run = async () => {
+                        try {
+                            mermaid.initialize({startOnLoad:true, theme:darkMode?'dark':'default', securityLevel:'loose', fontFamily:'Zen Maru Gothic', darkMode});
+                            const {svg} = await mermaid.render(id, code);
+                            setSvg(svg);
+                        } catch(e) { console.error(e); setErr('無法繪製圖表'); const el=document.getElementById(id); if(el)el.remove(); }
+                    };
+                    setTimeout(run, 100);
+                }
+            }, [code, darkMode]);
+            if(err) return <div className="text-red-500 text-sm p-4 bg-red-50 rounded">{err}<br/><span className="text-xs text-gray-500">Code: {code.substring(0,50)}...</span></div>;
+            return <div className="w-full overflow-x-auto flex justify-center bg-white dark:bg-slate-800 p-4 rounded-lg" dangerouslySetInnerHTML={{__html:svg}}/>;
+        };
+
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
             return <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type==='success'?'bg-slate-800/90':'bg-red-500/90'}`}>{type==='success'?<Icons.Check className="w-4 h-4 text-green-400"/>:<Icons.AlertCircle className="w-4 h-4 text-white"/>}{message}</div>;
@@ -366,7 +386,8 @@
                     showToast("無法讀取剪貼簿，請使用 Ctrl+V", "error");
                 }
             };
-
+            
+            // Consolidated Gemini Request with Fallback
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
@@ -883,7 +904,6 @@
 
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
 
-            // --- useEffect Hooks (Last) ---
             useEffect(()=>{localStorage.setItem('gemini_api_key',geminiKey)},[geminiKey]);
             useEffect(()=>{localStorage.setItem('gemini_model',geminiModel)},[geminiModel]);
             useEffect(()=>{localStorage.setItem('translate_history',JSON.stringify(history))},[history]);
@@ -1184,7 +1204,7 @@
                                     <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><Icons.X className="w-8 h-8 text-slate-600 dark:text-slate-300"/></button>
                                 </div>
                             </div>
-                             <div ref={fsContentRef} className="flex-1 overflow-y-auto p-12 pb-24">
+                             <div ref={fsContentRef} className="flex-1 overflow-y-auto p-16 pb-24">
                                  <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
                                     {bilingualMode && sourceText ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
