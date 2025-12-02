@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gemini AI 文件助手</title>
     
+    <!-- Favicon (Logo) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
@@ -82,7 +85,8 @@
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
-        // --- Global Helper Functions ---
+        // --- Global Helper Functions (Defined outside App to prevent ReferenceErrors) ---
+        
         const compressImage = (file) => new Promise((resolve, reject) => {
             const r = new FileReader(); r.readAsDataURL(file);
             r.onload = e => {
@@ -715,6 +719,9 @@
                 const recognition = new SpeechRecognition();
                 recognitionRef.current = recognition;
                 
+                // Use 'zh-TW' as a safe default for most scenarios unless a specific supported language code is available.
+                // Standard browsers support 'zh-TW', 'en-US', etc. 'nan' or 'yue' might not be supported everywhere.
+                // Mapping 'auto' to 'zh-TW'.
                 let langCode = sourceLang;
                 if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
                 
