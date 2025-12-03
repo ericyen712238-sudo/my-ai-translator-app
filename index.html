@@ -6,7 +6,7 @@
     <title>Gemini AI 文件助手</title>
     
     <!-- Favicon (Logo) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -85,9 +85,9 @@
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
-        // --- Global Helper Functions (Defined outside App) ---
+        // --- Global Helper Functions ---
         
-        // Helper to handle PDF password
+        // 1. Load PDF with Password Support
         const loadPdfWithPassword = (data) => {
             const loadingTask = window.pdfjsLib.getDocument({ data });
             loadingTask.onPassword = (updatePassword, reason) => {
@@ -99,13 +99,13 @@
                 if (password) {
                     updatePassword(password);
                 } else {
-                    // User cancelled or entered empty
                     loadingTask.destroy();
                 }
             };
             return loadingTask.promise;
         };
 
+        // 2. Compress Image
         const compressImage = (file) => new Promise((resolve, reject) => {
             const r = new FileReader(); r.readAsDataURL(file);
             r.onload = e => {
@@ -122,9 +122,9 @@
             r.onerror = reject;
         });
 
+        // 3. Render PDF Pages to Images
         const renderPdfToImages = async (ab) => {
-            // Use loadPdfWithPassword helper instead of direct getDocument
-            const pdf = await loadPdfWithPassword(ab);
+            const pdf = await loadPdfWithPassword(ab); // Use password helper
             const imgs = [];
             const count = Math.min(pdf.numPages, 5); 
             for(let i=1;i<=count;i++){
@@ -137,7 +137,7 @@
             return imgs;
         };
 
-        // Robust fetchWithRetry with exponential backoff specifically for 429
+        // 4. Robust Fetch with Retry
         const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
             try {
                 const res = await fetch(url, options);
@@ -165,6 +165,8 @@
                 throw e;
             }
         };
+
+        // --- Components ---
 
         const SafeMarkdown = ({ content, fontSize, isUser }) => {
             const [html, setHtml] = useState('');
@@ -1209,7 +1211,7 @@
                                 </div>
                             </div>
                              <div ref={fsContentRef} className="flex-1 overflow-y-auto p-20 pb-24">
-                                 <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
+                                 <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col p-20 transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
                                     {bilingualMode && sourceText ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="prose prose-lg dark:prose-invert text-slate-500 dark:text-slate-400"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 dark:text-slate-500 border-b dark:border-slate-700 pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
