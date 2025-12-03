@@ -584,9 +584,12 @@
                 e.target.value = ''; 
             };
 
-            const performGeminiOCR = async (file) => {
+            const performGeminiOCR = async (file, task) => {
                 const b64 = await compressImage(file);
-                const payload = {contents:[{parts:[{text:"OCR this image. Output text only."},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
+                let promptText = "OCR this image. Output text only.";
+                if (task === 'analyze') promptText = "Describe this image in detail in Traditional Chinese. If there is text, transcribe it.";
+                
+                const payload = {contents:[{parts:[{text: promptText},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
                 const res = await runGeminiRequest(payload, geminiModel);
                 return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
             };
@@ -609,8 +612,13 @@
                 setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
                 try {
                     let text = "";
-                    if(geminiKey) text = await performGeminiOCR(file); else text = await performLegacyOCR(file);
-                    if(!text.trim()) throw new Error("無法辨識文字");
+                    if(geminiKey) {
+                        text = await performGeminiOCR(file, currentTask); // Use updated performGeminiOCR with task
+                    } else {
+                        text = await performLegacyOCR(file);
+                    }
+                    
+                    if(!text.trim()) throw new Error("無法辨識文字或圖片內容");
                     setSourceText(text);
                     callAI(currentTask, text);
                 } catch(e) { setErrorMsg(e.message); setIsLoading(false); }
