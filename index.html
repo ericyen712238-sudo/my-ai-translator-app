@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (修復版)</title>
+    <title>Gemini AI 文件助手(Pro)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -81,6 +81,9 @@
         .dashed-border {
             background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='8' ry='8' stroke='%23333' stroke-width='2' stroke-dasharray='10%2c 10' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
         }
+        
+        /* Safe Area for Mobile */
+        .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
@@ -1256,9 +1259,9 @@
                                     <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><Icons.X className="w-8 h-8 text-slate-600 dark:text-slate-300"/></button>
                                 </div>
                             </div>
-                             <div ref={fsContentRef} className="flex-1 overflow-y-auto p-20 pb-24">
-                                 {/* Fixed: Removed conditional styling that limited text width, now uses fsWidth for everything */}
-                                 <div ref={fsInnerRef} className="mx-auto min-h-full flex flex-col p-20 transition-all duration-300" style={{ maxWidth: fsWidth + 'px' }}>
+                             <div ref={fsContentRef} className="flex-1 overflow-y-auto p-4 md:p-10 pb-24">
+                                 {/* Fixed: Reduced padding on mobile (p-4) vs desktop (md:p-20) and ensured w-full for width expansion */}
+                                 <div ref={fsInnerRef} className="w-full mx-auto min-h-full flex flex-col p-4 md:p-10 transition-all duration-300 bg-white dark:bg-slate-900 shadow-sm md:shadow-none" style={{ maxWidth: fsWidth + 'px' }}>
                                     {bilingualMode && sourceText ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="prose prose-lg dark:prose-invert text-slate-500 dark:text-slate-400"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 dark:text-slate-500 border-b dark:border-slate-700 pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
