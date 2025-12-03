@@ -640,12 +640,23 @@
                     return;
                 }
 
-                const msg = {role:'user',text:chatInput}; setChatMessages(p=>[...p,msg]); setChatInput(''); setIsLoading(true);
+                const newUserMsg = {role:'user',text:chatInput}; 
+                setChatMessages(prev => [...prev, newUserMsg]); 
+                setChatInput(''); 
+                setIsLoading(true);
+
                 try {
                     const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                    
+                    let historyStr = '';
+                    chatMessages.forEach(m => {
+                        historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`;
+                    });
+
                     let ctx = `Current DateTime: ${now}.\nContext:\nSource:${sourceText}\nResult:${translatedText}`;
                     if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
-                    ctx += `\n\nUser:${msg.text}`;
+                    ctx += `\n\nConversation History:\n${historyStr}`;
+                    ctx += `User: ${newUserMsg.text}\nModel:`;
                     
                     const safetySettings = [
                         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
@@ -924,33 +935,6 @@
 
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
 
-            useEffect(()=>{localStorage.setItem('gemini_api_key',geminiKey)},[geminiKey]);
-            useEffect(()=>{localStorage.setItem('gemini_model',geminiModel)},[geminiModel]);
-            useEffect(()=>{localStorage.setItem('translate_history',JSON.stringify(history))},[history]);
-            useEffect(()=>{localStorage.setItem('gemini_custom_instruction',customInstruction)},[customInstruction]);
-            useEffect(()=>{localStorage.setItem('gemini_glossary',JSON.stringify(glossary))},[glossary]);
-            useEffect(()=>{localStorage.setItem('gemini_dark_mode',darkMode); if(darkMode)document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');},[darkMode]);
-            useEffect(()=>{if(mode==='conversation')chatEndRef.current?.scrollIntoView({behavior:'smooth'})},[chatMessages,mode]);
-            useEffect(()=>{const v=window.speechSynthesis.getVoices(); setAvailableVoices(v); window.speechSynthesis.onvoiceschanged=()=>setAvailableVoices(window.speechSynthesis.getVoices());},[]);
-
-            useEffect(() => {
-                if (mode !== 'text' && mode !== 'file') return;
-                const handlePaste = (e) => {
-                    const items = e.clipboardData?.items;
-                    if (!items) return;
-                    for (let i = 0; i < items.length; i++) {
-                        if (items[i].type.indexOf('image') !== -1) {
-                            e.preventDefault();
-                            processFile(items[i].getAsFile());
-                            break;
-                        }
-                    }
-                };
-                window.addEventListener('paste', handlePaste);
-                return () => window.removeEventListener('paste', handlePaste);
-            }, [mode]);
-
-
             return (
                 <div className="pb-12 dark:bg-slate-900 min-h-screen transition-colors flex flex-col">
                     {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -1225,7 +1209,7 @@
                                 </div>
                             </div>
                              <div ref={fsContentRef} className="flex-1 overflow-y-auto p-20 pb-24">
-                                 <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col p-20 transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
+                                 <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
                                     {bilingualMode && sourceText ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="prose prose-lg dark:prose-invert text-slate-500 dark:text-slate-400"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 dark:text-slate-500 border-b dark:border-slate-700 pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
