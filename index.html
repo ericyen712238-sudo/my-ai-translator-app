@@ -547,7 +547,14 @@
             };
 
             const processFile = async (f) => {
-                if(!f)return; setFileName(f.name); 
+                if(!f)return; 
+                
+                if (currentTask === 'vision' && !f.type.startsWith('image/')) {
+                    showToast("識圖模式僅限上傳圖片", "error");
+                    return;
+                }
+
+                setFileName(f.name); 
                 if(f.type.startsWith('image/')) {
                       const r = new FileReader(); r.onload = e => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setShowCropModal(true); }; r.readAsDataURL(f);
                       return;
@@ -961,6 +968,10 @@
 
                     const text = await navigator.clipboard.readText();
                     if (text) {
+                        if (currentTask === 'vision') {
+                             showToast("識圖模式僅限貼上圖片 (Vision mode only accepts images)", "error");
+                             return;
+                        }
                         setSourceText(prev => prev + text);
                         showToast("已貼上剪貼簿內容", "success");
                     } else {
@@ -1012,7 +1023,7 @@
                                 <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                                 <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
-                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-7 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
+                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
                                 {TASKS.map(t => (
                                     <button 
                                         key={t.id} 
@@ -1063,8 +1074,8 @@
                                             <button onClick={()=>setSourceText('')} className="p-1 text-slate-400 hover:text-red-500" title="清除"><Icons.X className="w-4 h-4"/></button>
                                         </div>
                                     </div>
-                                    <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="flex-1 p-4 bg-transparent outline-none resize-none dark:text-slate-200 text-lg" placeholder="輸入文字..." style={{fontSize: `${globalFontSize}px`}}/>
-                                    {mode==='file' && !sourceText && <div onClick={()=>fileInputRef.current.click()} className={`absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-900/80 cursor-pointer border-2 border-dashed m-4 rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-300 dark:border-slate-700'}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={()=>{setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}><Icons.UploadCloud className="w-8 h-8 text-blue-400"/><span className="text-sm text-slate-500 mt-2">上傳文件 / 圖片</span><input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange}/></div>}
+                                    <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="flex-1 p-4 bg-transparent outline-none resize-none dark:text-slate-200 text-lg" placeholder={currentTask === 'vision' ? "請上傳或貼上圖片以進行辨識..." : "輸入文字..."} style={{fontSize: `${globalFontSize}px`}}/>
+                                    {mode==='file' && !sourceText && <div onClick={()=>fileInputRef.current.click()} className={`absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-900/80 cursor-pointer border-2 border-dashed m-4 rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-300 dark:border-slate-700'}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={()=>{setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}><Icons.UploadCloud className="w-8 h-8 text-blue-400"/><span className="text-sm text-slate-500 mt-2">{currentTask === 'vision' ? '上傳圖片 (Vision Mode Only)' : '上傳文件 / 圖片'}</span><input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept={currentTask==='vision' ? "image/*" : "*/*"}/></div>}
                                 </div>
                                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 overflow-hidden relative">
                                     <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center">
