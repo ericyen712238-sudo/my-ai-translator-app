@@ -6,7 +6,7 @@
     <title>Gemini AI 文件助手</title>
     
     <!-- Favicon (Logo) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -87,6 +87,25 @@
 
         // --- Global Helper Functions (Defined outside App) ---
         
+        // Helper to handle PDF password
+        const loadPdfWithPassword = (data) => {
+            const loadingTask = window.pdfjsLib.getDocument({ data });
+            loadingTask.onPassword = (updatePassword, reason) => {
+                let msg = '此 PDF 受密碼保護，請輸入密碼：';
+                if (reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) {
+                    msg = '密碼錯誤，請重新輸入：';
+                }
+                const password = prompt(msg);
+                if (password) {
+                    updatePassword(password);
+                } else {
+                    // User cancelled or entered empty
+                    loadingTask.destroy();
+                }
+            };
+            return loadingTask.promise;
+        };
+
         const compressImage = (file) => new Promise((resolve, reject) => {
             const r = new FileReader(); r.readAsDataURL(file);
             r.onload = e => {
@@ -104,7 +123,8 @@
         });
 
         const renderPdfToImages = async (ab) => {
-            const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
+            // Use loadPdfWithPassword helper instead of direct getDocument
+            const pdf = await loadPdfWithPassword(ab);
             const imgs = [];
             const count = Math.min(pdf.numPages, 5); 
             for(let i=1;i<=count;i++){
@@ -117,7 +137,7 @@
             return imgs;
         };
 
-        // Robust fetchWithRetry
+        // Robust fetchWithRetry with exponential backoff specifically for 429
         const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
             try {
                 const res = await fetch(url, options);
@@ -537,10 +557,12 @@
                         const ab = await f.arrayBuffer();
                         if(usePdfVision && geminiKey) {
                             setLoadingStatus('AI 視覺讀取 PDF...');
+                            // Use slice(0) to clone ArrayBuffer to prevent detached buffer error
                             const imgs = await renderPdfToImages(ab.slice(0));
                             text = await performGeminiOCR_Multi(imgs.images || imgs); 
                         } else {
-                            const pdf = await window.pdfjsLib.getDocument({data:ab.slice(0)}).promise;
+                            // Use loadPdfWithPassword here for password support
+                            const pdf = await loadPdfWithPassword(ab.slice(0));
                             for(let i=1;i<=pdf.numPages;i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(' ')+'\n';
                             if((!text || text.length<50) && geminiKey) {
                                 setLoadingStatus('文字過少，切換至 AI 視覺讀取...');
@@ -559,6 +581,7 @@
                 } catch(e) { console.error(e); setErrorMsg(e.message||"讀取失敗"); setIsLoading(false); }
             };
             
+            // THIS WAS MISSING OR OUT OF ORDER IN PREVIOUS CODE causing ReferenceError
             const handleFileChange = (e) => { 
                 const f = e.target.files[0]; 
                 if(f) processFile(f); 
@@ -865,7 +888,7 @@
                     const canvas = await html2canvas(fsInnerRef.current, {
                         useCORS: true,
                         backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                        scale: window.devicePixelRatio || 4, 
+                        scale: 4, // Increased scale for better quality
                         logging: false,
                         allowTaint: true,
                         scrollY: -window.scrollY
@@ -888,7 +911,7 @@
                 const element = document.getElementById(id);
                 if (!element) return;
                 try {
-                    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null });
+                    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 });
                     const link = document.createElement('a');
                     link.download = `chat_capture_${Date.now()}.png`;
                     link.href = canvas.toDataURL('image/png');
@@ -900,6 +923,33 @@
             };
 
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
+
+            useEffect(()=>{localStorage.setItem('gemini_api_key',geminiKey)},[geminiKey]);
+            useEffect(()=>{localStorage.setItem('gemini_model',geminiModel)},[geminiModel]);
+            useEffect(()=>{localStorage.setItem('translate_history',JSON.stringify(history))},[history]);
+            useEffect(()=>{localStorage.setItem('gemini_custom_instruction',customInstruction)},[customInstruction]);
+            useEffect(()=>{localStorage.setItem('gemini_glossary',JSON.stringify(glossary))},[glossary]);
+            useEffect(()=>{localStorage.setItem('gemini_dark_mode',darkMode); if(darkMode)document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');},[darkMode]);
+            useEffect(()=>{if(mode==='conversation')chatEndRef.current?.scrollIntoView({behavior:'smooth'})},[chatMessages,mode]);
+            useEffect(()=>{const v=window.speechSynthesis.getVoices(); setAvailableVoices(v); window.speechSynthesis.onvoiceschanged=()=>setAvailableVoices(window.speechSynthesis.getVoices());},[]);
+
+            useEffect(() => {
+                if (mode !== 'text' && mode !== 'file') return;
+                const handlePaste = (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image') !== -1) {
+                            e.preventDefault();
+                            processFile(items[i].getAsFile());
+                            break;
+                        }
+                    }
+                };
+                window.addEventListener('paste', handlePaste);
+                return () => window.removeEventListener('paste', handlePaste);
+            }, [mode]);
+
 
             return (
                 <div className="pb-12 dark:bg-slate-900 min-h-screen transition-colors flex flex-col">
@@ -1175,7 +1225,7 @@
                                 </div>
                             </div>
                              <div ref={fsContentRef} className="flex-1 overflow-y-auto p-20 pb-24">
-                                 <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
+                                 <div ref={fsInnerRef} className={`mx-auto min-h-full flex flex-col p-20 transition-all duration-300 ${currentTask === 'mindmap' ? '' : 'max-w-4xl'}`} style={currentTask === 'mindmap' ? { maxWidth: `${fsWidth}px` } : {}}>
                                     {bilingualMode && sourceText ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="prose prose-lg dark:prose-invert text-slate-500 dark:text-slate-400"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 dark:text-slate-500 border-b dark:border-slate-700 pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
@@ -1228,4 +1278,3 @@
     </script>
 </body>
 </html>
-
