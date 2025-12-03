@@ -310,7 +310,8 @@
             {id:'polish',name:'潤飾',icon:<Icons.Magic/>,btnColor:'bg-purple-600'},
             {id:'grammar',name:'文法',icon:<Icons.Search/>,btnColor:'bg-emerald-600'},
             {id:'analyze',name:'分析',icon:<Icons.Brain/>,btnColor:'bg-pink-600'},
-            {id:'mindmap',name:'心智圖',icon:<Icons.Brain/>,btnColor:'bg-indigo-600'}
+            {id:'mindmap',name:'心智圖',icon:<Icons.Brain/>,btnColor:'bg-indigo-600'},
+            {id:'vision',name:'識圖',icon:<Icons.Eye/>,btnColor:'bg-violet-600'}
         ];
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
@@ -461,6 +462,8 @@
                     }
                 } else if(promptType==='mindmap') {
                     sys = `Current DateTime: ${now}. Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
+                } else if (promptType === 'vision') {
+                    sys = `Current DateTime: ${now}. The user has provided a description of an image. Please organize this description into a clear, readable Markdown format. Input:\n${textToUse}`;
                 }
                 
                 if(glossary.length>0) sys += `\nGlossary:${JSON.stringify(glossary)}`;
@@ -587,7 +590,7 @@
             const performGeminiOCR = async (file, task) => {
                 const b64 = await compressImage(file);
                 let promptText = "OCR this image. Output text only.";
-                if (task === 'analyze') promptText = "Describe this image in detail in Traditional Chinese. If there is text, transcribe it.";
+                if (task === 'vision') promptText = "請用繁體中文詳細描述這張圖片的內容。如果有文字，請也一併列出。 (Describe this image in detail in Traditional Chinese)";
                 
                 const payload = {contents:[{parts:[{text: promptText},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
                 const res = await runGeminiRequest(payload, geminiModel);
@@ -613,7 +616,7 @@
                 try {
                     let text = "";
                     if(geminiKey) {
-                        text = await performGeminiOCR(file, currentTask); // Use updated performGeminiOCR with task
+                        text = await performGeminiOCR(file, currentTask); 
                     } else {
                         text = await performLegacyOCR(file);
                     }
