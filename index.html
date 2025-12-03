@@ -408,17 +408,6 @@
                 }
             };
             
-            const handlePasteClick = async () => {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    setSourceText(prev => prev + text);
-                    showToast("已貼上剪貼簿內容", "success");
-                } catch (err) {
-                    console.error('Failed to read clipboard contents: ', err);
-                    showToast("無法讀取剪貼簿，請使用 Ctrl+V", "error");
-                }
-            };
-            
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
@@ -939,6 +928,55 @@
                     showToast("截圖失敗", "error");
                 }
             };
+
+            const handlePasteClick = async () => {
+                try {
+                    try {
+                        const items = await navigator.clipboard.read();
+                        for (const item of items) {
+                            if (item.types.some(type => type.startsWith('image/'))) {
+                                const type = item.types.find(type => type.startsWith('image/'));
+                                const blob = await item.getType(type);
+                                const file = new File([blob], "pasted_image.png", { type });
+                                processFile(file);
+                                showToast("已貼上剪貼簿圖片", "success");
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        console.log("Clipboard read() failed or denied, falling back to text.");
+                    }
+
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                        setSourceText(prev => prev + text);
+                        showToast("已貼上剪貼簿內容", "success");
+                    } else {
+                        showToast("無法讀取剪貼簿內容", "error");
+                    }
+                } catch (err) {
+                    console.error('Clipboard Error: ', err);
+                    showToast("無法讀取剪貼簿，請嘗試使用 Ctrl+V", "error");
+                }
+            };
+
+            const processFileRef = useRef(processFile);
+            useEffect(() => { processFileRef.current = processFile; }, [processFile]);
+
+            useEffect(() => {
+                const handleGlobalPaste = (e) => {
+                    if (e.clipboardData && e.clipboardData.files.length > 0) {
+                        const file = e.clipboardData.files[0];
+                        if (file.type.startsWith('image/')) {
+                            e.preventDefault();
+                            processFileRef.current(file);
+                            showToast("已偵測到圖片貼上", "success");
+                        }
+                    }
+                };
+                window.addEventListener('paste', handleGlobalPaste);
+                return () => window.removeEventListener('paste', handleGlobalPaste);
+            }, []);
 
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
 
