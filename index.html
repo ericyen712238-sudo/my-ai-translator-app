@@ -98,6 +98,17 @@
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
+        // --- User's Pre-configured Firebase Settings ---
+        const DEFAULT_FIREBASE_CONFIG = {
+          "apiKey": "AIzaSyAwbquRwB2p_2zXXHYo_Vzk_EDPYyOSeKY",
+          "authDomain": "aitools-40017.firebaseapp.com",
+          "databaseURL": "https://aitools-40017-default-rtdb.firebaseio.com",
+          "projectId": "aitools-40017",
+          "storageBucket": "aitools-40017.appspot.com",
+          "messagingSenderId": "aitools712238",
+          "appId": "aitools712238"
+        };
+
         // --- Global Helper Functions ---
         
         // 1. Load PDF with Password Support
@@ -395,7 +406,7 @@
             const recognitionRef = useRef(null);
             
             // --- FIREBASE SYNC STATES ---
-            const [firebaseConfigStr, setFirebaseConfigStr] = useState(localStorage.getItem('firebase_config_str') || '');
+            const [firebaseConfigStr, setFirebaseConfigStr] = useState(localStorage.getItem('firebase_config_str') || JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2));
             const [syncId, setSyncId] = useState(localStorage.getItem('sync_id') || '');
             const [isSyncing, setIsSyncing] = useState(false);
             const [syncStatusMsg, setSyncStatusMsg] = useState('');
