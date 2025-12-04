@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro Sync)</title>
+    <title>Gemini AI 文件助手 (Pro Final Sync)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -399,6 +399,7 @@
             const [syncId, setSyncId] = useState(localStorage.getItem('sync_id') || '');
             const [isSyncing, setIsSyncing] = useState(false);
             const [syncStatusMsg, setSyncStatusMsg] = useState('');
+            const [isCloudInitialized, setIsCloudInitialized] = useState(false); // SAFETY LOCK
             const dbRef = useRef(null);
             const isRemoteUpdate = useRef(false);
 
@@ -413,17 +414,39 @@
                         const db = firebase.firestore();
                         dbRef.current = db;
                         
-                        // Real-time listener
-                        const unsubscribe = db.collection('gemini_sync_data').doc(syncId).onSnapshot((doc) => {
-                            setIsSyncing(true);
-                            setSyncStatusMsg('已連線');
+                        // Initial Fetch to prevent overwriting cloud data with empty local state
+                        db.collection('gemini_sync_data').doc(syncId).get().then((doc) => {
                             if (doc.exists) {
                                 const data = doc.data();
                                 isRemoteUpdate.current = true;
                                 if (data.history) setHistory(data.history);
                                 if (data.glossary) setGlossary(data.glossary);
                                 if (data.customInstruction) setCustomInstruction(data.customInstruction);
-                                showToast("資料已從雲端同步", "success");
+                                showToast("資料已從雲端載入 (初始化)", "success");
+                                setTimeout(() => { isRemoteUpdate.current = false; setIsCloudInitialized(true); }, 500); // UNLOCK
+                            } else {
+                                setIsCloudInitialized(true); // New ID, safe to write
+                            }
+                        }).catch(e => {
+                            console.error("Init fetch failed", e);
+                            setIsCloudInitialized(true); // Fallback to allow local usage
+                        });
+
+                        // Real-time listener
+                        const unsubscribe = db.collection('gemini_sync_data').doc(syncId).onSnapshot((doc) => {
+                            setIsSyncing(true);
+                            setSyncStatusMsg('已連線');
+                            if (doc.exists && isCloudInitialized) { // Only process updates if initialized
+                                const data = doc.data();
+                                // Check if this update is from us (simple heuristic timestamp check or rely on isRemoteUpdate flag logic from writing side, but here we just blindly trust cloud if not writing)
+                                // Better: Check if data is different? No, too expensive.
+                                // We rely on the fact that if we just wrote, we shouldn't re-read immediately to avoid loop, but local state is already updated.
+                                // React state update won't trigger re-render if value is same.
+                                
+                                isRemoteUpdate.current = true;
+                                if (data.history) setHistory(data.history);
+                                if (data.glossary) setGlossary(data.glossary);
+                                if (data.customInstruction) setCustomInstruction(data.customInstruction);
                                 setTimeout(() => { isRemoteUpdate.current = false; }, 1000);
                             }
                         }, (error) => {
@@ -448,7 +471,8 @@
             }, [firebaseConfigStr, syncId]);
 
             const pushToCloud = useCallback((type, data) => {
-                if (dbRef.current && syncId && !isRemoteUpdate.current) {
+                // SECURITY CHECK: Only allow push if initialized and not a remote update
+                if (dbRef.current && syncId && !isRemoteUpdate.current && isCloudInitialized) {
                     dbRef.current.collection('gemini_sync_data').doc(syncId).set({
                         [type]: data,
                         lastUpdated: new Date().toISOString()
@@ -459,7 +483,7 @@
                         }
                     });
                 }
-            }, [syncId]);
+            }, [syncId, isCloudInitialized]);
             
             const testConnection = async () => {
                 if (!dbRef.current || !syncId) {
@@ -1497,7 +1521,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro Sync Edition</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro Final Sync Edition</div>
                 </div>
             );
         }
