@@ -153,7 +153,7 @@
             const count = Math.min(pdf.numPages, 5); 
             for(let i=1;i<=count;i++){
                 const p = await pdf.getPage(i);
-                const v = p.getViewport({scale:1.5});
+                const v = p.getViewport({:1.5});
                 const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
                 await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
                 imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
@@ -820,7 +820,7 @@
                     
                     const candidate = res.candidates?.[0];
                     let responseText = "Error";
-                    if (!candidate) {
+                    if (!candidate) {https://github.com/ericyen712238-sudo/my-ai-translator-app/blob/main/index.html
                         responseText = "Error: No response from AI.";
                     } else if (candidate.finishReason !== "STOP" && !candidate.content) {
                         responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
@@ -1048,7 +1048,7 @@
                     const canvas = await html2canvas(fsInnerRef.current, {
                         useCORS: true,
                         backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                        scale: 6, 
+                        scale: 4, 
                         logging: false,
                         allowTaint: true,
                         scrollY: -window.scrollY
@@ -1544,3 +1544,4 @@
     </script>
 </body>
 </html>
+
