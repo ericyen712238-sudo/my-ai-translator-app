@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro Sync)</title>
+    <title>Gemini AI 文件助手 (Pro Locked Sync)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -153,7 +153,7 @@
             const count = Math.min(pdf.numPages, 5); 
             for(let i=1;i<=count;i++){
                 const p = await pdf.getPage(i);
-                const v = p.getViewport({:1.5});
+                const v = p.getViewport({scale:1.5});
                 const c = document.createElement('canvas'); c.width=v.width; c.height=v.height;
                 await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;
                 imgs.push(c.toDataURL('image/jpeg',0.8).split(',')[1]);
@@ -449,11 +449,6 @@
                             setSyncStatusMsg('已連線');
                             if (doc.exists && isCloudInitialized) { // Only process updates if initialized
                                 const data = doc.data();
-                                // Check if this update is from us (simple heuristic timestamp check or rely on isRemoteUpdate flag logic from writing side, but here we just blindly trust cloud if not writing)
-                                // Better: Check if data is different? No, too expensive.
-                                // We rely on the fact that if we just wrote, we shouldn't re-read immediately to avoid loop, but local state is already updated.
-                                // React state update won't trigger re-render if value is same.
-                                
                                 isRemoteUpdate.current = true;
                                 if (data.history) setHistory(data.history);
                                 if (data.glossary) setGlossary(data.glossary);
@@ -820,7 +815,7 @@
                     
                     const candidate = res.candidates?.[0];
                     let responseText = "Error";
-                    if (!candidate) {https://github.com/ericyen712238-sudo/my-ai-translator-app/blob/main/index.html
+                    if (!candidate) {
                         responseText = "Error: No response from AI.";
                     } else if (candidate.finishReason !== "STOP" && !candidate.content) {
                         responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
@@ -1048,9 +1043,9 @@
                     const canvas = await html2canvas(fsInnerRef.current, {
                         useCORS: true,
                         backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                        scale: 4, 
+                        scale: 2, 
                         logging: false,
-                        allowTaint: true,
+                        allowTaint: false,
                         scrollY: -window.scrollY
                     });
                     const link = document.createElement('a');
@@ -1544,4 +1539,3 @@
     </script>
 </body>
 </html>
-
