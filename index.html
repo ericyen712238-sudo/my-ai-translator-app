@@ -1040,10 +1040,22 @@
                 setLoadingStatus('正在產生全螢幕截圖...');
                 
                 try {
-                    const canvas = await html2canvas(fsInnerRef.current, {
+                    // 動態計算 Scale：內容越長，倍率越低，以防崩潰
+                    const element = fsInnerRef.current;
+                    const height = element.scrollHeight;
+                    let dynamicScale = 4;
+                    
+                    if (height > 6000) {
+                        dynamicScale = 2; // 超長內容使用 2x (確保成功率)
+                    } else if (height > 2500) {
+                        dynamicScale = 3; // 中長內容使用 3x
+                    }
+                    // 短內容維持 4x (最高畫質)
+
+                    const canvas = await html2canvas(element, {
                         useCORS: true,
                         backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                        scale: 2, 
+                        scale: dynamicScale, 
                         logging: false,
                         allowTaint: false,
                         scrollY: -window.scrollY
@@ -1052,7 +1064,7 @@
                     link.download = `fullscreen_capture_${Date.now()}.png`;
                     link.href = canvas.toDataURL('image/png');
                     link.click();
-                    showToast("全螢幕截圖已下載", "success");
+                    showToast(`全螢幕截圖已下載 (${dynamicScale}x 畫質)`, "success");
                 } catch (err) {
                     console.error("FS Download Error:", err);
                     showToast("截圖失敗，內容可能過長", "error");
