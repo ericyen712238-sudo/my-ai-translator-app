@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro)</title>
+    <title>Gemini AI 文件助手 (Pro - Anti 429)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -161,26 +161,42 @@
             return imgs;
         };
 
-        // 4. Robust Fetch with Retry
-        const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
+        // 4. Robust Fetch with Retry (Enhanced for 429)
+        const fetchWithRetry = async (url, options, retries = 6, delay = 2000, onRetry) => {
             try {
                 const res = await fetch(url, options);
+                
+                // Special handling for 429 Too Many Requests
                 if (res.status === 429) {
                     if (retries > 0) {
-                        if(onRetry) onRetry(delay / 1000);
-                        await new Promise(r => setTimeout(r, delay));
-                        return fetchWithRetry(url, options, retries - 1, Math.min(delay * 2, 16000), onRetry);
+                        // Add jitter to prevent thundering herd
+                        const jitter = Math.random() * 500;
+                        const waitTime = delay + jitter;
+                        
+                        if(onRetry) onRetry(Math.ceil(waitTime / 1000));
+                        
+                        await new Promise(r => setTimeout(r, waitTime));
+                        
+                        // Exponential backoff with a cap
+                        const nextDelay = Math.min(delay * 2, 32000); 
+                        
+                        return fetchWithRetry(url, options, retries - 1, nextDelay, onRetry);
                     }
                     throw new Error("429_TOO_MANY_REQUESTS");
                 }
+                
                 if (!res.ok) {
                     if (res.status === 404) throw new Error("404_NOT_FOUND");
                     throw new Error(`HTTP ${res.status}`);
                 }
                 return await res.json();
             } catch (e) {
+                // If network error (fetch failed), also retry
+                const isNetworkError = e.message === "Failed to fetch" || e.name === 'TypeError';
+                
                 if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
-                if (retries > 0) {
+                
+                if (retries > 0 && (isNetworkError || !e.message.startsWith("HTTP"))) {
                     if(onRetry) onRetry(delay / 1000);
                     await new Promise(r => setTimeout(r, delay));
                     return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
@@ -300,6 +316,7 @@
         };
 
         const GEMINI_MODELS = [
+            {id:'gemini-3-flash-preview',name:'Flash 3.0 (New!)'},
             {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
             {id:'gemini-1.5-pro',name:'Pro 1.5'},
@@ -364,7 +381,7 @@
             const [bilingualMode, setBilingualMode] = useState(false);
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
-            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.5-flash-preview-09-2025');
+            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-3-flash-preview');
             const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
@@ -559,17 +576,24 @@
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify(payload)
                     };
-                    return await fetchWithRetry(url, options, 5, 2000, (seconds) => {
+                    // Enhanced retry logic for 429
+                    return await fetchWithRetry(url, options, 6, 2000, (seconds) => {
                         setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後自動重試`);
                     });
                 };
+                
                 try {
                     return await attemptRequest(preferredModel);
                 } catch (e) {
-                    if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") && preferredModel !== FALLBACK_MODEL) {
+                    if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS")) {
                          const errorType = e.message === "404_NOT_FOUND" ? "模型不支援" : "系統忙碌";
-                         showToast(`${errorType}，自動切換至 Flash 2.5`, "error");
-                         return await attemptRequest(FALLBACK_MODEL);
+                         
+                         if(preferredModel !== FALLBACK_MODEL) {
+                            showToast(`${errorType}，自動切換至 Flash 2.5`, "error");
+                            setLoadingStatus("切換至備援模型...");
+                            // If fallback needed, retry with fallback model
+                            return await attemptRequest(FALLBACK_MODEL);
+                         }
                     }
                     throw e;
                 }
@@ -775,7 +799,7 @@
                     setChatMessages(p=>[...p,{role:'model',text:responseText}]);
                 } catch(e) { 
                     let errMsg = "Error: " + e.message;
-                    if (e.message === "429_TOO_MANY_REQUESTS") errMsg = "系統目前流量過大，請稍後再試。";
+                    if (e.message === "429_TOO_MANY_REQUESTS") errMsg = "系統目前流量過大 (429)，請稍後再試。";
                     setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
                 }
                 setIsLoading(false);
