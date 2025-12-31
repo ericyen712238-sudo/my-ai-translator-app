@@ -153,23 +153,46 @@
             return imgs;
         };
 
-        const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
+        // Optimized fetchWithRetry handling cancellations and abort signals
+        const fetchWithRetry = async (url, options, retries = 3, delay = 1000, onRetry) => {
             try {
+                if (options.signal && options.signal.aborted) throw new Error("Request cancelled");
+                
                 const res = await fetch(url, options);
+                
                 if (res.status === 429) {
                     if (retries > 0) {
                         if(onRetry) onRetry(delay / 1000);
-                        await new Promise(r => setTimeout(r, delay));
-                        return fetchWithRetry(url, options, retries - 1, Math.min(delay * 2, 16000), onRetry);
+                        // Wait with abort check
+                        await new Promise((resolve, reject) => {
+                            const timer = setTimeout(resolve, delay);
+                            if (options.signal) {
+                                options.signal.addEventListener('abort', () => {
+                                    clearTimeout(timer);
+                                    reject(new Error("Request cancelled"));
+                                });
+                            }
+                        });
+                        // Exponential backoff capped at 8s
+                        return fetchWithRetry(url, options, retries - 1, Math.min(delay * 2, 8000), onRetry);
                     }
                     throw new Error("429_TOO_MANY_REQUESTS");
                 }
-                // Allow non-200 to pass for error parsing
+                
                 return await res.json().then(data => ({ status: res.status, ok: res.ok, data }));
             } catch (e) {
+                if (e.message === "Request cancelled") throw e;
                 if (retries > 0) {
                     if(onRetry) onRetry(delay / 1000);
-                    await new Promise(r => setTimeout(r, delay));
+                    await new Promise((resolve, reject) => {
+                        const timer = setTimeout(resolve, delay);
+                        if (options.signal) {
+                            options.signal.addEventListener('abort', () => {
+                                clearTimeout(timer);
+                                reject(new Error("Request cancelled"));
+                            });
+                        }
+                    });
                     return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
                 }
                 throw e;
@@ -377,6 +400,7 @@
             const fsContentRef = useRef(null);
             const fsInnerRef = useRef(null);
             const recognitionRef = useRef(null);
+            const abortControllerRef = useRef(null);
             
             // --- NEW: IMAGE GEN STATE ---
             const [imageGenState, setImageGenState] = useState({ show: false, prompt: '' });
@@ -543,38 +567,57 @@
                 }
             };
             
+            const handleCancelRequest = () => {
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                    abortControllerRef.current = null;
+                }
+                setIsLoading(false);
+                setLoadingStatus('');
+                showToast("已取消請求", "success");
+            };
+
             const runGeminiRequest = async (payload, preferredModel) => {
-                const attemptRequest = async (modelId) => {
+                if (abortControllerRef.current) abortControllerRef.current.abort();
+                abortControllerRef.current = new AbortController();
+                const signal = abortControllerRef.current.signal;
+
+                const attemptRequest = async (modelId, retriesCount) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
                     const options = {
                         method: 'POST', 
                         headers: {'Content-Type': 'application/json'}, 
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(payload),
+                        signal
                     };
-                    return await fetchWithRetry(url, options, 6, 2000, (seconds) => {
-                        setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後自動重試`);
+                    return await fetchWithRetry(url, options, retriesCount, 2000, (seconds) => {
+                        setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後重試`);
                     });
                 };
 
                 try {
-                    const res = await attemptRequest(preferredModel);
+                    // Try preferred model with ONLY 1 retry to fail fast
+                    const res = await attemptRequest(preferredModel, 1);
                     if (res.data && res.data.candidates && res.data.candidates.length > 0) {
                         return res.data;
                     }
-                    // If prefered model returns empty but status is ok (rare but possible with safety filters)
-                    // Or if it failed with 404/503 internally caught
+                    
+                    // Fallback logic
                     if(preferredModel !== FALLBACK_MODEL) {
                         console.log("Primary model failed or empty, trying fallback...");
-                        const fallbackRes = await attemptRequest(FALLBACK_MODEL);
+                        setLoadingStatus("主要模型忙碌，切換至備援模型 (Flash 1.5)...");
+                        const fallbackRes = await attemptRequest(FALLBACK_MODEL, 3); // More retries for fallback
                         return fallbackRes.data;
                     }
                     return res.data;
                 } catch (e) {
+                    if (e.message === 'Request cancelled') throw new Error("Request cancelled");
+                    
                     if(preferredModel !== FALLBACK_MODEL) {
                          const errorType = e.message === "404_NOT_FOUND" ? "模型不支援" : "系統忙碌";
                          showToast(`${errorType}，自動切換至 Flash 1.5`, "error");
                          setLoadingStatus("切換至備援模型...");
-                         const fbRes = await attemptRequest(FALLBACK_MODEL);
+                         const fbRes = await attemptRequest(FALLBACK_MODEL, 3);
                          return fbRes.data;
                     }
                     throw e;
@@ -608,7 +651,7 @@
                              setChatMessages(prev => [...prev, {role:'model', text: `### 📝 對話重點整理\n\n${summary}`}]);
                          }
                     } catch(e) {
-                        showToast("整理失敗: " + e.message, "error");
+                        if (e.message !== "Request cancelled") showToast("整理失敗: " + e.message, "error");
                     }
                 } 
                 else if (actionType === 'image_prompt') {
@@ -630,7 +673,7 @@
                              // Don't auto-send message, just open panel
                          }
                     } catch(e) {
-                        showToast("產生指令失敗: " + e.message, "error");
+                        if (e.message !== "Request cancelled") showToast("產生指令失敗: " + e.message, "error");
                     }
                 }
                 
@@ -683,7 +726,7 @@
                         setImageGenState({ show: true, prompt: newPrompt });
                     }
                 } catch(e) {
-                    showToast("分析圖片失敗: " + e.message, "error");
+                    if (e.message !== "Request cancelled") showToast("分析圖片失敗: " + e.message, "error");
                 } finally {
                     setIsLoading(false);
                     setLoadingStatus('');
@@ -714,7 +757,7 @@
                         setImageGenState({ show: true, prompt: translatedText }); 
                     }
                 } catch(e) {
-                    showToast("轉換失敗: " + e.message, "error");
+                    if (e.message !== "Request cancelled") showToast("轉換失敗: " + e.message, "error");
                     setMode('conversation');
                     setImageGenState({ show: true, prompt: translatedText });
                 } finally {
@@ -838,8 +881,10 @@
                     }
                 } catch(e) { 
                     if(currentRequestId === requestCounter.current) {
-                        setErrorMsg(e.message); 
-                        setTranslatedText(`錯誤: ${e.message}\n\n1. 請檢查 API Key 是否正確\n2. 嘗試更換其他模型 (Flash/Pro)\n3. 內容可能涉及敏感話題`);
+                        if (e.message !== "Request cancelled") {
+                            setErrorMsg(e.message); 
+                            setTranslatedText(`錯誤: ${e.message}\n\n1. 請檢查 API Key 是否正確\n2. 嘗試更換其他模型 (Flash/Pro)\n3. 內容可能涉及敏感話題`);
+                        }
                     }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
@@ -962,8 +1007,10 @@
                     callAI(currentTask, text);
 
                 } catch (e) { 
-                    console.error(e); 
-                    setErrorMsg(e.message); 
+                    if (e.message !== "Request cancelled") {
+                        console.error(e); 
+                        setErrorMsg(e.message); 
+                    }
                     // 如果是 Vision 模式且失敗，自動切回文字模式以免卡住
                     if (currentTask === 'vision' && !geminiKey) {
                         setCurrentTask('notes');
@@ -1035,11 +1082,13 @@
 
                     setChatMessages(p=>[...p,{role:'model',text:responseText}]);
                 } catch(e) { 
-                    let errMsg = "Error: " + e.message;
-                    if (e.message === "429_TOO_MANY_REQUESTS") {
-                        errMsg = "系統目前流量過大，請稍後再試。";
+                    if (e.message !== "Request cancelled") {
+                        let errMsg = "Error: " + e.message;
+                        if (e.message === "429_TOO_MANY_REQUESTS") {
+                            errMsg = "系統目前流量過大，請稍後再試。";
+                        }
+                        setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
                     }
-                    setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
                 }
                 setIsLoading(false);
             };
@@ -1368,7 +1417,7 @@
                         showToast("提示詞已優化", "success");
                     }
                 } catch(e) {
-                    showToast("優化失敗: " + e.message, "error");
+                    if (e.message !== "Request cancelled") showToast("優化失敗: " + e.message, "error");
                 } finally {
                     setIsLoading(false);
                 }
@@ -1423,7 +1472,7 @@
                         setImageGenState({ show: true, prompt: newPrompt });
                     }
                 } catch(e) {
-                    showToast("分析失敗: " + e.message, "error");
+                    if (e.message !== "Request cancelled") showToast("分析失敗: " + e.message, "error");
                 } finally {
                     setIsLoading(false);
                 }
@@ -1519,7 +1568,11 @@
                                         </div>
                                     </div>
                                     <div className="flex-1 overflow-y-auto bg-slate-50/30 dark:bg-slate-900/30 relative">
-                                        {isLoading && <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 z-10"><Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin mb-2"/><span className="text-xs font-bold text-blue-500">{loadingStatus}</span></div>}
+                                        {isLoading && <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 z-10">
+                                            <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin mb-2"/>
+                                            <span className="text-xs font-bold text-blue-500 mb-2">{loadingStatus}</span>
+                                            <button onClick={handleCancelRequest} className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold hover:bg-red-200">取消</button>
+                                        </div>}
                                         {currentTask==='mindmap' ? <div className="p-4"><MermaidDiagram code={translatedText} darkMode={darkMode}/></div> : isMarkdownMode ? <div className="p-4"><SafeMarkdown content={translatedText} fontSize={globalFontSize}/></div> : <textarea readOnly value={translatedText} className="w-full h-full p-4 bg-transparent outline-none resize-none text-lg dark:text-slate-200" style={{fontSize: `${globalFontSize}px`}}/>}
                                     </div>
                                     <div className="absolute bottom-3 right-3"><button onClick={switchToChat} className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full shadow hover:bg-blue-700 flex items-center gap-1"><Icons.MessageSquare className="w-3 h-3"/> 針對結果對話</button></div>
@@ -1619,7 +1672,7 @@
                                             className="flex-1 p-2 bg-slate-50 dark:bg-slate-900 border dark:border-slate-600 rounded-lg outline-none dark:text-white chat-input resize-none hide-scrollbar" 
                                             placeholder="輸入訊息..."
                                         />
-                                        <button onClick={sendChat} disabled={isLoading} className="p-2 bg-blue-600 text-white rounded-lg">{isLoading?<Icons.RotateCw className="w-5 h-5 animate-spin"/>:<Icons.Send className="w-5 h-5"/>}</button>
+                                        <button onClick={isLoading ? handleCancelRequest : sendChat} className={`p-2 ${isLoading ? 'bg-red-500' : 'bg-blue-600'} text-white rounded-lg`}>{isLoading?<Icons.X className="w-5 h-5"/>:<Icons.Send className="w-5 h-5"/>}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1628,133 +1681,6 @@
                         {mode!=='conversation' && <button onClick={()=>callAI(currentTask)} disabled={isLoading||!sourceText} className={`w-full py-3 rounded-xl font-bold text-white shadow transition-all active:scale-[0.99] disabled:opacity-50 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading?'處理中...':TASKS.find(t=>t.id===currentTask)?.name}</button>}
                         {errorMsg && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded">{errorMsg}</div>}
                     </main>
-
-                    {/* Settings Modal (Added Back) */}
-                    {showSettings && (
-                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSettings(false)}>
-                            <div className="bg-white dark:bg-slate-800 w-full max-w-lg p-6 rounded-2xl shadow-xl max-h-[90vh] flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
-                                    <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Icons.Settings className="w-5 h-5 text-slate-500"/> 設定</h3>
-                                    <button onClick={() => setShowSettings(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><Icons.X className="w-5 h-5 text-slate-500" /></button>
-                                </div>
-                                
-                                <div className="flex gap-2 mb-4 border-b dark:border-slate-700">
-                                    {['general', 'data', 'sync'].map(tab => (
-                                        <button 
-                                            key={tab} 
-                                            onClick={() => setActiveTab(tab)}
-                                            className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === tab ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                                        >
-                                            {{general: '一般', data: '資料', sync: '雲端同步'}[tab]}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-                                    {activeTab === 'general' && (
-                                        <>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase">Gemini API Key</label>
-                                                <input type="password" value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} className="w-full p-2 rounded border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-500" placeholder="Paste API Key here..." />
-                                                <div className="text-[10px] text-slate-400">若無 Key，可至 Google AI Studio 免費申請。</div>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase">模型選擇</label>
-                                                <select value={geminiModel} onChange={e=>setGeminiModel(e.target.value)} className="w-full p-2 rounded border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white outline-none">
-                                                    {GEMINI_MODELS.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase">自訂 AI 指令 (System Instruction)</label>
-                                                <textarea value={customInstruction} onChange={e=>setCustomInstruction(e.target.value)} className="w-full p-2 rounded border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white outline-none h-20 text-sm" placeholder="例如：你是一個專業的翻譯，請隨時補充文法解說..." />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">字體大小 ({globalFontSize}px)</label>
-                                                    <input type="range" min="12" max="32" value={globalFontSize} onChange={e=>setGlobalFontSize(Number(e.target.value))} className="w-full accent-blue-600"/>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">創意度 (Temp: {aiTemperature})</label>
-                                                    <input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={e=>setAiTemperature(Number(e.target.value))} className="w-full accent-purple-600"/>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">語音語速 ({voiceRate}x)</label>
-                                                    <input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={e=>setVoiceRate(Number(e.target.value))} className="w-full accent-blue-600"/>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">語音語調 ({voicePitch})</label>
-                                                    <input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={e=>setVoicePitch(Number(e.target.value))} className="w-full accent-blue-600"/>
-                                                </div>
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {activeTab === 'data' && (
-                                        <>
-                                             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg space-y-3">
-                                                <h4 className="font-bold text-sm dark:text-white flex items-center gap-2"><Icons.Book className="w-4 h-4"/> 專有名詞辭典 (Glossary)</h4>
-                                                <div className="flex gap-2">
-                                                    <input value={newGlossaryTerm} onChange={e=>setNewGlossaryTerm(e.target.value)} className="flex-1 p-2 text-sm rounded border dark:border-slate-600 bg-white dark:bg-slate-900 outline-none" placeholder="原文 (如: AI)" />
-                                                    <input value={newGlossaryTrans} onChange={e=>setNewGlossaryTrans(e.target.value)} className="flex-1 p-2 text-sm rounded border dark:border-slate-600 bg-white dark:bg-slate-900 outline-none" placeholder="譯文 (如: 人工智慧)" />
-                                                    <button onClick={addGlossaryTerm} className="bg-blue-600 text-white px-3 rounded hover:bg-blue-700"><Icons.MessageSquarePlus/></button>
-                                                </div>
-                                                <div className="max-h-[150px] overflow-y-auto space-y-1">
-                                                    {glossary.length===0 && <div className="text-center text-xs text-slate-400 py-2">尚無詞彙</div>}
-                                                    {glossary.map((g,i)=>(
-                                                        <div key={i} className="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border dark:border-slate-700 text-sm">
-                                                            <span>{g.term} <span className="text-slate-400">→</span> {g.trans}</span>
-                                                            <button onClick={()=>removeGlossaryTerm(i)} className="text-red-400 hover:text-red-600"><Icons.X className="w-3 h-3"/></button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="pt-4 border-t dark:border-slate-700">
-                                                 <h4 className="font-bold text-sm dark:text-white mb-2">備份與還原</h4>
-                                                 <div className="flex gap-2">
-                                                    <button onClick={handleExportData} className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 py-2 rounded-lg text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center gap-2"><Icons.FileUp className="w-4 h-4"/> 匯出備份 (JSON)</button>
-                                                    <label className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 py-2 rounded-lg text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center gap-2 cursor-pointer">
-                                                        <Icons.FileDown className="w-4 h-4"/> 匯入備份
-                                                        <input type="file" className="hidden" accept=".json" onChange={handleImportData}/>
-                                                    </label>
-                                                 </div>
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {activeTab === 'sync' && (
-                                        <div className="space-y-4">
-                                            <div className={`p-3 rounded-lg text-sm border ${isSyncing ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400'}`}>
-                                                <div className="font-bold flex items-center gap-2">
-                                                    <Icons.Cloud className="w-4 h-4"/> 狀態：{syncStatusMsg || '未連線'}
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase">Sync ID (群組識別碼)</label>
-                                                <input value={syncId} onChange={e=>setSyncId(e.target.value)} className="w-full p-2 rounded border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white outline-none font-mono" placeholder="my-sync-group-001" />
-                                                <div className="text-[10px] text-slate-400">所有使用此 ID 的裝置將會同步歷史紀錄與設定。</div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-slate-500 uppercase">Firebase Config (JSON)</label>
-                                                <textarea value={firebaseConfigStr} onChange={e=>setFirebaseConfigStr(e.target.value)} className="w-full p-2 rounded border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white outline-none font-mono text-xs h-32" placeholder='{"apiKey": "...", ...}' />
-                                            </div>
-
-                                            <button onClick={testConnection} disabled={isLoading} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2">
-                                                {isLoading ? <Icons.RotateCw className="w-4 h-4 animate-spin"/> : <Icons.Wifi className="w-4 h-4"/>} 測試連線並儲存
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                <div className="mt-4 pt-3 border-t dark:border-slate-700 flex justify-end">
-                                    <button onClick={() => setShowSettings(false)} className="px-4 py-2 bg-slate-900 dark:bg-blue-600 text-white rounded-lg font-bold text-sm hover:opacity-90">完成</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                     
                     {showHistory && (
                         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowHistory(false)}>
@@ -1787,114 +1713,6 @@
                                 </div>
                             </div>
                         </div>
-                    )}
-
-                    {/* --- CROP MODAL (Restored) --- */}
-                    {showCropModal && cropImageSrc && (
-                        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 crop-modal animate-in fade-in">
-                            <div 
-                                className="relative max-w-full max-h-[70vh] overflow-hidden border-2 border-slate-500 cursor-crosshair touch-none"
-                                onMouseDown={handleCropStart} onMouseMove={handleCropMove} onMouseUp={handleCropEnd}
-                                onTouchStart={handleCropStart} onTouchMove={handleCropMove} onTouchEnd={handleCropEnd}
-                            >
-                                <img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[70vh] object-contain select-none pointer-events-none" alt="Crop target"/>
-                                {cropSelection && (
-                                    <div className="absolute border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
-                                         style={{left:cropSelection.x, top:cropSelection.y, width:cropSelection.w, height:cropSelection.h}}/>
-                                )}
-                            </div>
-                            <div className="mt-6 flex flex-wrap justify-center gap-3">
-                                <button onClick={() => setShowCropModal(false)} className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">取消</button>
-                                <button onClick={handleFullImageConfirm} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2"><Icons.Maximize className="w-4 h-4"/> 使用原圖</button>
-                                {cropSelection && cropSelection.w > 10 && (
-                                    <button onClick={handleCropConfirm} className="px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2"><Icons.Check className="w-4 h-4 text-white"/> 確認裁切</button>
-                                )}
-                                <button onClick={handleImageToPrompt} className="px-4 py-2 bg-pink-600 text-white rounded-lg font-bold hover:bg-pink-700 transition-colors flex items-center gap-2 border border-pink-400"><Icons.Palette className="w-4 h-4"/> 轉繪圖指令</button>
-                            </div>
-                            <div className="mt-3 text-slate-400 text-xs">拖曳滑鼠或手指以選取裁切範圍</div>
-                        </div>
-                    )}
-
-                    {/* --- VISUAL MODE MODAL (Restored) --- */}
-                    {showVisualMode && displayImage && (
-                        <div className="fixed inset-0 z-[55] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in">
-                            <div className="w-full max-w-4xl flex justify-between items-center mb-2 px-2">
-                                <h3 className="text-white font-bold flex items-center gap-2"><Icons.Image className="w-5 h-5"/> 視覺翻譯模式 (Visual Translation)</h3>
-                                <div className="flex gap-2">
-                                    <button onClick={handleSaveVisualImage} className="p-2 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 flex items-center gap-1"><Icons.Download className="w-3 h-3"/> 存圖</button>
-                                    <button onClick={() => setShowVisualMode(false)} className="p-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600"><Icons.X className="w-4 h-4"/></button>
-                                </div>
-                            </div>
-                            <div ref={visualContainerRef} className="relative max-w-full max-h-[80vh] overflow-hidden border border-slate-700 bg-black flex justify-center items-center">
-                                <img src={displayImage} className="max-w-full max-h-[80vh] object-contain opacity-80" alt="Visual base"/>
-                                <div 
-                                    className="absolute border-2 border-yellow-400/50 bg-black/50 backdrop-blur-sm rounded-lg p-4 cursor-move flex items-center justify-center text-center overflow-hidden hover:border-yellow-400 transition-colors"
-                                    style={{
-                                        left: `${visualBox.x}%`, top: `${visualBox.y}%`, 
-                                        width: visualBox.w, height: visualBox.h,
-                                        fontSize: `${visualFontSize}px`,
-                                        color: visualStyle.color,
-                                        transform: 'translate(-50%, -50%)' // Center anchor
-                                    }}
-                                    onMouseDown={handleVisualDragStart} onTouchStart={handleVisualDragStart}
-                                >
-                                    <div className="w-full h-full overflow-y-auto hide-scrollbar pointer-events-none select-none">
-                                        {translatedText || sourceText || "請先進行翻譯..."}
-                                    </div>
-                                    {/* Resize Handle */}
-                                    <div 
-                                        className="absolute bottom-0 right-0 w-6 h-6 bg-yellow-500/50 cursor-se-resize rounded-tl-lg hover:bg-yellow-500 z-10"
-                                        onMouseDown={handleVisualResizeStart} onTouchStart={handleVisualResizeStart}
-                                    />
-                                </div>
-                            </div>
-                             {/* Controls */}
-                            <div className="mt-4 flex gap-4 w-full max-w-md bg-slate-800/80 p-3 rounded-xl backdrop-blur">
-                                <div className="flex-1 space-y-1">
-                                    <label className="text-xs text-slate-400">字體大小</label>
-                                    <input type="range" min="10" max="60" value={visualFontSize} onChange={e=>setVisualFontSize(Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-yellow-500"/>
-                                </div>
-                                 <div className="flex-1 space-y-1">
-                                    <label className="text-xs text-slate-400">Box Width</label>
-                                    <input type="range" min="100" max="800" value={visualBox.w} onChange={e=>setVisualBox(p=>({...p, w:Number(e.target.value)}))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
-                                </div>
-                            </div>
-                             {/* Transparent Overlay for Global Drag/Resize Events */}
-                            {(visualDragging || visualResizing) && (
-                                <div className="fixed inset-0 z-[60] cursor-move" onMouseMove={handleVisualMove} onMouseUp={handleVisualEnd} onTouchMove={handleVisualMove} onTouchEnd={handleVisualEnd} />
-                            )}
-                        </div>
-                    )}
-                    
-                    {/* --- FULLSCREEN TEXT MODAL (Also check if missing) --- */}
-                    {showBigText && (
-                         <div className="fixed inset-0 bg-white dark:bg-slate-950 z-[90] flex flex-col animate-in fade-in overflow-hidden">
-                            <div className="p-4 flex justify-between items-center border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-                                <div className="flex gap-4 items-center">
-                                     <button onClick={() => setShowBigText(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full"><Icons.ArrowLeft/></button>
-                                     <div className="flex flex-col">
-                                         <span className="font-bold dark:text-white">全螢幕閱讀</span>
-                                         <span className="text-xs text-slate-500">雙擊內容可快速截圖</span>
-                                     </div>
-                                </div>
-                                <div className="flex gap-2 items-center">
-                                    <input type="range" min="100" max="1200" step="50" value={fsWidth} onChange={e=>setFsWidth(Number(e.target.value))} className="w-32 hidden md:block accent-blue-500" title="寬度調整"/>
-                                    <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-2"/>
-                                    <button onClick={()=>setFsSize(s=>Math.max(12, s-2))} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-sm font-bold dark:text-white">A-</button>
-                                    <button onClick={()=>setFsSize(s=>Math.min(64, s+2))} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-sm font-bold dark:text-white">A+</button>
-                                    <button onClick={handleFullScreenDownload} className="ml-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-700 flex items-center gap-2"><Icons.Download className="w-4 h-4"/> 下載長圖</button>
-                                </div>
-                            </div>
-                            <div ref={fsContentRef} className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center bg-slate-50/50 dark:bg-black/20" onDoubleClick={handleFullScreenDownload}>
-                                <div ref={fsInnerRef} className="bg-white dark:bg-slate-900 p-8 md:p-12 shadow-2xl min-h-full transition-all duration-300" style={{width: `${fsWidth}px`, maxWidth: '100%'}}>
-                                     <SafeMarkdown content={translatedText || sourceText} fontSize={fsSize} />
-                                     <div className="mt-12 pt-6 border-t dark:border-slate-800 flex justify-between items-center text-slate-400 text-sm font-mono">
-                                         <span>Generated by Gemini AI Assistant</span>
-                                         <span>{new Date().toLocaleDateString()}</span>
-                                     </div>
-                                </div>
-                            </div>
-                         </div>
                     )}
 
                     <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.4 (Studio)</div>
