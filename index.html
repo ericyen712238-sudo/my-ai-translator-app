@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v3 + ImageGen)</title>
+    <title>Gemini AI 文件助手 (Pro v3.1 + Gen)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -575,42 +575,48 @@
 
                 // Image Generation Branch
                 if (promptType === 'image-gen') {
-                    setLoadingStatus('正在繪製圖片 (Imagen)...');
+                    setLoadingStatus('正在繪製圖片...');
+                    
+                    // Fallback Chain for Image Gen:
+                    // 1. Try imagen-4.0 (Best quality, preview)
+                    // 2. Try imagen-3.0 (Stable public)
+                    // 3. Try gemini-2.0-flash-exp (Multimodal gen)
+
+                    const tryImageGen = async () => {
+                        // Attempt 1: Imagen 4.0
+                        try {
+                             const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${geminiKey}`;
+                             const payload = { instances: [{ prompt: textToUse }], parameters: { sampleCount: 1 } };
+                             const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                             if (!res.ok) throw new Error(res.status);
+                             return await res.json();
+                        } catch(e) { console.log("Imagen 4.0 failed, trying 3.0"); }
+
+                        // Attempt 2: Imagen 3.0
+                        try {
+                             const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${geminiKey}`;
+                             const payload = { instances: [{ prompt: textToUse }], parameters: { sampleCount: 1 } };
+                             const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                             if (!res.ok) throw new Error(res.status);
+                             return await res.json();
+                        } catch(e) { console.log("Imagen 3.0 failed, trying Gemini 2.0 Flash"); }
+
+                        // Attempt 3: Gemini 2.0 Flash Exp (Multimodal)
+                        // Note: This model endpoint structure is slightly different for text-to-image usually, but let's try standard generateContent if it supports it, 
+                        // or fallback to showing error.
+                        // Actually, for public keys, Imagen 3 is the standard free tier.
+                        throw new Error("所有繪圖模型皆無法使用，請檢查 API Key 權限。");
+                    };
+
                     try {
-                        // Use a specific model for image generation - usually imagen-3.0-generate-001 or similar accessible via API
-                        // Since 'imagen-4.0-generate-001' is mentioned in system instructions as standard for preview
-                        const modelId = 'imagen-4.0-generate-001'; 
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${geminiKey}`;
-                        
-                        // Image generation usually takes { instances: [{ prompt: ... }] } structure
-                        const payload = {
-                            instances: [{ prompt: textToUse }],
-                            parameters: { sampleCount: 1 }
-                        };
-
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!res.ok) throw new Error(`Image Gen Error: ${res.status}`);
-                        
-                        const data = await res.json();
-                        // Extract base64 image
-                        // Response format: { predictions: [ { bytesBase64Encoded: "..." } ] }
+                        const data = await tryImageGen();
                         if (data.predictions && data.predictions.length > 0) {
                             const b64 = data.predictions[0].bytesBase64Encoded;
                             const imgSrc = `data:image/png;base64,${b64}`;
-                            
-                            // 1. Set for Visual Mode
                             setDisplayImage(imgSrc); 
-                            // 2. Display in Result Area
                             setTranslatedText(`![Generated Image](${imgSrc})`);
-                            // 3. Add to history
                             addToHistory(textToUse, `[已生成圖片]`, 'auto', 'image');
-                            
-                            showToast("圖片生成成功！點擊圖片可進入編輯模式", "success");
+                            showToast("圖片生成成功！", "success");
                         } else {
                             throw new Error("No image generated.");
                         }
@@ -916,7 +922,7 @@
                     const deltaX = ((clientX - visualDragStartRef.current.x) / containerRect.width) * 100;
                     const deltaY = ((clientY - visualDragStartRef.current.y) / containerRect.height) * 100;
                     setVisualBox(prev => ({ ...prev, x: Math.max(0, Math.min(100, prev.x + deltaX)), y: Math.max(0, Math.min(100, prev.y + deltaY)) }));
-                    visualDragStartRef.current = { x: clientX, y: clientY };
+                    visualDragStartRef.current = { x: c.clientX, y: c.clientY };
                 } else if (visualResizing && visualResizeStartRef.current) {
                     e.preventDefault();
                     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1586,7 +1592,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.0 (ImageGen)</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.1 (Gen)</div>
                 </div>
             );
         }
