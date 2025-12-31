@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v3.1 + Gen)</title>
+    <title>Gemini AI 文件助手 (Pro v3.5 External Gen)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -162,13 +162,9 @@
                     }
                     throw new Error("429_TOO_MANY_REQUESTS");
                 }
-                if (!res.ok) {
-                    if (res.status === 404) throw new Error("404_NOT_FOUND");
-                    throw new Error(`HTTP ${res.status}`);
-                }
-                return await res.json();
+                // Don't throw for 4xx here to allow reading error message
+                return await res.json().then(data => ({ status: res.status, ok: res.ok, data }));
             } catch (e) {
-                if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
                 if (retries > 0) {
                     if(onRetry) onRetry(delay / 1000);
                     await new Promise(r => setTimeout(r, delay));
@@ -400,7 +396,7 @@
                         const db = firebase.firestore();
                         dbRef.current = db;
                         
-                        // Initial Fetch to prevent overwriting cloud data with empty local state
+                        // Initial Fetch
                         db.collection('gemini_sync_data').doc(syncId).get().then((doc) => {
                             if (doc.exists) {
                                 const data = doc.data();
@@ -409,20 +405,20 @@
                                 if (data.glossary) setGlossary(data.glossary);
                                 if (data.customInstruction) setCustomInstruction(data.customInstruction);
                                 showToast("資料已從雲端載入 (初始化)", "success");
-                                setTimeout(() => { isRemoteUpdate.current = false; setIsCloudInitialized(true); }, 500); // UNLOCK
+                                setTimeout(() => { isRemoteUpdate.current = false; setIsCloudInitialized(true); }, 500); 
                             } else {
-                                setIsCloudInitialized(true); // New ID, safe to write
+                                setIsCloudInitialized(true); 
                             }
                         }).catch(e => {
                             console.error("Init fetch failed", e);
-                            setIsCloudInitialized(true); // Fallback to allow local usage
+                            setIsCloudInitialized(true);
                         });
 
                         // Real-time listener
                         const unsubscribe = db.collection('gemini_sync_data').doc(syncId).onSnapshot((doc) => {
                             setIsSyncing(true);
                             setSyncStatusMsg('已連線');
-                            if (doc.exists && isCloudInitialized) { // Only process updates if initialized
+                            if (doc.exists && isCloudInitialized) { 
                                 const data = doc.data();
                                 isRemoteUpdate.current = true;
                                 if (data.history) setHistory(data.history);
@@ -433,13 +429,9 @@
                         }, (error) => {
                             console.error("Sync Error:", error);
                             setIsSyncing(false);
-                            if (error.code === 'permission-denied') {
-                                setSyncStatusMsg('權限不足：請檢查 Firebase Rules');
-                            } else if (error.code === 'unavailable') {
-                                setSyncStatusMsg('無法連線：請檢查網路或 Firestore 狀態');
-                            } else {
-                                setSyncStatusMsg('連線失敗：請檢查 Config 或 ID');
-                            }
+                            if (error.code === 'permission-denied') setSyncStatusMsg('權限不足：請檢查 Firebase Rules');
+                            else if (error.code === 'unavailable') setSyncStatusMsg('無法連線：請檢查網路或 Firestore 狀態');
+                            else setSyncStatusMsg('連線失敗：請檢查 Config 或 ID');
                         });
 
                         return () => unsubscribe();
@@ -458,25 +450,17 @@
                         lastUpdated: new Date().toISOString()
                     }, { merge: true }).catch(err => {
                         console.error("Upload failed", err);
-                        if (err.code === 'permission-denied') {
-                            showToast("同步失敗：資料庫權限不足", "error");
-                        }
+                        if (err.code === 'permission-denied') showToast("同步失敗：資料庫權限不足", "error");
                     });
                 }
             }, [syncId, isCloudInitialized]);
             
             const testConnection = async () => {
-                if (!dbRef.current || !syncId) {
-                    showToast("請先輸入完整的 Firebase Config 和 Sync ID", "error");
-                    return;
-                }
+                if (!dbRef.current || !syncId) { showToast("請先輸入完整的 Firebase Config 和 Sync ID", "error"); return; }
                 setIsLoading(true);
                 try {
-                    await dbRef.current.collection('gemini_sync_data').doc(syncId).set({
-                        lastTest: new Date().toISOString()
-                    }, { merge: true });
-                    showToast("測試成功！寫入權限正常", "success");
-                    setSyncStatusMsg("連線正常，可同步");
+                    await dbRef.current.collection('gemini_sync_data').doc(syncId).set({ lastTest: new Date().toISOString() }, { merge: true });
+                    showToast("測試成功！寫入權限正常", "success"); setSyncStatusMsg("連線正常，可同步");
                 } catch (error) {
                     console.error("Test Connection Failed:", error);
                     let msg = "測試失敗";
@@ -484,12 +468,8 @@
                     else if (error.code === 'unavailable') msg = "服務無法使用 - 請確認是否已建立 Firestore 資料庫";
                     else if (error.code === 'invalid-argument') msg = "參數錯誤 - 請檢查 Config 格式";
                     else msg = `連線錯誤: ${error.message}`;
-                    
-                    showToast(msg, "error");
-                    setSyncStatusMsg(msg);
-                } finally {
-                    setIsLoading(false);
-                }
+                    showToast(msg, "error"); setSyncStatusMsg(msg);
+                } finally { setIsLoading(false); }
             };
 
             // Auto-sync triggers
@@ -503,10 +483,7 @@
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('firebase_config_str', firebaseConfigStr); }, [firebaseConfigStr]);
             useEffect(() => { localStorage.setItem('sync_id', syncId); }, [syncId]);
-            useEffect(() => { 
-                const getVoices = () => { const v = window.speechSynthesis.getVoices(); setAvailableVoices(v); }; 
-                getVoices(); window.speechSynthesis.onvoiceschanged = getVoices; 
-            }, []);
+            useEffect(() => { const getVoices = () => { const v = window.speechSynthesis.getVoices(); setAvailableVoices(v); }; getVoices(); window.speechSynthesis.onvoiceschanged = getVoices; }, []);
             useEffect(() => { chatEndRef.current?.scrollIntoView({behavior:'smooth'}); }, [chatMessages]);
 
             // --- Helper Functions ---
@@ -514,7 +491,6 @@
             const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) { setHistory([]); } };
             const addGlossaryTerm = () => { if(newGlossaryTerm && newGlossaryTrans) { setGlossary([...glossary, { term: newGlossaryTerm, trans: newGlossaryTrans }]); setNewGlossaryTerm(''); setNewGlossaryTrans(''); } };
             const removeGlossaryTerm = (index) => { const newG = [...glossary]; newG.splice(index, 1); setGlossary(newG); };
-            
             const showToast = (msg, type = 'success') => { setToast({ message: msg, type }); };
 
             const resetApp = () => {
@@ -527,38 +503,20 @@
             };
 
             const handleClearAll = () => {
-                if(confirm("確定要清除所有內容（原文、結果、對話）嗎？")) {
-                    resetApp();
-                    setFileName(null);
-                    showToast("已清除所有內容", "success");
-                }
+                if(confirm("確定要清除所有內容（原文、結果、對話）嗎？")) { resetApp(); setFileName(null); showToast("已清除所有內容", "success"); }
             };
             
             const runGeminiRequest = async (payload, preferredModel) => {
                 const attemptRequest = async (modelId) => {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
-                    const options = {
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json'}, 
-                        body: JSON.stringify(payload)
-                    };
-                    return await fetchWithRetry(url, options, 6, 2000, (seconds) => {
-                        setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後自動重試`);
-                    });
+                    const options = { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) };
+                    return await fetchWithRetry(url, options, 5, 2000, (seconds) => { setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後自動重試`); });
                 };
-
-                try {
-                    return await attemptRequest(preferredModel);
-                } catch (e) {
-                    if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS")) {
+                try { return await attemptRequest(preferredModel); } catch (e) {
+                    if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") && preferredModel !== FALLBACK_MODEL) {
                          const errorType = e.message === "404_NOT_FOUND" ? "模型不支援" : "系統忙碌";
-                         
-                         if(preferredModel !== FALLBACK_MODEL) {
-                            showToast(`${errorType}，自動切換至 Flash 2.5`, "error");
-                            setLoadingStatus("切換至備援模型...");
-                            // If fallback needed, retry with fallback model
-                            return await attemptRequest(FALLBACK_MODEL);
-                         }
+                         showToast(`${errorType}，自動切換至 Flash 2.5`, "error");
+                         return await attemptRequest(FALLBACK_MODEL);
                     }
                     throw e;
                 }
@@ -567,49 +525,38 @@
             const callAI = async (promptType, textOverride = null) => {
                 const textToUse = textOverride !== null ? textOverride : sourceText;
                 if (!textToUse.trim()) return;
-                
                 const currentRequestId = ++requestCounter.current;
-                setIsLoading(true);
-                setErrorMsg('');
+                setIsLoading(true); setErrorMsg('');
                 if (!isRealTime && textOverride === null) setTranslatedText('');
+                
+                const tName = LANGUAGES.find(l=>l.code===targetLang)?.name || targetLang;
+                const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
+                const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                let sys = `Current DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
 
-                // Image Generation Branch
                 if (promptType === 'image-gen') {
-                    setLoadingStatus('正在繪製圖片...');
-                    
-                    // Fallback Chain for Image Gen:
-                    // 1. Try imagen-4.0 (Best quality, preview)
-                    // 2. Try imagen-3.0 (Stable public)
-                    // 3. Try gemini-2.0-flash-exp (Multimodal gen)
+                    setLoadingStatus('正在繪製圖片 (Imagen 3.0)...');
 
-                    const tryImageGen = async () => {
-                        // Attempt 1: Imagen 4.0
-                        try {
-                             const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${geminiKey}`;
-                             const payload = { instances: [{ prompt: textToUse }], parameters: { sampleCount: 1 } };
-                             const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                             if (!res.ok) throw new Error(res.status);
-                             return await res.json();
-                        } catch(e) { console.log("Imagen 4.0 failed, trying 3.0"); }
-
-                        // Attempt 2: Imagen 3.0
+                    // Google-only fallback chain
+                    const tryGoogleImageGen = async () => {
+                        // Attempt 1: Imagen 3.0 (Official Stable)
                         try {
                              const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${geminiKey}`;
                              const payload = { instances: [{ prompt: textToUse }], parameters: { sampleCount: 1 } };
                              const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                             if (!res.ok) throw new Error(res.status);
+                             if (!res.ok) {
+                                 const err = await res.json();
+                                 throw new Error(err.error?.message || res.status);
+                             }
                              return await res.json();
-                        } catch(e) { console.log("Imagen 3.0 failed, trying Gemini 2.0 Flash"); }
-
-                        // Attempt 3: Gemini 2.0 Flash Exp (Multimodal)
-                        // Note: This model endpoint structure is slightly different for text-to-image usually, but let's try standard generateContent if it supports it, 
-                        // or fallback to showing error.
-                        // Actually, for public keys, Imagen 3 is the standard free tier.
-                        throw new Error("所有繪圖模型皆無法使用，請檢查 API Key 權限。");
+                        } catch(e) { 
+                            console.log("Imagen 3.0 failed:", e.message); 
+                            throw e; // Rethrow to show specific Google error
+                        }
                     };
 
                     try {
-                        const data = await tryImageGen();
+                        const data = await tryGoogleImageGen();
                         if (data.predictions && data.predictions.length > 0) {
                             const b64 = data.predictions[0].bytesBase64Encoded;
                             const imgSrc = `data:image/png;base64,${b64}`;
@@ -621,33 +568,20 @@
                             throw new Error("No image generated.");
                         }
                     } catch (e) {
-                         setErrorMsg("繪圖失敗: " + e.message);
-                         setTranslatedText("繪圖失敗。請確認您的 API Key 是否支援 Imagen 模型 (通常需要 Google AI Studio 權限)。");
+                         // Show raw Google error for debugging
+                         setErrorMsg(`Google 繪圖失敗 (${e.message})`);
+                         setTranslatedText(`### 繪圖失敗 ❌\n\n**原因**：${e.message}\n\n**解決方案**：\n1. 請確認 API Key 是否已在 Google AI Studio 開通 Imagen 權限。\n2. 部分免費 Key 可能需綁定 Google Cloud Billing (信用卡) 才能使用繪圖功能。\n3. 請嘗試建立一個全新的 API Key。`);
                     }
                     setIsLoading(false);
                     return;
                 }
                 
-                // Text Generation Branch
-                const tName = LANGUAGES.find(l=>l.code===targetLang)?.name || targetLang;
-                const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
-                
-                const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-                let sys = `Current DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
-                
                 if(promptType==='translate') {
-                    if (targetLang === 'nan') {
-                        sys = `Current DateTime: ${now}. Translate the following text to Taiwanese Hokkien (台語). You may use Traditional Chinese characters (漢字) or Pe̍h-ōe-jī (POJ) mixed as appropriate for natural Taiwanese reading. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
-                    } else if (targetLang === 'yue') {
-                        sys = `Current DateTime: ${now}. Translate the following text to Cantonese (粵語). Use Traditional Chinese characters. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
-                    } else {
-                        sys = `Current DateTime: ${now}. Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
-                    }
-                } else if(promptType==='mindmap') {
-                    sys = `Current DateTime: ${now}. Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
-                } else if (promptType === 'vision') {
-                    sys = `Current DateTime: ${now}. The user has provided a description of an image. Please organize this description into a clear, readable Markdown format. Input:\n${textToUse}`;
-                }
+                    if (targetLang === 'nan') sys = `Current DateTime: ${now}. Translate to Taiwanese Hokkien (台語). Use Traditional Chinese or Pe̍h-ōe-jī. Tone: ${toneInfo}. Output Markdown. Text:\n${textToUse}`;
+                    else if (targetLang === 'yue') sys = `Current DateTime: ${now}. Translate to Cantonese (粵語). Use Traditional Chinese. Tone: ${toneInfo}. Output Markdown. Text:\n${textToUse}`;
+                    else sys = `Current DateTime: ${now}. Translate to ${tName}. Tone: ${toneInfo}. Output Markdown. Text:\n${textToUse}`;
+                } else if(promptType==='mindmap') sys = `Generate Mind Map using Mermaid JS (mindmap). Output ONLY code block \`\`\`mermaid. Target: ${tName}. Text:\n${textToUse}`;
+                else if (promptType === 'vision') sys = `Describe image in detail in Traditional Chinese. Organize in Markdown. Input:\n${textToUse}`;
                 
                 if(glossary.length>0) sys += `\nGlossary:${JSON.stringify(glossary)}`;
                 if(customInstruction) sys += `\nSystem Instruction:${customInstruction}`;
@@ -655,68 +589,28 @@
                 try {
                     let out = "";
                     if(!geminiKey) { setShowSettings(true); throw new Error("請輸入 API Key"); }
-                    
-                    const safetySettings = [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
-                    ];
-
-                    const payload = {
-                        contents:[{parts:[{text:sys}]}], 
-                        generationConfig:{temperature:aiTemperature},
-                        safetySettings: safetySettings
-                    };
-
+                    const safetySettings = [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }];
+                    const payload = { contents:[{parts:[{text:sys}]}], generationConfig:{temperature:aiTemperature}, safetySettings: safetySettings };
                     const res = await runGeminiRequest(payload, geminiModel);
-                    
                     const candidate = res.candidates?.[0];
-                    if (!candidate) {
-                       throw new Error("No response from AI. Please check API Key or Model.");
-                    }
-                    if (candidate.finishReason !== "STOP" && !candidate.content) {
-                       throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
-                    }
-                    
+                    if (!candidate) throw new Error("No response from AI.");
+                    if (candidate.finishReason !== "STOP" && !candidate.content) throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
                     out = candidate.content?.parts?.[0]?.text || "Error: Empty content";
                     
                     if(currentRequestId === requestCounter.current) {
                         if(promptType==='mindmap') {
                             let cleaned = out;
-                            if(cleaned.includes('```mermaid')) {
-                                cleaned = cleaned.split('```mermaid')[1];
-                            } else if(cleaned.includes('```')) {
-                                cleaned = cleaned.split('```')[1]; 
-                            }
-                            if(cleaned.includes('```')) {
-                                cleaned = cleaned.split('```')[0];
-                            }
+                            if(cleaned.includes('```mermaid')) cleaned = cleaned.split('```mermaid')[1];
+                            else if(cleaned.includes('```')) cleaned = cleaned.split('```')[1];
+                            if(cleaned.includes('```')) cleaned = cleaned.split('```')[0];
                             cleaned = cleaned.trim();
-                            if (!cleaned.startsWith('mindmap')) {
-                                cleaned = 'mindmap\n' + cleaned;
-                            } else {
-                                const firstLineEnd = cleaned.indexOf('\n');
-                                if (firstLineEnd === -1) {
-                                    cleaned = cleaned.replace('mindmap', 'mindmap\n');
-                                } else {
-                                    const firstLine = cleaned.substring(0, firstLineEnd).trim();
-                                    if (firstLine !== 'mindmap') {
-                                         cleaned = cleaned.replace('mindmap', 'mindmap\n');
-                                    }
-                                }
-                            }
+                            if (!cleaned.startsWith('mindmap')) cleaned = 'mindmap\n' + cleaned;
                             setTranslatedText(cleaned);
-                        } else {
-                            setTranslatedText(out);
-                        }
+                        } else { setTranslatedText(out); }
                         if(!out.startsWith('Error') && !out.startsWith('此模式')) addToHistory(textToUse, out, sourceLang, targetLang);
                     }
                 } catch(e) { 
-                    if(currentRequestId === requestCounter.current) {
-                        setErrorMsg(e.message); 
-                        setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
-                    }
+                    if(currentRequestId === requestCounter.current) { setErrorMsg(e.message); setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`); }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
             };
@@ -725,20 +619,12 @@
                 if(!f) return;
                 resetApp(); // HARD RESET ON NEW FILE
                 
-                if (currentTask === 'vision' && !f.type.startsWith('image/')) {
-                    showToast("識圖模式僅限上傳圖片", "error");
-                    return;
-                }
-
+                if (currentTask === 'vision' && !f.type.startsWith('image/')) { showToast("識圖模式僅限上傳圖片", "error"); return; }
                 setFileName(f.name); 
                 if(f.type.startsWith('image/')) {
                       const r = new FileReader(); 
                       r.onload = e => { 
-                          setTimeout(() => {
-                              setCropImageSrc(e.target.result); 
-                              setDisplayImage(e.target.result); 
-                              setShowCropModal(true); 
-                          }, 50);
+                          setTimeout(() => { setCropImageSrc(e.target.result); setDisplayImage(e.target.result); setShowCropModal(true); }, 50);
                       }; 
                       r.readAsDataURL(f);
                       return;
@@ -748,41 +634,25 @@
                     let text = "";
                     if(f.name.endsWith('.pdf')) {
                         const ab = await f.arrayBuffer();
-                        if(usePdfVision && geminiKey) {
-                            setLoadingStatus('AI 視覺讀取 PDF...');
-                            const imgs = await renderPdfToImages(ab.slice(0));
-                            text = await performGeminiOCR_Multi(imgs.images || imgs); 
-                        } else {
+                        if(usePdfVision && geminiKey) { setLoadingStatus('AI 視覺讀取 PDF...'); const imgs = await renderPdfToImages(ab.slice(0)); text = await performGeminiOCR_Multi(imgs.images || imgs); } 
+                        else {
                             const pdf = await loadPdfWithPassword(ab.slice(0));
                             for(let i=1;i<=pdf.numPages;i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(' ')+'\n';
-                            if((!text || text.length<50) && geminiKey) {
-                                setLoadingStatus('文字過少，切換至 AI 視覺讀取...');
-                                const imgs = await renderPdfToImages(ab.slice(0));
-                                text = await performGeminiOCR_Multi(imgs.images || imgs);
-                            }
+                            if((!text || text.length<50) && geminiKey) { setLoadingStatus('文字過少，切換至 AI 視覺讀取...'); const imgs = await renderPdfToImages(ab.slice(0)); text = await performGeminiOCR_Multi(imgs.images || imgs); }
                         }
-                    } else if(f.name.endsWith('.docx')) {
-                        text = (await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
-                    } else {
-                        text = await new Promise(r=>{const rd=new FileReader(); rd.onload=e=>r(e.target.result); rd.readAsText(f);});
-                    }
+                    } else if(f.name.endsWith('.docx')) { text = (await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value; } 
+                    else { text = await new Promise(r=>{const rd=new FileReader(); rd.onload=e=>r(e.target.result); rd.readAsText(f);}); }
                     if(!text.trim()) throw new Error("無法讀取文字");
-                    setSourceText(text);
-                    callAI(currentTask, text);
+                    setSourceText(text); callAI(currentTask, text);
                 } catch(e) { console.error(e); setErrorMsg(e.message||"讀取失敗"); setIsLoading(false); }
             };
             
-            const handleFileChange = (e) => { 
-                const f = e.target.files[0]; 
-                if(f) processFile(f); 
-                e.target.value = ''; 
-            };
+            const handleFileChange = (e) => { const f = e.target.files[0]; if(f) processFile(f); e.target.value = ''; };
 
             const performGeminiOCR = async (file, task) => {
                 const b64 = await compressImage(file);
                 let promptText = "OCR this image. Output text only.";
                 if (task === 'vision') promptText = "請用繁體中文詳細描述這張圖片的內容。如果有文字，請也一併列出。 (Describe this image in detail in Traditional Chinese)";
-                
                 const payload = {contents:[{parts:[{text: promptText},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
                 const res = await runGeminiRequest(payload, geminiModel);
                 return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -797,94 +667,47 @@
             };
             
             const performLegacyOCR = async (file) => {
-                 setLoadingStatus('Tesseract 辨識中...');
-                 const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+eng');
-                 return text;
+                 setLoadingStatus('Tesseract 辨識中...'); const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+eng'); return text;
             };
 
             const runOCR = async (file) => {
                 setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
                 try {
                     let text = "";
-                    if(geminiKey) {
-                        text = await performGeminiOCR(file, currentTask); 
-                    } else {
-                        text = await performLegacyOCR(file);
-                    }
-                    
+                    if(geminiKey) { text = await performGeminiOCR(file, currentTask); } 
+                    else { text = await performLegacyOCR(file); }
                     if(!text.trim()) throw new Error("無法辨識文字或圖片內容");
-                    setSourceText(text);
-                    callAI(currentTask, text);
+                    setSourceText(text); callAI(currentTask, text);
                 } catch(e) { setErrorMsg(e.message); setIsLoading(false); }
             };
 
-            const switchToChat = () => {
-                setMode('conversation');
-                if(translatedText && chatMessages.length===0) setChatMessages([{role:'model', text:`已為您準備好內容。您可以針對剛才的分析結果提問。`}]);
-            };
-
+            const switchToChat = () => { setMode('conversation'); if(translatedText && chatMessages.length===0) setChatMessages([{role:'model', text:`已為您準備好內容。您可以針對剛才的分析結果提問。`}]); };
             const sendChat = async () => {
                 if(!chatInput.trim())return;
-                if(!geminiKey) {
-                    setChatMessages(p=>[...p, {role:'user',text:chatInput}, {role:'model',text:"請先在設定中輸入 API Key 才能使用對話功能。"}]);
-                    setChatInput('');
-                    return;
-                }
-
-                const newUserMsg = {role:'user',text:chatInput}; 
-                setChatMessages(prev => [...prev, newUserMsg]); 
-                setChatInput(''); 
-                setIsLoading(true);
-
+                if(!geminiKey) { setChatMessages(p=>[...p, {role:'user',text:chatInput}, {role:'model',text:"請先在設定中輸入 API Key 才能使用對話功能。"}]); setChatInput(''); return; }
+                const newUserMsg = {role:'user',text:chatInput}; setChatMessages(prev => [...prev, newUserMsg]); setChatInput(''); setIsLoading(true);
                 try {
                     const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-                    
-                    let historyStr = '';
-                    chatMessages.forEach(m => {
-                        historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`;
-                    });
-
+                    let historyStr = ''; chatMessages.forEach(m => { historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`; });
                     let ctx = `Current DateTime: ${now}.\nContext:\nSource:${sourceText}\nResult:${translatedText}`;
                     if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
-                    ctx += `\n\nConversation History:\n${historyStr}`;
-                    ctx += `User: ${newUserMsg.text}\nModel:`;
-                    
-                    const safetySettings = [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
-                    ];
-
-                    const payload = {
-                        contents:[{parts:[{text:ctx}]}],
-                        safetySettings: safetySettings
-                    };
-
+                    ctx += `\n\nConversation History:\n${historyStr}`; ctx += `User: ${newUserMsg.text}\nModel:`;
+                    const safetySettings = [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }];
+                    const payload = { contents:[{parts:[{text:ctx}]}], safetySettings: safetySettings };
                     const res = await runGeminiRequest(payload, geminiModel);
-                    
                     const candidate = res.candidates?.[0];
                     let responseText = "Error";
-                    if (!candidate) {
-                        responseText = "Error: No response from AI.";
-                    } else if (candidate.finishReason !== "STOP" && !candidate.content) {
-                        responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
-                    } else {
-                        responseText = candidate.content?.parts?.[0]?.text || "Error";
-                    }
-
+                    if (!candidate) responseText = "Error: No response from AI.";
+                    else if (candidate.finishReason !== "STOP" && !candidate.content) responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
+                    else responseText = candidate.content?.parts?.[0]?.text || "Error";
                     setChatMessages(p=>[...p,{role:'model',text:responseText}]);
                 } catch(e) { 
-                    let errMsg = "Error: " + e.message;
-                    if (e.message === "429_TOO_MANY_REQUESTS") {
-                        errMsg = "系統目前流量過大，請稍後再試。";
-                    }
-                    setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
+                    let errMsg = "Error: " + e.message; if (e.message === "429_TOO_MANY_REQUESTS") errMsg = "系統目前流量過大，請稍後再試。"; setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
                 }
                 setIsLoading(false);
             };
 
-             const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
+            const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
             const handleCropStart = (e) => { const coords = getClientCoordinates(e); setCropSelection({x:coords.x,y:coords.y,w:0,h:0}); isDraggingRef.current=true; dragStartRef.current=coords; };
             const handleCropMove = (e) => { if(!isDraggingRef.current)return; const coords = getClientCoordinates(e); const r = imageRef.current.getBoundingClientRect(); const cx = Math.min(Math.max(0, coords.x), r.width); const cy = Math.min(Math.max(0, coords.y), r.height); setCropSelection({x:Math.min(dragStartRef.current.x,cx),y:Math.min(dragStartRef.current.y,cy),w:Math.abs(cx-dragStartRef.current.x),h:Math.abs(cy-dragStartRef.current.y)}); };
             const handleCropEnd = () => isDraggingRef.current = false;
@@ -899,42 +722,21 @@
                 canvas.toBlob(blob => { runOCR(new File([blob], "crop.jpg", {type:'image/jpeg'})); }, 'image/jpeg');
             };
             
-             const handleVisualDragStart = (e) => {
-                e.preventDefault();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                visualDragStartRef.current = { x: clientX, y: clientY };
-                setVisualDragging(true);
-            };
-            const handleVisualResizeStart = (e) => {
-                e.preventDefault(); e.stopPropagation();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                visualResizeStartRef.current = { startX: clientX, startY: clientY, startW: visualBox.w, startH: typeof visualBox.h === 'number' ? visualBox.h : 200, fontSize: visualFontSize };
-                setVisualResizing(true);
-            };
+            const handleVisualDragStart = (e) => { e.preventDefault(); const c = e.touches?e.touches[0]:e; visualDragStartRef.current = { x: c.clientX, y: c.clientY }; setVisualDragging(true); };
+            const handleVisualResizeStart = (e) => { e.preventDefault(); e.stopPropagation(); const c = e.touches?e.touches[0]:e; visualResizeStartRef.current = { startX: c.clientX, startY: c.clientY, startW: visualBox.w, startH: typeof visualBox.h === 'number' ? visualBox.h : 200, fontSize: visualFontSize }; setVisualResizing(true); };
             const handleVisualMove = (e) => {
                 if (visualDragging && visualDragStartRef.current && visualContainerRef.current) {
-                    e.preventDefault();
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    const containerRect = visualContainerRef.current.getBoundingClientRect();
-                    const deltaX = ((clientX - visualDragStartRef.current.x) / containerRect.width) * 100;
-                    const deltaY = ((clientY - visualDragStartRef.current.y) / containerRect.height) * 100;
+                    e.preventDefault(); const c = e.touches?e.touches[0]:e; const rect = visualContainerRef.current.getBoundingClientRect();
+                    const deltaX = ((c.clientX - visualDragStartRef.current.x) / rect.width) * 100; const deltaY = ((c.clientY - visualDragStartRef.current.y) / rect.height) * 100;
                     setVisualBox(prev => ({ ...prev, x: Math.max(0, Math.min(100, prev.x + deltaX)), y: Math.max(0, Math.min(100, prev.y + deltaY)) }));
                     visualDragStartRef.current = { x: c.clientX, y: c.clientY };
                 } else if (visualResizing && visualResizeStartRef.current) {
-                    e.preventDefault();
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    const deltaX = clientX - visualResizeStartRef.current.startX;
-                    const deltaY = clientY - visualResizeStartRef.current.startY;
-                    const newWidth = Math.max(100, visualResizeStartRef.current.startW + deltaX);
-                    const newHeight = Math.max(50, visualResizeStartRef.current.startH + deltaY);
+                    e.preventDefault(); const c = e.touches?e.touches[0]:e;
+                    const deltaX = c.clientX - visualResizeStartRef.current.startX; const deltaY = c.clientY - visualResizeStartRef.current.startY;
+                    const newWidth = Math.max(100, visualResizeStartRef.current.startW + deltaX); const newHeight = Math.max(50, visualResizeStartRef.current.startH + deltaY);
                     const scaleRatio = newWidth / visualResizeStartRef.current.startW;
                     const newFontSize = Math.max(10, Math.min(100, visualResizeStartRef.current.fontSize * scaleRatio));
-                    setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight }));
-                    setVisualFontSize(newFontSize);
+                    setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight })); setVisualFontSize(newFontSize);
                 }
             };
             const handleVisualEnd = () => { setVisualDragging(false); setVisualResizing(false); visualDragStartRef.current = null; visualResizeStartRef.current = null; };
@@ -948,249 +750,57 @@
             };
             
             const toggleListening = () => {
-                if (isListening) {
-                    if (recognitionRef.current) {
-                        recognitionRef.current.stop();
-                    }
-                    setIsListening(false);
-                    return;
-                }
-
+                if (isListening) { if (recognitionRef.current) recognitionRef.current.stop(); setIsListening(false); return; }
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) {
-                    setErrorMsg("瀏覽器不支援語音辨識");
-                    return;
-                }
-
-                const recognition = new SpeechRecognition();
-                recognitionRef.current = recognition;
-                
-                let langCode = sourceLang;
-                if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
-                
-                recognition.lang = langCode;
-                recognition.continuous = true;
-                recognition.interimResults = true;
-
-                recognition.onstart = () => setIsListening(true);
-                recognition.onend = () => setIsListening(false);
-                recognition.onerror = (e) => {
-                    console.error("Speech recognition error", e);
-                    setIsListening(false);
-                    showToast("語音辨識錯誤: " + e.error, "error");
-                };
-
+                if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音辨識"); return; }
+                const recognition = new SpeechRecognition(); recognitionRef.current = recognition;
+                let langCode = sourceLang; if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
+                recognition.lang = langCode; recognition.continuous = true; recognition.interimResults = true;
+                recognition.onstart = () => setIsListening(true); recognition.onend = () => setIsListening(false);
+                recognition.onerror = (e) => { console.error("Speech error", e); setIsListening(false); showToast("語音辨識錯誤: " + e.error, "error"); };
                 recognition.onresult = (e) => {
-                    let final = '';
-                    for (let i = e.resultIndex; i < e.results.length; ++i) {
-                        if (e.results[i].isFinal) {
-                            final += e.results[i][0].transcript;
-                        }
-                    }
-                    
-                    if (final) {
-                        if (mode === 'conversation') {
-                            setChatInput(prev => prev + final);
-                        } else {
-                            setSourceText(prev => prev + (prev ? ' ' : '') + final);
-                        }
-                    }
+                    let final = ''; for (let i = e.resultIndex; i < e.results.length; ++i) { if (e.results[i].isFinal) final += e.results[i][0].transcript; }
+                    if (final) { if (mode === 'conversation') setChatInput(prev => prev + final); else setSourceText(prev => prev + (prev ? ' ' : '') + final); }
                 };
-
                 recognition.start();
             };
             
-             const handleSelection = () => { 
-                 const selection = window.getSelection(); 
-                 const text = selection.toString().trim(); 
-                 if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) { 
-                     const range = selection.getRangeAt(0); 
-                     const rect = range.getBoundingClientRect(); 
-                     setSelectionMenu({ visible: true, x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY - 10, text: text }); 
-                 } else { 
-                     setSelectionMenu({ ...selectionMenu, visible: false }); 
-                 } 
-             };
-            
-            const handleSelectionAction = async (action) => { 
-                setSelectionMenu({ ...selectionMenu, visible: false }); 
-                const text = selectionMenu.text; 
-                if (action === 'explain') { await callAI('grammar', `Explain: "${text}"`); } 
-                else if (action === 'glossary') { setNewGlossaryTerm(text); setShowSettings(true); setActiveTab('data'); } 
-                else if (action === 'speak') { speak(text, targetLang); } 
-            };
-            
+            const handleSelection = () => { const s = window.getSelection(); const t = s.toString().trim(); if (t.length > 0 && (s.anchorNode.parentElement.tagName === 'TEXTAREA' || s.anchorNode.parentElement.closest('.prose'))) { const r = s.getRangeAt(0).getBoundingClientRect(); setSelectionMenu({ visible: true, x: r.left + window.scrollX + r.width / 2, y: r.top + window.scrollY - 10, text: t }); } else { setSelectionMenu({ ...selectionMenu, visible: false }); } };
+            const handleSelectionAction = async (a) => { setSelectionMenu({ ...selectionMenu, visible: false }); const t = selectionMenu.text; if (a === 'explain') await callAI('grammar', `Explain: "${t}"`); else if (a === 'glossary') { setNewGlossaryTerm(t); setShowSettings(true); setActiveTab('data'); } else if (a === 'speak') speak(t, targetLang); };
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); showToast(isS?"已複製原文":"已複製譯文", 'success'); };
             const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (v) u.voice = v; } window.speechSynthesis.speak(u); };
-            
-            const handleDownload = () => { 
-                if (!translatedText) return; 
-                const blob = new Blob([translatedText], { type: 'text/plain' }); 
-                const url = window.URL.createObjectURL(blob); 
-                const a = document.createElement('a'); 
-                a.href = url; 
-                a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; 
-                document.body.appendChild(a); 
-                a.click(); 
-                document.body.removeChild(a); 
-                window.URL.revokeObjectURL(url); 
-            };
-
-            const handleExportData = () => {
-                const data = { settings: { geminiKey, geminiModel, customInstruction, voiceRate, voicePitch, fsSize, globalFontSize, aiTemperature, firebaseConfigStr, syncId }, glossary, history, chatMessages };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = `gemini_backup_${new Date().toISOString().slice(0,10)}.json`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
-                showToast("備份已下載", "success");
-            };
-
-            const handleImportData = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        if (data.settings) {
-                            if (data.settings.geminiKey) setGeminiKey(data.settings.geminiKey);
-                            if (data.settings.geminiModel) setGeminiModel(data.settings.geminiModel);
-                            if (data.settings.customInstruction) setCustomInstruction(data.settings.customInstruction);
-                            if (data.settings.voiceRate) setVoiceRate(data.settings.voiceRate);
-                            if (data.settings.voicePitch) setVoicePitch(data.settings.voicePitch);
-                            if (data.settings.fsSize) setFsSize(data.settings.fsSize);
-                            if (data.settings.globalFontSize) setGlobalFontSize(data.settings.globalFontSize);
-                            if (data.settings.aiTemperature) setAiTemperature(data.settings.aiTemperature);
-                            if (data.settings.firebaseConfigStr) setFirebaseConfigStr(data.settings.firebaseConfigStr);
-                            if (data.settings.syncId) setSyncId(data.settings.syncId);
-                        }
-                        if (data.glossary) setGlossary(data.glossary);
-                        if (data.history) setHistory(data.history);
-                        if (data.chatMessages) setChatMessages(data.chatMessages);
-                        showToast("設定與資料匯入成功！", "success");
-                    } catch (err) { showToast("匯入失敗：檔案格式錯誤", "error"); }
-                };
-                reader.readAsText(file);
-            };
-            
-            const handleScreenCapture = async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
-                    const video = document.createElement('video'); video.srcObject = stream; await video.play();
-                    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                    const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
-                    stream.getTracks().forEach(track => track.stop());
-                    canvas.toBlob(blob => { const file = new File([blob], "screenshot.png", { type: 'image/png' }); processFile(file); });
-                } catch (e) { showToast("截圖取消或失敗", "error"); }
-            };
+            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
+            const handleExportData = () => { const data = { settings: { geminiKey, geminiModel, customInstruction, voiceRate, voicePitch, fsSize, globalFontSize, aiTemperature, firebaseConfigStr, syncId }, glossary, history, chatMessages }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `gemini_backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); showToast("備份已下載", "success"); };
+            const handleImportData = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const data = JSON.parse(event.target.result); if (data.settings) { if (data.settings.geminiKey) setGeminiKey(data.settings.geminiKey); if (data.settings.geminiModel) setGeminiModel(data.settings.geminiModel); if (data.settings.customInstruction) setCustomInstruction(data.settings.customInstruction); if (data.settings.voiceRate) setVoiceRate(data.settings.voiceRate); if (data.settings.voicePitch) setVoicePitch(data.settings.voicePitch); if (data.settings.fsSize) setFsSize(data.settings.fsSize); if (data.settings.globalFontSize) setGlobalFontSize(data.settings.globalFontSize); if (data.settings.aiTemperature) setAiTemperature(data.settings.aiTemperature); if (data.settings.firebaseConfigStr) setFirebaseConfigStr(data.settings.firebaseConfigStr); if (data.settings.syncId) setSyncId(data.settings.syncId); } if (data.glossary) setGlossary(data.glossary); if (data.history) setHistory(data.history); if (data.chatMessages) setChatMessages(data.chatMessages); showToast("設定與資料匯入成功！", "success"); } catch (err) { showToast("匯入失敗：檔案格式錯誤", "error"); } }; reader.readAsText(file); };
+            const handleScreenCapture = async () => { try { const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false }); const video = document.createElement('video'); video.srcObject = stream; await video.play(); const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0); stream.getTracks().forEach(track => track.stop()); canvas.toBlob(blob => { const file = new File([blob], "screenshot.png", { type: 'image/png' }); processFile(file); }); } catch (e) { showToast("截圖取消或失敗", "error"); } };
             
             const handleFullScreenDownload = async () => {
                 if (!fsInnerRef.current) return; 
-                setIsLoading(true);
-                setLoadingStatus('正在產生全螢幕截圖...');
-                
+                setIsLoading(true); setLoadingStatus('正在產生全螢幕截圖...');
                 try {
                     const element = fsInnerRef.current;
                     const height = element.scrollHeight;
                     let dynamicScale = 4;
-                    
-                    if (height > 6000) {
-                        dynamicScale = 2; // 超長內容使用 2x (確保成功率)
-                    } else if (height > 2500) {
-                        dynamicScale = 3; // 中長內容使用 3x
-                    }
-                    // 短內容維持 4x (最高畫質)
-
-                    const canvas = await html2canvas(element, {
-                        useCORS: true,
-                        backgroundColor: darkMode ? '#0f172a' : '#ffffff',
-                        scale: dynamicScale, 
-                        logging: false,
-                        allowTaint: false,
-                        scrollY: -window.scrollY
-                    });
-                    const link = document.createElement('a');
-                    link.download = `fullscreen_capture_${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
+                    if (height > 6000) dynamicScale = 2; else if (height > 2500) dynamicScale = 3;
+                    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: darkMode ? '#0f172a' : '#ffffff', scale: dynamicScale, logging: false, allowTaint: false, scrollY: -window.scrollY });
+                    const link = document.createElement('a'); link.download = `fullscreen_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click();
                     showToast(`全螢幕截圖已下載 (${dynamicScale}x 畫質)`, "success");
-                } catch (err) {
-                    console.error("FS Download Error:", err);
-                    showToast("截圖失敗，內容可能過長", "error");
-                } finally {
-                    setIsLoading(false);
-                    setLoadingStatus('');
-                }
+                } catch (err) { console.error("FS Download Error:", err); showToast("截圖失敗，內容可能過長", "error"); } finally { setIsLoading(false); setLoadingStatus(''); }
             };
 
-            const handleScreenshotMsg = async (id) => {
-                const element = document.getElementById(id);
-                if (!element) return;
-                try {
-                    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 });
-                    const link = document.createElement('a');
-                    link.download = `chat_capture_${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    showToast("截圖已下載", "success");
-                } catch (err) {
-                    showToast("截圖失敗", "error");
-                }
-            };
+            const handleScreenshotMsg = async (id) => { const element = document.getElementById(id); if (!element) return; try { const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 }); const link = document.createElement('a'); link.download = `chat_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } };
 
             const handlePasteClick = async () => {
                 try {
-                    try {
-                        const items = await navigator.clipboard.read();
-                        for (const item of items) {
-                            if (item.types.some(type => type.startsWith('image/'))) {
-                                const type = item.types.find(type => type.startsWith('image/'));
-                                const blob = await item.getType(type);
-                                const file = new File([blob], "pasted_image.png", { type });
-                                processFile(file);
-                                showToast("已貼上剪貼簿圖片", "success");
-                                return;
-                            }
-                        }
-                    } catch (err) {
-                        console.log("Clipboard read() failed or denied, falling back to text.");
-                    }
-
+                    try { const items = await navigator.clipboard.read(); for (const item of items) { if (item.types.some(type => type.startsWith('image/'))) { const type = item.types.find(type => type.startsWith('image/')); const blob = await item.getType(type); const file = new File([blob], "pasted_image.png", { type }); processFile(file); showToast("已貼上剪貼簿圖片", "success"); return; } } } catch (err) { console.log("Clipboard read() failed."); }
                     const text = await navigator.clipboard.readText();
-                    if (text) {
-                        if (currentTask === 'vision') {
-                             showToast("識圖模式僅限貼上圖片 (Vision mode only accepts images)", "error");
-                             return;
-                        }
-                        setSourceText(prev => prev + text);
-                        showToast("已貼上剪貼簿內容", "success");
-                    } else {
-                        showToast("無法讀取剪貼簿內容", "error");
-                    }
-                } catch (err) {
-                    console.error('Clipboard Error: ', err);
-                    showToast("無法讀取剪貼簿，請嘗試使用 Ctrl+V", "error");
-                }
+                    if (text) { if (currentTask === 'vision') { showToast("識圖模式僅限貼上圖片 (Vision mode only accepts images)", "error"); return; } setSourceText(prev => prev + text); showToast("已貼上剪貼簿內容", "success"); } else { showToast("無法讀取剪貼簿內容", "error"); }
+                } catch (err) { console.error('Clipboard Error: ', err); showToast("無法讀取剪貼簿，請嘗試使用 Ctrl+V", "error"); }
             };
 
             const processFileRef = useRef(processFile);
             useEffect(() => { processFileRef.current = processFile; }, [processFile]);
-
-            useEffect(() => {
-                const handleGlobalPaste = (e) => {
-                    if (e.clipboardData && e.clipboardData.files.length > 0) {
-                        const file = e.clipboardData.files[0];
-                        if (file.type.startsWith('image/')) {
-                            e.preventDefault();
-                            processFileRef.current(file);
-                            showToast("已偵測到圖片貼上", "success");
-                        }
-                    }
-                };
-                window.addEventListener('paste', handleGlobalPaste);
-                return () => window.removeEventListener('paste', handleGlobalPaste);
-            }, []);
-
+            useEffect(() => { const handleGlobalPaste = (e) => { if (e.clipboardData && e.clipboardData.files.length > 0) { const file = e.clipboardData.files[0]; if (file.type.startsWith('image/')) { e.preventDefault(); processFileRef.current(file); showToast("已偵測到圖片貼上", "success"); } } }; window.addEventListener('paste', handleGlobalPaste); return () => window.removeEventListener('paste', handleGlobalPaste); }, []);
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
 
             return (
@@ -1592,7 +1202,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.1 (Gen)</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.3 (Gen)</div>
                 </div>
             );
         }
