@@ -652,16 +652,31 @@
                 
                 try {
                     const b64 = await compressImage(file);
-                    // Prompt specifically for style replication
-                    const prompt = `Analyze the artistic style, color palette, lighting, and composition of this image. Create a detailed image generation prompt in English that would allow an AI to generate a NEW image with this exact same style and aesthetic. Output ONLY the prompt text.`;
+                    
+                    let prompt = "";
+                    let successTitle = "";
+                    
+                    // Check if there is text in the input box to combine
+                    if (chatInput.trim()) {
+                        prompt = `Analyze the artistic style of the provided image. Then, create a detailed image generation prompt in English that depicts the following subject: "${chatInput}". The image must be generated strictly in the analyzed style (colors, brushstrokes, lighting, mood) of the provided image. Output ONLY the prompt text.`;
+                        successTitle = "🎨 風格+內容整合完成";
+                    } else {
+                        // Original Style Analysis
+                        prompt = `Analyze the artistic style, color palette, lighting, and composition of this image. Create a detailed image generation prompt in English that would allow an AI to generate a NEW image with this exact same style and aesthetic. Output ONLY the prompt text.`;
+                        successTitle = "🎨 風格分析完成";
+                    }
                     
                     const payload = {contents:[{parts:[{text: prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
                     const res = await runGeminiRequest(payload, geminiModel);
                     const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                     
+                    const successBody = chatInput.trim() 
+                        ? `已將您的描述「${chatInput}」與圖片風格結合。`
+                        : `已根據您上傳的圖片提取風格提示詞。`;
+
                     setChatMessages(prev => [...prev, {
                         role: 'model', 
-                        text: `### 🎨 風格分析完成\n\n已根據您上傳的圖片提取風格提示詞。您可以在下方「繪圖工坊」查看或修改，並生成新圖片。`
+                        text: `### ${successTitle}\n\n${successBody} 您可以在下方「繪圖工坊」查看或修改，並生成新圖片。`
                     }]);
 
                     if (newPrompt) {
