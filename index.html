@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v3.5 External Gen)</title>
+    <title>Gemini AI 文件助手 (Pro v3.6 Fix)</title>
     
     <!-- Favicon (Logo) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -162,9 +162,13 @@
                     }
                     throw new Error("429_TOO_MANY_REQUESTS");
                 }
-                // Don't throw for 4xx here to allow reading error message
-                return await res.json().then(data => ({ status: res.status, ok: res.ok, data }));
+                if (!res.ok) {
+                    if (res.status === 404) throw new Error("404_NOT_FOUND");
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                return await res.json();
             } catch (e) {
+                if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
                 if (retries > 0) {
                     if(onRetry) onRetry(delay / 1000);
                     await new Promise(r => setTimeout(r, delay));
@@ -533,45 +537,48 @@
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
                 const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
                 let sys = `Current DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
-
+                
                 if (promptType === 'image-gen') {
-                    setLoadingStatus('正在繪製圖片 (Imagen 3.0)...');
-
-                    // Google-only fallback chain
-                    const tryGoogleImageGen = async () => {
-                        // Attempt 1: Imagen 3.0 (Official Stable)
-                        try {
-                             const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${geminiKey}`;
-                             const payload = { instances: [{ prompt: textToUse }], parameters: { sampleCount: 1 } };
-                             const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                             if (!res.ok) {
-                                 const err = await res.json();
-                                 throw new Error(err.error?.message || res.status);
-                             }
-                             return await res.json();
-                        } catch(e) { 
-                            console.log("Imagen 3.0 failed:", e.message); 
-                            throw e; // Rethrow to show specific Google error
-                        }
-                    };
-
+                    setLoadingStatus('正在準備繪圖環境...');
+                    
+                    // 1. Copy Prompt to Clipboard
                     try {
-                        const data = await tryGoogleImageGen();
-                        if (data.predictions && data.predictions.length > 0) {
-                            const b64 = data.predictions[0].bytesBase64Encoded;
-                            const imgSrc = `data:image/png;base64,${b64}`;
-                            setDisplayImage(imgSrc); 
-                            setTranslatedText(`![Generated Image](${imgSrc})`);
-                            addToHistory(textToUse, `[已生成圖片]`, 'auto', 'image');
-                            showToast("圖片生成成功！", "success");
-                        } else {
-                            throw new Error("No image generated.");
+                        await navigator.clipboard.writeText("請幫我畫一張圖: " + textToUse);
+                        showToast("提示詞已複製！請在 Gemini 網頁貼上", "success");
+                    } catch (err) {
+                        try {
+                            const textArea = document.createElement("textarea");
+                            textArea.value = "請幫我畫一張圖: " + textToUse;
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                            showToast("提示詞已複製！請在 Gemini 網頁貼上", "success");
+                        } catch (e) {
+                            showToast("自動複製失敗，請手動複製", "error");
                         }
-                    } catch (e) {
-                         // Show raw Google error for debugging
-                         setErrorMsg(`Google 繪圖失敗 (${e.message})`);
-                         setTranslatedText(`### 繪圖失敗 ❌\n\n**原因**：${e.message}\n\n**解決方案**：\n1. 請確認 API Key 是否已在 Google AI Studio 開通 Imagen 權限。\n2. 部分免費 Key 可能需綁定 Google Cloud Billing (信用卡) 才能使用繪圖功能。\n3. 請嘗試建立一個全新的 API Key。`);
                     }
+
+                    // 2. Open External Gemini Web
+                    setTimeout(() => {
+                        window.open("https://gemini.google.com/app", "_blank");
+                    }, 500);
+
+                    // 3. Update UI with Instructions
+                    setTranslatedText(
+`### 🎨 外部繪圖模式啟動
+
+由於 API 權限限制，已為您切換至免費的官方網頁版生成。
+
+**操作步驟：**
+1.  **提示詞已自動複製** (內容: "請幫我畫一張圖: ${textToUse}")。
+2.  系統已為您開啟 **Gemini 官方網站** (若未開啟，請檢查彈跳視窗阻擋)。
+3.  在對話框 **貼上 (Ctrl+V)** 並發送。
+4.  生成滿意後，對圖片 **點擊右鍵 -> 複製圖片**。
+5.  回到本助手，點擊上方的 **「貼上」** 按鈕 (或 Ctrl+V)，即可在此進行裁切、備份或下載。`
+                    );
+                    
+                    addToHistory(textToUse, "[外部繪圖引導]", 'auto', 'image');
                     setIsLoading(false);
                     return;
                 }
@@ -1202,7 +1209,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.3 (Gen)</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.6 (External Gen)</div>
                 </div>
             );
         }
