@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4 SmartChat)</title>
+    <title>Gemini AI 文件助手 (Pro v4.1 Stable)</title>
     
     <!-- Favicon (Logo) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -162,7 +162,7 @@
                     }
                     throw new Error("429_TOO_MANY_REQUESTS");
                 }
-                // Don't throw for 4xx here to allow reading error message
+                // Allow non-200 to pass for error parsing
                 return await res.json().then(data => ({ status: res.status, ok: res.ok, data }));
             } catch (e) {
                 if (retries > 0) {
@@ -269,11 +269,10 @@
         };
 
         const GEMINI_MODELS = [
-            {id:'gemini-3-flash-preview',name:'Flash 3.0 (New!)'},
+            {id:'gemini-2.0-flash-exp',name:'Flash 2.0 (Stable)'},
             {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
-            {id:'gemini-1.5-pro',name:'Pro 1.5'},
-            {id:'gemini-3.0-pro-preview',name:'Pro 3.0 (Preview)'}
+            {id:'gemini-1.5-pro',name:'Pro 1.5'}
         ];
         
         const LANGUAGES = [
@@ -303,7 +302,8 @@
         ];
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
-        const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
+        // 更穩定的備援模型
+        const FALLBACK_MODEL = 'gemini-1.5-flash';
 
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
@@ -335,7 +335,7 @@
             const [bilingualMode, setBilingualMode] = useState(false);
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
-            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-3-flash-preview');
+            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.0-flash-exp');
             const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
@@ -514,10 +514,16 @@
             const showToast = (msg, type = 'success') => { setToast({ message: msg, type }); };
 
             const resetApp = () => {
-                setSourceText(''); setTranslatedText(''); setErrorMsg('');
-                setCropImageSrc(null); setDisplayImage(null); setCropSelection(null);
-                setShowCropModal(false); setShowVisualMode(false);
-                setChatMessages([]); setLoadingStatus('');
+                setSourceText('');
+                setTranslatedText('');
+                setErrorMsg('');
+                setCropImageSrc(null);
+                setDisplayImage(null);
+                setCropSelection(null);
+                setShowCropModal(false);
+                setShowVisualMode(false);
+                setChatMessages([]);
+                setLoadingStatus('');
                 if (fileInputRef.current) fileInputRef.current.value = '';
                 if (cameraInputRef.current) cameraInputRef.current.value = '';
             };
@@ -544,17 +550,30 @@
                 };
 
                 try {
-                    return await attemptRequest(preferredModel);
+                    const res = await attemptRequest(preferredModel);
+                    if (res.data && res.data.candidates && res.data.candidates.length > 0) {
+                        return res.data;
+                    }
+                    // If prefered model returns empty but status is ok (rare but possible with safety filters)
+                    // Or if it failed with 404/503 internally caught
+                    if(preferredModel !== FALLBACK_MODEL) {
+                        console.log("Primary model failed or empty, trying fallback...");
+                        const fallbackRes = await attemptRequest(FALLBACK_MODEL);
+                        return fallbackRes.data;
+                    }
+                    return res.data;
                 } catch (e) {
-                    if ((e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS")) {
+                    if(preferredModel !== FALLBACK_MODEL) {
                          const errorType = e.message === "404_NOT_FOUND" ? "模型不支援" : "系統忙碌";
-                         showToast(`${errorType}，自動切換至 Flash 2.5`, "error");
-                         return await attemptRequest(FALLBACK_MODEL);
+                         showToast(`${errorType}，自動切換至 Flash 1.5`, "error");
+                         setLoadingStatus("切換至備援模型...");
+                         const fbRes = await attemptRequest(FALLBACK_MODEL);
+                         return fbRes.data;
                     }
                     throw e;
                 }
             };
-
+            
             const handleSmartAction = async (actionType) => {
                 if(chatMessages.length === 0) {
                     showToast("請先進行對話再使用此功能", "error");
@@ -722,9 +741,15 @@
 
                     const res = await runGeminiRequest(payload, geminiModel);
                     
+                    // Safety check
+                    if (res.promptFeedback && res.promptFeedback.blockReason) {
+                         throw new Error(`⚠️ 內容被安全系統阻擋 (${res.promptFeedback.blockReason})`);
+                    }
+
                     const candidate = res.candidates?.[0];
                     if (!candidate) {
-                       throw new Error("No response from AI. Please check API Key or Model.");
+                       console.error("AI Response Error:", res);
+                       throw new Error("No response candidates from AI. (可能原因: 模型負載過高或內容被過濾)");
                     }
                     if (candidate.finishReason !== "STOP" && !candidate.content) {
                        throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
@@ -766,7 +791,7 @@
                 } catch(e) { 
                     if(currentRequestId === requestCounter.current) {
                         setErrorMsg(e.message); 
-                        setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
+                        setTranslatedText(`錯誤: ${e.message}\n\n1. 請檢查 API Key 是否正確\n2. 嘗試更換其他模型 (Flash/Pro)\n3. 內容可能涉及敏感話題`);
                     }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
@@ -914,6 +939,11 @@
 
                     const res = await runGeminiRequest(payload, geminiModel);
                     
+                    // Safety check
+                    if (res.promptFeedback && res.promptFeedback.blockReason) {
+                         throw new Error(`⚠️ 內容被安全系統阻擋 (${res.promptFeedback.blockReason})`);
+                    }
+
                     const candidate = res.candidates?.[0];
                     let responseText = "Error";
                     if (!candidate) {
@@ -1527,127 +1557,6 @@
                                 </div>
                                 <button onClick={()=>setShowSettings(false)} className="w-full py-2 mt-4 bg-slate-900 dark:bg-blue-600 text-white rounded-lg font-bold">完成設定</button>
                             </div>
-                        </div>
-                    )}
-                    
-                    {/* Crop Modal */}
-                    {showCropModal && (
-                        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col p-4 crop-modal" onMouseUp={handleCropEnd} onTouchend={handleCropEnd}>
-                            <div className="flex justify-between items-center text-white mb-4">
-                                <button onClick={() => setShowCropModal(false)} className="text-slate-300 hover:text-white p-2 flex items-center gap-1"><Icons.X /> 取消</button>
-                                <div className="flex gap-2">
-                                    <button onClick={handleFullImageConfirm} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-sm">全圖使用</button>
-                                    <button onClick={handleCropConfirm} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1"><Icons.Scissors className="w-4 h-4"/> 裁切並辨識</button>
-                                </div>
-                            </div>
-                            <div className="flex-1 relative flex items-center justify-center overflow-hidden touch-none select-none bg-black" onMouseMove={handleCropMove} onTouchMove={handleCropMove}>
-                                {cropImageSrc && (
-                                    <div className="relative inline-block">
-                                        <img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[80vh] object-contain select-none pointer-events-auto" draggable={false} onMouseDown={handleCropStart} onTouchStart={handleCropStart} alt="Crop Target" />
-                                        {cropSelection && cropSelection.w > 0 && (
-                                            <div className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-none dashed-border" style={{ left: cropSelection.x, top: cropSelection.y, width: cropSelection.w, height: cropSelection.h }}></div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="text-center text-slate-400 text-xs mt-2">拖曳選取範圍</div>
-                        </div>
-                    )}
-                    
-                    {/* Visual Mode */}
-                    {showVisualMode && (
-                        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col p-4 crop-modal overflow-hidden">
-                            <div className="flex justify-between items-center text-white mb-2 shrink-0">
-                                <button onClick={() => setShowVisualMode(false)} className="text-slate-300 hover:text-white p-2"><Icons.X /></button>
-                                <div className="flex gap-4 items-center">
-                                    <button onClick={() => setVisualStyle(p => ({ ...p, color: p.color === 'white' ? 'black' : 'white' }))} className="p-2 bg-slate-700 rounded-full" title="切換文字顏色"><Icons.Palette /></button>
-                                    <button onClick={handleSaveVisualImage} className="p-2 bg-blue-600 rounded-full" title="儲存圖片"><Icons.Download /></button>
-                                </div>
-                            </div>
-                            <div ref={visualContainerRef} className="flex-1 relative flex items-center justify-center overflow-hidden bg-black select-none touch-none" onMouseMove={handleVisualMove} onTouchMove={handleVisualMove} onMouseUp={handleVisualEnd} onTouchend={handleVisualEnd}>
-                                {displayImage && <img src={displayImage} className="max-w-full max-h-[85vh] object-contain pointer-events-none" alt="Visual Target" />}
-                                {translatedText && (
-                                    <div className="absolute p-4 rounded-xl cursor-move border-2 border-transparent hover:border-blue-400/50 transition-colors group flex flex-col justify-center visual-text-box" style={{ left: `${visualBox.x}%`, top: `${visualBox.y}%`, width: `${visualBox.w}px`, height: `${visualBox.h}px`, transform: 'translate(-50%, -50%)', backgroundColor: visualStyle.bg, color: visualStyle.color }} onMouseDown={handleVisualDragStart} onTouchStart={handleVisualDragStart}>
-                                        <div className="overflow-y-auto w-full h-full text-center flex items-center justify-center hide-scrollbar" style={{ fontSize: `${visualFontSize}px`, lineHeight: 1.4 }}>{translatedText}</div>
-                                        <div className="absolute bottom-1 right-1 p-2 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500 rounded-full w-6 h-6 flex items-center justify-center" onMouseDown={handleVisualResizeStart} onTouchStart={handleVisualResizeStart}><Icons.Scaling className="w-3 h-3 text-white" /></div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="text-center text-slate-400 text-xs mt-2">拖曳移動文字框 • 右下角調整大小</div>
-                        </div>
-                    )}
-
-                    {showBigText && (
-                        <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[60] flex flex-col p-4 overflow-hidden">
-                             <div className="flex justify-between items-center p-4 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0">
-                                <div className="flex gap-4">
-                                    <div className="hidden md:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 px-2">寬度</span>
-                                        <input 
-                                            type="range" min="400" max="1600" step="50" 
-                                            value={fsWidth} 
-                                            onChange={(e) => setFsWidth(parseInt(e.target.value))}
-                                            className="w-24 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 px-2">字體</span>
-                                        <input 
-                                            type="range" min="8" max="48" step="1" 
-                                            value={fsSize} 
-                                            onChange={(e) => setFsSize(parseInt(e.target.value))}
-                                            className="w-24 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    {bilingualMode && <button onClick={() => setBilingualMode(!bilingualMode)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full" title="雙語切換"><Icons.Columns className="w-5 h-5 text-slate-600 dark:text-slate-300"/></button>}
-                                    <button onClick={handleFullScreenDownload} className="p-2 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700" title="截圖"><Icons.Camera className="w-5 h-5"/></button>
-                                    <button onClick={() => setShowBigText(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><Icons.X className="w-8 h-8 text-slate-600 dark:text-slate-300"/></button>
-                                </div>
-                            </div>
-                             <div ref={fsContentRef} className="flex-1 overflow-y-auto p-0 md:p-10 pb-24">
-                                 <div ref={fsInnerRef} className="w-full mx-auto min-h-full flex flex-col p-6 md:p-12 transition-all duration-300 bg-white dark:bg-slate-900 shadow-sm md:shadow-none" style={{ maxWidth: fsWidth + 'px' }}>
-                                    {bilingualMode && sourceText ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            <div className="prose prose-lg dark:prose-invert text-slate-500 dark:text-slate-400"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-slate-400 dark:text-slate-500 border-b dark:border-slate-700 pb-2">原文</h3><p className="whitespace-pre-wrap text-base">{sourceText}</p></div>
-                                            <div className="prose prose-xl dark:prose-invert text-slate-900 dark:text-slate-100"><h3 className="text-sm font-bold uppercase tracking-wide mb-4 text-indigo-500 border-b dark:border-slate-700 pb-2">譯文</h3>
-                                                {currentTask === 'mindmap' ? (
-                                                    <MermaidDiagram code={translatedText} darkMode={darkMode} />
-                                                ) : isMarkdownMode ? (
-                                                    <div className="leading-relaxed text-left" style={{ fontSize: `${fsSize}px` }} dangerouslySetInnerHTML={{ __html: marked.parse(translatedText || "尚無翻譯內容") }} />
-                                                ) : (
-                                                    <p className="leading-relaxed whitespace-pre-wrap font-['Zen_Maru_Gothic']" style={{ fontSize: `${fsSize}px` }}>{translatedText || "尚無翻譯內容"}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        currentTask==='mindmap' ? <MermaidDiagram code={translatedText} darkMode={darkMode}/> : <div className="prose max-w-none dark:prose-invert dark:text-slate-200" style={{ fontSize: `${fsSize}px` }} dangerouslySetInnerHTML={{__html:marked.parse(translatedText)}}/>
-                                    )}
-                                 </div>
-                             </div>
-                             <div className="absolute bottom-0 left-0 right-0 p-2 bg-white/90 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 grid grid-cols-5 gap-1 backdrop-blur-md z-30 safe-area-pb items-center justify-items-center">
-                                 <button onClick={() => setBilingualMode(!bilingualMode)} className={`flex flex-col items-center justify-center p-2 rounded-lg ${bilingualMode ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-500 dark:text-slate-400'}`}>
-                                     <Icons.Columns className="w-5 h-5"/>
-                                     <span className="text-[10px] font-bold mt-1">雙語</span>
-                                 </button>
-                                 <button onClick={() => copy(translatedText)} className="flex flex-col items-center justify-center p-2 rounded-lg text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800">
-                                     <Icons.Copy className="w-5 h-5"/>
-                                     <span className="text-[10px] font-bold mt-1">複製</span>
-                                 </button>
-                                 <button onClick={handleDownload} className="flex flex-col items-center justify-center p-2 rounded-lg text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800">
-                                     <Icons.FileDown className="w-5 h-5"/>
-                                     <span className="text-[10px] font-bold mt-1">存文字</span>
-                                 </button>
-                                 <button onClick={handleFullScreenDownload} className="flex flex-col items-center justify-center p-2 rounded-lg text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800">
-                                     <Icons.Camera className="w-5 h-5"/>
-                                     <span className="text-[10px] font-bold mt-1">存圖片</span>
-                                 </button>
-                                 <button onClick={() => speak(translatedText, targetLang)} className="flex flex-col items-center justify-center p-2 rounded-lg text-slate-500 dark:text-slate-400 active:bg-slate-100 dark:active:bg-slate-800">
-                                     <Icons.Volume2 className="w-5 h-5"/>
-                                     <span className="text-[10px] font-bold mt-1">朗讀</span>
-                                 </button>
-                             </div>
                         </div>
                     )}
 
