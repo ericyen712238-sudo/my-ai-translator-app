@@ -878,20 +878,51 @@
                  return text;
             };
 
-            const runOCR = async (file) => {
-                setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
+const runOCR = async (file) => {
+                setShowCropModal(false); 
+                setIsLoading(true); 
+                setSourceText(''); 
+                setErrorMsg('');
+                
                 try {
                     let text = "";
-                    if(geminiKey) {
+                    
+                    // 1. 檢查是否有 API Key
+                    if (geminiKey) {
+                        setLoadingStatus('AI 視覺分析中...');
                         text = await performGeminiOCR(file, currentTask); 
                     } else {
+                        // 2. 沒有 Key，使用本機 OCR
+                        setLoadingStatus('無 API Key，使用本機 OCR 辨識文字...');
+                        // 如果當前任務是「識圖 (Vision)」，但沒有 Key，直接報錯提醒
+                        if (currentTask === 'vision') {
+                            throw new Error("「識圖模式」需要 AI 模型介入，請先至設定輸入 API Key。");
+                        }
                         text = await performLegacyOCR(file);
                     }
                     
-                    if(!text.trim()) throw new Error("無法辨識文字或圖片內容");
+                    // 3. 檢查結果
+                    if (!text || !text.trim()) {
+                        if (!geminiKey) {
+                            throw new Error("本機辨識找不到文字。若需辨識圖片內容(非文字)，請輸入 API Key。");
+                        } else {
+                            throw new Error("AI 無法識別此圖片，請嘗試更清晰的圖片。");
+                        }
+                    }
+
                     setSourceText(text);
                     callAI(currentTask, text);
-                } catch(e) { setErrorMsg(e.message); setIsLoading(false); }
+
+                } catch (e) { 
+                    console.error(e); 
+                    setErrorMsg(e.message); 
+                    // 如果是 Vision 模式且失敗，自動切回文字模式以免卡住
+                    if (currentTask === 'vision' && !geminiKey) {
+                        setCurrentTask('notes');
+                    }
+                } finally {
+                    setIsLoading(false);
+                }
             };
 
             const switchToChat = () => {
@@ -1636,4 +1667,5 @@
     </script>
 </body>
 </html>
+
 
