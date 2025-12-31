@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro)</title>
+    <title>Gemini AI 文件助手 (Pro v3 + ImageGen)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -98,7 +98,7 @@
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
-        // --- User's Pre-configured Firebase Settings ---
+        // --- User's Pre-configured Firebase Settings (Locked) ---
         const DEFAULT_FIREBASE_CONFIG = {
           "apiKey": "AIzaSyAwbquRwB2p_2zXXHYo_Vzk_EDPYyOSeKY",
           "authDomain": "aitools-40017.firebaseapp.com",
@@ -110,26 +110,17 @@
         };
 
         // --- Global Helper Functions ---
-        
-        // 1. Load PDF with Password Support
         const loadPdfWithPassword = (data) => {
             const loadingTask = window.pdfjsLib.getDocument({ data });
             loadingTask.onPassword = (updatePassword, reason) => {
                 let msg = '此 PDF 受密碼保護，請輸入密碼：';
-                if (reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) {
-                    msg = '密碼錯誤，請重新輸入：';
-                }
+                if (reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) msg = '密碼錯誤，請重新輸入：';
                 const password = prompt(msg);
-                if (password) {
-                    updatePassword(password);
-                } else {
-                    loadingTask.destroy();
-                }
+                if (password) updatePassword(password); else loadingTask.destroy();
             };
             return loadingTask.promise;
         };
 
-        // 2. Compress Image
         const compressImage = (file) => new Promise((resolve, reject) => {
             const r = new FileReader(); r.readAsDataURL(file);
             r.onload = e => {
@@ -146,7 +137,6 @@
             r.onerror = reject;
         });
 
-        // 3. Render PDF Pages to Images
         const renderPdfToImages = async (ab) => {
             const pdf = await loadPdfWithPassword(ab);
             const imgs = [];
@@ -161,42 +151,25 @@
             return imgs;
         };
 
-        // 4. Robust Fetch with Retry (Enhanced for 429)
-        const fetchWithRetry = async (url, options, retries = 6, delay = 2000, onRetry) => {
+        const fetchWithRetry = async (url, options, retries = 5, delay = 2000, onRetry) => {
             try {
                 const res = await fetch(url, options);
-                
-                // Special handling for 429 Too Many Requests
                 if (res.status === 429) {
                     if (retries > 0) {
-                        // Add jitter to prevent thundering herd
-                        const jitter = Math.random() * 500;
-                        const waitTime = delay + jitter;
-                        
-                        if(onRetry) onRetry(Math.ceil(waitTime / 1000));
-                        
-                        await new Promise(r => setTimeout(r, waitTime));
-                        
-                        // Exponential backoff with a cap
-                        const nextDelay = Math.min(delay * 2, 32000); 
-                        
-                        return fetchWithRetry(url, options, retries - 1, nextDelay, onRetry);
+                        if(onRetry) onRetry(delay / 1000);
+                        await new Promise(r => setTimeout(r, delay));
+                        return fetchWithRetry(url, options, retries - 1, Math.min(delay * 2, 16000), onRetry);
                     }
                     throw new Error("429_TOO_MANY_REQUESTS");
                 }
-                
                 if (!res.ok) {
                     if (res.status === 404) throw new Error("404_NOT_FOUND");
                     throw new Error(`HTTP ${res.status}`);
                 }
                 return await res.json();
             } catch (e) {
-                // If network error (fetch failed), also retry
-                const isNetworkError = e.message === "Failed to fetch" || e.name === 'TypeError';
-                
                 if (e.message === "404_NOT_FOUND" || e.message === "429_TOO_MANY_REQUESTS") throw e;
-                
-                if (retries > 0 && (isNetworkError || !e.message.startsWith("HTTP"))) {
+                if (retries > 0) {
                     if(onRetry) onRetry(delay / 1000);
                     await new Promise(r => setTimeout(r, delay));
                     return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
@@ -206,11 +179,9 @@
         };
 
         // --- Components ---
-
         const SafeMarkdown = ({ content, fontSize, isUser }) => {
             const [html, setHtml] = useState('');
             const containerRef = useRef(null);
-
             useEffect(() => {
                 try {
                     if (typeof marked === 'function') setHtml(marked(content));
@@ -218,26 +189,13 @@
                     else setHtml(content);
                 } catch (e) { setHtml(content); }
             }, [content]);
-            
             useEffect(() => {
                 if(containerRef.current && typeof renderMathInElement === 'function') {
-                    try {
-                        renderMathInElement(containerRef.current, {
-                            delimiters: [
-                                {left: "$$", right: "$$", display: true},
-                                {left: "$", right: "$", display: false},
-                                {left: "\\(", right: "\\)", display: false},
-                                {left: "\\[", right: "\\]", display: true}
-                            ],
-                            throwOnError: false
-                        });
-                    } catch(e) { console.error("KaTeX render error", e); }
+                    try { renderMathInElement(containerRef.current, { delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}, {left: "\\(", right: "\\)", display: false}, {left: "\\[", right: "\\]", display: true}], throwOnError: false }); } catch(e) { console.error("KaTeX render error", e); }
                 }
             }, [html]);
-
             const userClasses = "text-white [&_*]:text-white";
-            const aiClasses = "prose prose-sm dark:prose-invert max-w-none leading-relaxed";
-            
+            const aiClasses = "prose prose-sm dark:prose-invert max-w-none leading-relaxed [&_img]:max-h-[500px] [&_img]:rounded-lg [&_img]:shadow-lg";
             return <div ref={containerRef} className={isUser ? userClasses : aiClasses} style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{__html: html}} />;
         };
 
@@ -263,7 +221,6 @@
         };
 
         const Icon = ({ children, className = "w-6 h-6" }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>;
-        
         const Icons = {
             Languages: () => <Icon><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></Icon>,
             FileText: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></Icon>,
@@ -345,7 +302,8 @@
             {id:'grammar',name:'文法',icon:<Icons.Search/>,btnColor:'bg-emerald-600'},
             {id:'analyze',name:'分析',icon:<Icons.Brain/>,btnColor:'bg-pink-600'},
             {id:'mindmap',name:'心智圖',icon:<Icons.Brain/>,btnColor:'bg-indigo-600'},
-            {id:'vision',name:'識圖',icon:<Icons.Eye/>,btnColor:'bg-violet-600'}
+            {id:'vision',name:'識圖',icon:<Icons.Eye/>,btnColor:'bg-violet-600'},
+            {id:'image-gen',name:'繪圖',icon:<Icons.Palette/>,btnColor:'bg-pink-600'}
         ];
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
@@ -526,6 +484,7 @@
                     else if (error.code === 'unavailable') msg = "服務無法使用 - 請確認是否已建立 Firestore 資料庫";
                     else if (error.code === 'invalid-argument') msg = "參數錯誤 - 請檢查 Config 格式";
                     else msg = `連線錯誤: ${error.message}`;
+                    
                     showToast(msg, "error");
                     setSyncStatusMsg(msg);
                 } finally {
@@ -558,11 +517,18 @@
             
             const showToast = (msg, type = 'success') => { setToast({ message: msg, type }); };
 
+            const resetApp = () => {
+                setSourceText(''); setTranslatedText(''); setErrorMsg('');
+                setCropImageSrc(null); setDisplayImage(null); setCropSelection(null);
+                setShowCropModal(false); setShowVisualMode(false);
+                setChatMessages([]); setLoadingStatus('');
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                if (cameraInputRef.current) cameraInputRef.current.value = '';
+            };
+
             const handleClearAll = () => {
                 if(confirm("確定要清除所有內容（原文、結果、對話）嗎？")) {
-                    setSourceText('');
-                    setTranslatedText('');
-                    setChatMessages([]);
+                    resetApp();
                     setFileName(null);
                     showToast("已清除所有內容", "success");
                 }
@@ -576,12 +542,11 @@
                         headers: {'Content-Type': 'application/json'}, 
                         body: JSON.stringify(payload)
                     };
-                    // Enhanced retry logic for 429
                     return await fetchWithRetry(url, options, 6, 2000, (seconds) => {
                         setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後自動重試`);
                     });
                 };
-                
+
                 try {
                     return await attemptRequest(preferredModel);
                 } catch (e) {
@@ -607,7 +572,57 @@
                 setIsLoading(true);
                 setErrorMsg('');
                 if (!isRealTime && textOverride === null) setTranslatedText('');
+
+                // Image Generation Branch
+                if (promptType === 'image-gen') {
+                    setLoadingStatus('正在繪製圖片 (Imagen)...');
+                    try {
+                        // Use a specific model for image generation - usually imagen-3.0-generate-001 or similar accessible via API
+                        // Since 'imagen-4.0-generate-001' is mentioned in system instructions as standard for preview
+                        const modelId = 'imagen-4.0-generate-001'; 
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${geminiKey}`;
+                        
+                        // Image generation usually takes { instances: [{ prompt: ... }] } structure
+                        const payload = {
+                            instances: [{ prompt: textToUse }],
+                            parameters: { sampleCount: 1 }
+                        };
+
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!res.ok) throw new Error(`Image Gen Error: ${res.status}`);
+                        
+                        const data = await res.json();
+                        // Extract base64 image
+                        // Response format: { predictions: [ { bytesBase64Encoded: "..." } ] }
+                        if (data.predictions && data.predictions.length > 0) {
+                            const b64 = data.predictions[0].bytesBase64Encoded;
+                            const imgSrc = `data:image/png;base64,${b64}`;
+                            
+                            // 1. Set for Visual Mode
+                            setDisplayImage(imgSrc); 
+                            // 2. Display in Result Area
+                            setTranslatedText(`![Generated Image](${imgSrc})`);
+                            // 3. Add to history
+                            addToHistory(textToUse, `[已生成圖片]`, 'auto', 'image');
+                            
+                            showToast("圖片生成成功！點擊圖片可進入編輯模式", "success");
+                        } else {
+                            throw new Error("No image generated.");
+                        }
+                    } catch (e) {
+                         setErrorMsg("繪圖失敗: " + e.message);
+                         setTranslatedText("繪圖失敗。請確認您的 API Key 是否支援 Imagen 模型 (通常需要 Google AI Studio 權限)。");
+                    }
+                    setIsLoading(false);
+                    return;
+                }
                 
+                // Text Generation Branch
                 const tName = LANGUAGES.find(l=>l.code===targetLang)?.name || targetLang;
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
                 
@@ -634,24 +649,57 @@
                 try {
                     let out = "";
                     if(!geminiKey) { setShowSettings(true); throw new Error("請輸入 API Key"); }
-                    const safetySettings = [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }];
-                    const payload = { contents:[{parts:[{text:sys}]}], generationConfig:{temperature:aiTemperature}, safetySettings: safetySettings };
+                    
+                    const safetySettings = [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                    ];
+
+                    const payload = {
+                        contents:[{parts:[{text:sys}]}], 
+                        generationConfig:{temperature:aiTemperature},
+                        safetySettings: safetySettings
+                    };
+
                     const res = await runGeminiRequest(payload, geminiModel);
                     
                     const candidate = res.candidates?.[0];
-                    if (!candidate) throw new Error("No response from AI. Please check API Key or Model.");
-                    if (candidate.finishReason !== "STOP" && !candidate.content) throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
+                    if (!candidate) {
+                       throw new Error("No response from AI. Please check API Key or Model.");
+                    }
+                    if (candidate.finishReason !== "STOP" && !candidate.content) {
+                       throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
+                    }
+                    
                     out = candidate.content?.parts?.[0]?.text || "Error: Empty content";
                     
                     if(currentRequestId === requestCounter.current) {
                         if(promptType==='mindmap') {
                             let cleaned = out;
-                            if(cleaned.includes('```mermaid')) cleaned = cleaned.split('```mermaid')[1];
-                            else if(cleaned.includes('```')) cleaned = cleaned.split('```')[1];
-                            if(cleaned.includes('```')) cleaned = cleaned.split('```')[0];
+                            if(cleaned.includes('```mermaid')) {
+                                cleaned = cleaned.split('```mermaid')[1];
+                            } else if(cleaned.includes('```')) {
+                                cleaned = cleaned.split('```')[1]; 
+                            }
+                            if(cleaned.includes('```')) {
+                                cleaned = cleaned.split('```')[0];
+                            }
                             cleaned = cleaned.trim();
-                            if (!cleaned.startsWith('mindmap')) cleaned = 'mindmap\n' + cleaned;
-                            else { const firstLineEnd = cleaned.indexOf('\n'); if (firstLineEnd === -1) cleaned = cleaned.replace('mindmap', 'mindmap\n'); else { const firstLine = cleaned.substring(0, firstLineEnd).trim(); if (firstLine !== 'mindmap') cleaned = cleaned.replace('mindmap', 'mindmap\n'); } }
+                            if (!cleaned.startsWith('mindmap')) {
+                                cleaned = 'mindmap\n' + cleaned;
+                            } else {
+                                const firstLineEnd = cleaned.indexOf('\n');
+                                if (firstLineEnd === -1) {
+                                    cleaned = cleaned.replace('mindmap', 'mindmap\n');
+                                } else {
+                                    const firstLine = cleaned.substring(0, firstLineEnd).trim();
+                                    if (firstLine !== 'mindmap') {
+                                         cleaned = cleaned.replace('mindmap', 'mindmap\n');
+                                    }
+                                }
+                            }
                             setTranslatedText(cleaned);
                         } else {
                             setTranslatedText(out);
@@ -659,28 +707,18 @@
                         if(!out.startsWith('Error') && !out.startsWith('此模式')) addToHistory(textToUse, out, sourceLang, targetLang);
                     }
                 } catch(e) { 
-                    if(currentRequestId === requestCounter.current) { setErrorMsg(e.message); setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`); }
+                    if(currentRequestId === requestCounter.current) {
+                        setErrorMsg(e.message); 
+                        setTranslatedText(`錯誤: ${e.message}\n請嘗試更換模型或檢查設定。`);
+                    }
                 }
                 if(currentRequestId === requestCounter.current) setIsLoading(false);
             };
 
             const processFile = async (f) => {
                 if(!f) return;
+                resetApp(); // HARD RESET ON NEW FILE
                 
-                // --- AUTO CLEAR LOGIC ---
-                // 強力重置所有狀態，確保不卡住
-                setSourceText('');
-                setTranslatedText('');
-                setErrorMsg('');
-                setCropImageSrc(null);
-                setDisplayImage(null);
-                setCropSelection(null);
-                setShowCropModal(false);
-                setShowVisualMode(false);
-                setChatMessages([]);
-                setLoadingStatus('');
-                // ------------------------
-
                 if (currentTask === 'vision' && !f.type.startsWith('image/')) {
                     showToast("識圖模式僅限上傳圖片", "error");
                     return;
@@ -690,7 +728,6 @@
                 if(f.type.startsWith('image/')) {
                       const r = new FileReader(); 
                       r.onload = e => { 
-                          // 確保清理後再設置新圖片
                           setTimeout(() => {
                               setCropImageSrc(e.target.result); 
                               setDisplayImage(e.target.result); 
@@ -739,6 +776,7 @@
                 const b64 = await compressImage(file);
                 let promptText = "OCR this image. Output text only.";
                 if (task === 'vision') promptText = "請用繁體中文詳細描述這張圖片的內容。如果有文字，請也一併列出。 (Describe this image in detail in Traditional Chinese)";
+                
                 const payload = {contents:[{parts:[{text: promptText},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
                 const res = await runGeminiRequest(payload, geminiModel);
                 return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -762,8 +800,12 @@
                 setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
                 try {
                     let text = "";
-                    if(geminiKey) { text = await performGeminiOCR(file, currentTask); } 
-                    else { text = await performLegacyOCR(file); }
+                    if(geminiKey) {
+                        text = await performGeminiOCR(file, currentTask); 
+                    } else {
+                        text = await performLegacyOCR(file);
+                    }
+                    
                     if(!text.trim()) throw new Error("無法辨識文字或圖片內容");
                     setSourceText(text);
                     callAI(currentTask, text);
@@ -777,35 +819,66 @@
 
             const sendChat = async () => {
                 if(!chatInput.trim())return;
-                if(!geminiKey) { setChatMessages(p=>[...p, {role:'user',text:chatInput}, {role:'model',text:"請先在設定中輸入 API Key 才能使用對話功能。"}]); setChatInput(''); return; }
+                if(!geminiKey) {
+                    setChatMessages(p=>[...p, {role:'user',text:chatInput}, {role:'model',text:"請先在設定中輸入 API Key 才能使用對話功能。"}]);
+                    setChatInput('');
+                    return;
+                }
+
                 const newUserMsg = {role:'user',text:chatInput}; 
-                setChatMessages(prev => [...prev, newUserMsg]); setChatInput(''); setIsLoading(true);
+                setChatMessages(prev => [...prev, newUserMsg]); 
+                setChatInput(''); 
+                setIsLoading(true);
+
                 try {
                     const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                    
                     let historyStr = '';
-                    chatMessages.forEach(m => { historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`; });
+                    chatMessages.forEach(m => {
+                        historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`;
+                    });
+
                     let ctx = `Current DateTime: ${now}.\nContext:\nSource:${sourceText}\nResult:${translatedText}`;
                     if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
                     ctx += `\n\nConversation History:\n${historyStr}`;
                     ctx += `User: ${newUserMsg.text}\nModel:`;
-                    const safetySettings = [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }];
-                    const payload = { contents:[{parts:[{text:ctx}]}], safetySettings: safetySettings };
+                    
+                    const safetySettings = [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                    ];
+
+                    const payload = {
+                        contents:[{parts:[{text:ctx}]}],
+                        safetySettings: safetySettings
+                    };
+
                     const res = await runGeminiRequest(payload, geminiModel);
+                    
                     const candidate = res.candidates?.[0];
                     let responseText = "Error";
-                    if (!candidate) responseText = "Error: No response from AI.";
-                    else if (candidate.finishReason !== "STOP" && !candidate.content) responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
-                    else responseText = candidate.content?.parts?.[0]?.text || "Error";
+                    if (!candidate) {
+                        responseText = "Error: No response from AI.";
+                    } else if (candidate.finishReason !== "STOP" && !candidate.content) {
+                        responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
+                    } else {
+                        responseText = candidate.content?.parts?.[0]?.text || "Error";
+                    }
+
                     setChatMessages(p=>[...p,{role:'model',text:responseText}]);
                 } catch(e) { 
                     let errMsg = "Error: " + e.message;
-                    if (e.message === "429_TOO_MANY_REQUESTS") errMsg = "系統目前流量過大 (429)，請稍後再試。";
+                    if (e.message === "429_TOO_MANY_REQUESTS") {
+                        errMsg = "系統目前流量過大，請稍後再試。";
+                    }
                     setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
                 }
                 setIsLoading(false);
             };
 
-            const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
+             const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
             const handleCropStart = (e) => { const coords = getClientCoordinates(e); setCropSelection({x:coords.x,y:coords.y,w:0,h:0}); isDraggingRef.current=true; dragStartRef.current=coords; };
             const handleCropMove = (e) => { if(!isDraggingRef.current)return; const coords = getClientCoordinates(e); const r = imageRef.current.getBoundingClientRect(); const cx = Math.min(Math.max(0, coords.x), r.width); const cy = Math.min(Math.max(0, coords.y), r.height); setCropSelection({x:Math.min(dragStartRef.current.x,cx),y:Math.min(dragStartRef.current.y,cy),w:Math.abs(cx-dragStartRef.current.x),h:Math.abs(cy-dragStartRef.current.y)}); };
             const handleCropEnd = () => isDraggingRef.current = false;
@@ -869,45 +942,94 @@
             };
             
             const toggleListening = () => {
-                if (isListening) { if (recognitionRef.current) recognitionRef.current.stop(); setIsListening(false); return; }
+                if (isListening) {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.stop();
+                    }
+                    setIsListening(false);
+                    return;
+                }
+
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音辨識"); return; }
+                if (!SpeechRecognition) {
+                    setErrorMsg("瀏覽器不支援語音辨識");
+                    return;
+                }
+
                 const recognition = new SpeechRecognition();
                 recognitionRef.current = recognition;
+                
                 let langCode = sourceLang;
                 if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
-                recognition.lang = langCode; recognition.continuous = true; recognition.interimResults = true;
+                
+                recognition.lang = langCode;
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
                 recognition.onstart = () => setIsListening(true);
                 recognition.onend = () => setIsListening(false);
-                recognition.onerror = (e) => { console.error("Speech recognition error", e); setIsListening(false); showToast("語音辨識錯誤: " + e.error, "error"); };
+                recognition.onerror = (e) => {
+                    console.error("Speech recognition error", e);
+                    setIsListening(false);
+                    showToast("語音辨識錯誤: " + e.error, "error");
+                };
+
                 recognition.onresult = (e) => {
                     let final = '';
-                    for (let i = e.resultIndex; i < e.results.length; ++i) { if (e.results[i].isFinal) final += e.results[i][0].transcript; }
-                    if (final) { if (mode === 'conversation') setChatInput(prev => prev + final); else setSourceText(prev => prev + (prev ? ' ' : '') + final); }
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {
+                        if (e.results[i].isFinal) {
+                            final += e.results[i][0].transcript;
+                        }
+                    }
+                    
+                    if (final) {
+                        if (mode === 'conversation') {
+                            setChatInput(prev => prev + final);
+                        } else {
+                            setSourceText(prev => prev + (prev ? ' ' : '') + final);
+                        }
+                    }
                 };
+
                 recognition.start();
             };
             
-            const handleSelection = () => { 
-                 const selection = window.getSelection(); const text = selection.toString().trim(); 
+             const handleSelection = () => { 
+                 const selection = window.getSelection(); 
+                 const text = selection.toString().trim(); 
                  if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) { 
-                     const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); 
+                     const range = selection.getRangeAt(0); 
+                     const rect = range.getBoundingClientRect(); 
                      setSelectionMenu({ visible: true, x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY - 10, text: text }); 
-                 } else { setSelectionMenu({ ...selectionMenu, visible: false }); } 
+                 } else { 
+                     setSelectionMenu({ ...selectionMenu, visible: false }); 
+                 } 
              };
+            
             const handleSelectionAction = async (action) => { 
-                setSelectionMenu({ ...selectionMenu, visible: false }); const text = selectionMenu.text; 
+                setSelectionMenu({ ...selectionMenu, visible: false }); 
+                const text = selectionMenu.text; 
                 if (action === 'explain') { await callAI('grammar', `Explain: "${text}"`); } 
                 else if (action === 'glossary') { setNewGlossaryTerm(text); setShowSettings(true); setActiveTab('data'); } 
                 else if (action === 'speak') { speak(text, targetLang); } 
             };
+            
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); showToast(isS?"已複製原文":"已複製譯文", 'success'); };
             const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (v) u.voice = v; } window.speechSynthesis.speak(u); };
+            
             const handleDownload = () => { 
                 if (!translatedText) return; 
                 const blob = new Blob([translatedText], { type: 'text/plain' }); 
-                const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); 
+                const url = window.URL.createObjectURL(blob); 
+                const a = document.createElement('a'); 
+                a.href = url; 
+                a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; 
+                document.body.appendChild(a); 
+                a.click(); 
+                document.body.removeChild(a); 
+                window.URL.revokeObjectURL(url); 
             };
+
             const handleExportData = () => {
                 const data = { settings: { geminiKey, geminiModel, customInstruction, voiceRate, voicePitch, fsSize, globalFontSize, aiTemperature, firebaseConfigStr, syncId }, glossary, history, chatMessages };
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -916,6 +1038,7 @@
                 document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
                 showToast("備份已下載", "success");
             };
+
             const handleImportData = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -959,15 +1082,39 @@
                 if (!fsInnerRef.current) return; 
                 setIsLoading(true);
                 setLoadingStatus('正在產生全螢幕截圖...');
+                
                 try {
                     const element = fsInnerRef.current;
                     const height = element.scrollHeight;
                     let dynamicScale = 4;
-                    if (height > 6000) dynamicScale = 2; else if (height > 2500) dynamicScale = 3;
-                    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: darkMode ? '#0f172a' : '#ffffff', scale: dynamicScale, logging: false, allowTaint: false, scrollY: -window.scrollY });
-                    const link = document.createElement('a'); link.download = `fullscreen_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click();
+                    
+                    if (height > 6000) {
+                        dynamicScale = 2; // 超長內容使用 2x (確保成功率)
+                    } else if (height > 2500) {
+                        dynamicScale = 3; // 中長內容使用 3x
+                    }
+                    // 短內容維持 4x (最高畫質)
+
+                    const canvas = await html2canvas(element, {
+                        useCORS: true,
+                        backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+                        scale: dynamicScale, 
+                        logging: false,
+                        allowTaint: false,
+                        scrollY: -window.scrollY
+                    });
+                    const link = document.createElement('a');
+                    link.download = `fullscreen_capture_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
                     showToast(`全螢幕截圖已下載 (${dynamicScale}x 畫質)`, "success");
-                } catch (err) { console.error("FS Download Error:", err); showToast("截圖失敗，內容可能過長", "error"); } finally { setIsLoading(false); setLoadingStatus(''); }
+                } catch (err) {
+                    console.error("FS Download Error:", err);
+                    showToast("截圖失敗，內容可能過長", "error");
+                } finally {
+                    setIsLoading(false);
+                    setLoadingStatus('');
+                }
             };
 
             const handleScreenshotMsg = async (id) => {
@@ -975,9 +1122,14 @@
                 if (!element) return;
                 try {
                     const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 });
-                    const link = document.createElement('a'); link.download = `chat_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click();
+                    const link = document.createElement('a');
+                    link.download = `chat_capture_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
                     showToast("截圖已下載", "success");
-                } catch (err) { showToast("截圖失敗", "error"); }
+                } catch (err) {
+                    showToast("截圖失敗", "error");
+                }
             };
 
             const handlePasteClick = async () => {
@@ -994,13 +1146,25 @@
                                 return;
                             }
                         }
-                    } catch (err) { console.log("Clipboard read() failed or denied, falling back to text."); }
+                    } catch (err) {
+                        console.log("Clipboard read() failed or denied, falling back to text.");
+                    }
+
                     const text = await navigator.clipboard.readText();
                     if (text) {
-                        if (currentTask === 'vision') { showToast("識圖模式僅限貼上圖片 (Vision mode only accepts images)", "error"); return; }
-                        setSourceText(prev => prev + text); showToast("已貼上剪貼簿內容", "success");
-                    } else { showToast("無法讀取剪貼簿內容", "error"); }
-                } catch (err) { console.error('Clipboard Error: ', err); showToast("無法讀取剪貼簿，請嘗試使用 Ctrl+V", "error"); }
+                        if (currentTask === 'vision') {
+                             showToast("識圖模式僅限貼上圖片 (Vision mode only accepts images)", "error");
+                             return;
+                        }
+                        setSourceText(prev => prev + text);
+                        showToast("已貼上剪貼簿內容", "success");
+                    } else {
+                        showToast("無法讀取剪貼簿內容", "error");
+                    }
+                } catch (err) {
+                    console.error('Clipboard Error: ', err);
+                    showToast("無法讀取剪貼簿，請嘗試使用 Ctrl+V", "error");
+                }
             };
 
             const processFileRef = useRef(processFile);
@@ -1010,7 +1174,11 @@
                 const handleGlobalPaste = (e) => {
                     if (e.clipboardData && e.clipboardData.files.length > 0) {
                         const file = e.clipboardData.files[0];
-                        if (file.type.startsWith('image/')) { e.preventDefault(); processFileRef.current(file); showToast("已偵測到圖片貼上", "success"); }
+                        if (file.type.startsWith('image/')) {
+                            e.preventDefault();
+                            processFileRef.current(file);
+                            showToast("已偵測到圖片貼上", "success");
+                        }
                     }
                 };
                 window.addEventListener('paste', handleGlobalPaste);
@@ -1039,12 +1207,12 @@
                                 <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                                 <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
-                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
+                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-9 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
                                 {TASKS.map(t => (
                                     <button 
                                         key={t.id} 
                                         onClick={() => { setCurrentTask(t.id); setTranslatedText(''); setErrorMsg(''); }} 
-                                        className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'} ${t.id === 'image-gen' && currentTask === 'image-gen' ? 'bg-pink-600 text-white' : ''}`}
                                     >
                                         {t.icon} 
                                         <span>{t.name}</span>
@@ -1090,7 +1258,7 @@
                                             <button onClick={()=>setSourceText('')} className="p-1 text-slate-400 hover:text-red-500" title="清除"><Icons.X className="w-4 h-4"/></button>
                                         </div>
                                     </div>
-                                    <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="flex-1 p-4 bg-transparent outline-none resize-none dark:text-slate-200 text-lg" placeholder={currentTask === 'vision' ? "請上傳或貼上圖片以進行辨識..." : "輸入文字..."} style={{fontSize: `${globalFontSize}px`}}/>
+                                    <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="flex-1 p-4 bg-transparent outline-none resize-none dark:text-slate-200 text-lg" placeholder={currentTask === 'vision' ? "請上傳或貼上圖片以進行辨識..." : currentTask === 'image-gen' ? "請輸入您想生成的圖片描述 (例如: 一隻在太空漫步的貓)..." : "輸入文字..."} style={{fontSize: `${globalFontSize}px`}}/>
                                     {mode==='file' && !sourceText && <div onClick={()=>fileInputRef.current.click()} className={`absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-900/80 cursor-pointer border-2 border-dashed m-4 rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-300 dark:border-slate-700'}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={()=>{setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}><Icons.UploadCloud className="w-8 h-8 text-blue-400"/><span className="text-sm text-slate-500 mt-2">{currentTask === 'vision' ? '上傳圖片 (Vision Mode Only)' : '上傳文件 / 圖片'}</span><input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept={currentTask==='vision' ? "image/*" : "*/*"}/></div>}
                                 </div>
                                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 overflow-hidden relative">
@@ -1098,7 +1266,7 @@
                                         <span className="text-xs font-bold text-slate-500">結果</span>
                                         <div className="flex gap-1">
                                             {displayImage && <button onClick={()=>setShowVisualMode(true)} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Image className="w-4 h-4"/></button>}
-                                            {currentTask!=='mindmap' && <button onClick={()=>setIsMarkdownMode(!isMarkdownMode)} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Code className="w-4 h-4"/></button>}
+                                            {currentTask!=='mindmap' && currentTask!=='image-gen' && <button onClick={()=>setIsMarkdownMode(!isMarkdownMode)} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Code className="w-4 h-4"/></button>}
                                             <button onClick={handleDownload} className="p-1 text-slate-400 hover:text-blue-600" title="下載"><Icons.Download className="w-4 h-4"/></button>
                                             <button onClick={()=>copy(translatedText, false)} className="p-1 text-slate-400 hover:text-blue-600" title="複製"><Icons.Copy className="w-4 h-4"/></button>
                                             <button onClick={()=>speak(translatedText, targetLang)} className="p-1 text-slate-400 hover:text-blue-600" title="朗讀"><Icons.Volume2 className="w-4 h-4"/></button>
@@ -1418,7 +1586,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro Auto-Clean Edition</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v3.0 (ImageGen)</div>
                 </div>
             );
         }
@@ -1426,4 +1594,3 @@
     </script>
 </body>
 </html>
-
