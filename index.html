@@ -1789,6 +1789,114 @@
                         </div>
                     )}
 
+                    {/* --- CROP MODAL (Restored) --- */}
+                    {showCropModal && cropImageSrc && (
+                        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4 crop-modal animate-in fade-in">
+                            <div 
+                                className="relative max-w-full max-h-[70vh] overflow-hidden border-2 border-slate-500 cursor-crosshair touch-none"
+                                onMouseDown={handleCropStart} onMouseMove={handleCropMove} onMouseUp={handleCropEnd}
+                                onTouchStart={handleCropStart} onTouchMove={handleCropMove} onTouchEnd={handleCropEnd}
+                            >
+                                <img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-[70vh] object-contain select-none pointer-events-none" alt="Crop target"/>
+                                {cropSelection && (
+                                    <div className="absolute border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+                                         style={{left:cropSelection.x, top:cropSelection.y, width:cropSelection.w, height:cropSelection.h}}/>
+                                )}
+                            </div>
+                            <div className="mt-6 flex flex-wrap justify-center gap-3">
+                                <button onClick={() => setShowCropModal(false)} className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors">取消</button>
+                                <button onClick={handleFullImageConfirm} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2"><Icons.Maximize className="w-4 h-4"/> 使用原圖</button>
+                                {cropSelection && cropSelection.w > 10 && (
+                                    <button onClick={handleCropConfirm} className="px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2"><Icons.Check className="w-4 h-4 text-white"/> 確認裁切</button>
+                                )}
+                                <button onClick={handleImageToPrompt} className="px-4 py-2 bg-pink-600 text-white rounded-lg font-bold hover:bg-pink-700 transition-colors flex items-center gap-2 border border-pink-400"><Icons.Palette className="w-4 h-4"/> 轉繪圖指令</button>
+                            </div>
+                            <div className="mt-3 text-slate-400 text-xs">拖曳滑鼠或手指以選取裁切範圍</div>
+                        </div>
+                    )}
+
+                    {/* --- VISUAL MODE MODAL (Restored) --- */}
+                    {showVisualMode && displayImage && (
+                        <div className="fixed inset-0 z-[55] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in">
+                            <div className="w-full max-w-4xl flex justify-between items-center mb-2 px-2">
+                                <h3 className="text-white font-bold flex items-center gap-2"><Icons.Image className="w-5 h-5"/> 視覺翻譯模式 (Visual Translation)</h3>
+                                <div className="flex gap-2">
+                                    <button onClick={handleSaveVisualImage} className="p-2 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 flex items-center gap-1"><Icons.Download className="w-3 h-3"/> 存圖</button>
+                                    <button onClick={() => setShowVisualMode(false)} className="p-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600"><Icons.X className="w-4 h-4"/></button>
+                                </div>
+                            </div>
+                            <div ref={visualContainerRef} className="relative max-w-full max-h-[80vh] overflow-hidden border border-slate-700 bg-black flex justify-center items-center">
+                                <img src={displayImage} className="max-w-full max-h-[80vh] object-contain opacity-80" alt="Visual base"/>
+                                <div 
+                                    className="absolute border-2 border-yellow-400/50 bg-black/50 backdrop-blur-sm rounded-lg p-4 cursor-move flex items-center justify-center text-center overflow-hidden hover:border-yellow-400 transition-colors"
+                                    style={{
+                                        left: `${visualBox.x}%`, top: `${visualBox.y}%`, 
+                                        width: visualBox.w, height: visualBox.h,
+                                        fontSize: `${visualFontSize}px`,
+                                        color: visualStyle.color,
+                                        transform: 'translate(-50%, -50%)' // Center anchor
+                                    }}
+                                    onMouseDown={handleVisualDragStart} onTouchStart={handleVisualDragStart}
+                                >
+                                    <div className="w-full h-full overflow-y-auto hide-scrollbar pointer-events-none select-none">
+                                        {translatedText || sourceText || "請先進行翻譯..."}
+                                    </div>
+                                    {/* Resize Handle */}
+                                    <div 
+                                        className="absolute bottom-0 right-0 w-6 h-6 bg-yellow-500/50 cursor-se-resize rounded-tl-lg hover:bg-yellow-500 z-10"
+                                        onMouseDown={handleVisualResizeStart} onTouchStart={handleVisualResizeStart}
+                                    />
+                                </div>
+                            </div>
+                             {/* Controls */}
+                            <div className="mt-4 flex gap-4 w-full max-w-md bg-slate-800/80 p-3 rounded-xl backdrop-blur">
+                                <div className="flex-1 space-y-1">
+                                    <label className="text-xs text-slate-400">字體大小</label>
+                                    <input type="range" min="10" max="60" value={visualFontSize} onChange={e=>setVisualFontSize(Number(e.target.value))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-yellow-500"/>
+                                </div>
+                                 <div className="flex-1 space-y-1">
+                                    <label className="text-xs text-slate-400">Box Width</label>
+                                    <input type="range" min="100" max="800" value={visualBox.w} onChange={e=>setVisualBox(p=>({...p, w:Number(e.target.value)}))} className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
+                                </div>
+                            </div>
+                             {/* Transparent Overlay for Global Drag/Resize Events */}
+                            {(visualDragging || visualResizing) && (
+                                <div className="fixed inset-0 z-[60] cursor-move" onMouseMove={handleVisualMove} onMouseUp={handleVisualEnd} onTouchMove={handleVisualMove} onTouchEnd={handleVisualEnd} />
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* --- FULLSCREEN TEXT MODAL (Also check if missing) --- */}
+                    {showBigText && (
+                         <div className="fixed inset-0 bg-white dark:bg-slate-950 z-[90] flex flex-col animate-in fade-in overflow-hidden">
+                            <div className="p-4 flex justify-between items-center border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+                                <div className="flex gap-4 items-center">
+                                     <button onClick={() => setShowBigText(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full"><Icons.ArrowLeft/></button>
+                                     <div className="flex flex-col">
+                                         <span className="font-bold dark:text-white">全螢幕閱讀</span>
+                                         <span className="text-xs text-slate-500">雙擊內容可快速截圖</span>
+                                     </div>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <input type="range" min="100" max="1200" step="50" value={fsWidth} onChange={e=>setFsWidth(Number(e.target.value))} className="w-32 hidden md:block accent-blue-500" title="寬度調整"/>
+                                    <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-2"/>
+                                    <button onClick={()=>setFsSize(s=>Math.max(12, s-2))} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-sm font-bold dark:text-white">A-</button>
+                                    <button onClick={()=>setFsSize(s=>Math.min(64, s+2))} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-sm font-bold dark:text-white">A+</button>
+                                    <button onClick={handleFullScreenDownload} className="ml-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-700 flex items-center gap-2"><Icons.Download className="w-4 h-4"/> 下載長圖</button>
+                                </div>
+                            </div>
+                            <div ref={fsContentRef} className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center bg-slate-50/50 dark:bg-black/20" onDoubleClick={handleFullScreenDownload}>
+                                <div ref={fsInnerRef} className="bg-white dark:bg-slate-900 p-8 md:p-12 shadow-2xl min-h-full transition-all duration-300" style={{width: `${fsWidth}px`, maxWidth: '100%'}}>
+                                     <SafeMarkdown content={translatedText || sourceText} fontSize={fsSize} />
+                                     <div className="mt-12 pt-6 border-t dark:border-slate-800 flex justify-between items-center text-slate-400 text-sm font-mono">
+                                         <span>Generated by Gemini AI Assistant</span>
+                                         <span>{new Date().toLocaleDateString()}</span>
+                                     </div>
+                                </div>
+                            </div>
+                         </div>
+                    )}
+
                     <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.4 (Studio)</div>
                 </div>
             );
