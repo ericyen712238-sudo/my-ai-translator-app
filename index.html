@@ -517,6 +517,43 @@
                 }
             };
 
+            const testApiKey = async () => {
+                if (!geminiKey) {
+                    showToast("請先輸入 API Key", "error");
+                    return;
+                }
+                const originalStatus = loadingStatus;
+                setIsLoading(true);
+                setLoadingStatus("正在驗證 API Key...");
+                
+                try {
+                    // Use a simple prompt to check validity
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "Ping" }] }] })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok) {
+                        let errorMsg = data.error?.message || "未知錯誤";
+                        if (res.status === 400) errorMsg = "無效的 API Key (400)";
+                        if (res.status === 403) errorMsg = "權限不足或 Key 已過期 (403)";
+                        if (res.status === 429) errorMsg = "額度已滿或請求過於頻繁 (429)";
+                        throw new Error(errorMsg);
+                    }
+                    
+                    showToast("API Key 驗證成功！功能正常", "success");
+                } catch (e) {
+                    showToast(`驗證失敗：${e.message}`, "error");
+                } finally {
+                    setIsLoading(false);
+                    setLoadingStatus(originalStatus);
+                }
+            };
+
             // Auto-sync triggers
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); pushToCloud('history', history); }, [history, pushToCloud]);
             useEffect(() => { localStorage.setItem('gemini_glossary', JSON.stringify(glossary)); pushToCloud('glossary', glossary); }, [glossary, pushToCloud]);
@@ -590,35 +627,53 @@
                         body: JSON.stringify(payload),
                         signal
                     };
+                    // Handle non-200 errors inside fetchWithRetry more gracefully
                     return await fetchWithRetry(url, options, retriesCount, 2000, (seconds) => {
                         setLoadingStatus(`系統忙碌 (429)... 倒數 ${seconds} 秒後重試`);
                     });
                 };
 
                 try {
-                    // Try preferred model with ONLY 1 retry to fail fast
-                    const res = await attemptRequest(preferredModel, 1);
-                    if (res.data && res.data.candidates && res.data.candidates.length > 0) {
-                        return res.data;
+                    // Try preferred model
+                    const resultWrapper = await attemptRequest(preferredModel, 1);
+                    const resData = resultWrapper.data;
+
+                    // Check for explicit API errors
+                    if (resData.error) {
+                        throw new Error(resData.error.message || "API Error");
+                    }
+
+                    if (resData && resData.candidates && resData.candidates.length > 0) {
+                        return resData;
                     }
                     
-                    // Fallback logic
-                    if(preferredModel !== FALLBACK_MODEL) {
-                        console.log("Primary model failed or empty, trying fallback...");
-                        setLoadingStatus("主要模型忙碌，切換至備援模型 (Flash 1.5)...");
-                        const fallbackRes = await attemptRequest(FALLBACK_MODEL, 3); // More retries for fallback
-                        return fallbackRes.data;
+                    // If we are here, it means no candidates but no hard error. Likely a filter.
+                    if (resData.promptFeedback) {
+                         console.warn("Safety Filter triggered:", resData.promptFeedback);
                     }
-                    return res.data;
+
+                    // Fallback logic moved here to catch empty candidates too
+                    if(preferredModel !== FALLBACK_MODEL) {
+                        console.log("Primary model returned no content, trying fallback...");
+                        setLoadingStatus("切換至穩定模型 (Flash 1.5)...");
+                        const fallbackWrapper = await attemptRequest(FALLBACK_MODEL, 2);
+                        if (fallbackWrapper.data.error) throw new Error(fallbackWrapper.data.error.message);
+                        return fallbackWrapper.data;
+                    }
+                    
+                    return resData;
                 } catch (e) {
                     if (e.message === 'Request cancelled') throw new Error("Request cancelled");
                     
+                    console.error("Gemini Request Failed:", e);
+
                     if(preferredModel !== FALLBACK_MODEL) {
-                         const errorType = e.message === "404_NOT_FOUND" ? "模型不支援" : "系統忙碌";
+                         // Only retry if it wasn't a cancellation
+                         const errorType = e.message.includes("404") ? "模型不存在" : "連線異常";
                          showToast(`${errorType}，自動切換至 Flash 1.5`, "error");
-                         setLoadingStatus("切換至備援模型...");
-                         const fbRes = await attemptRequest(FALLBACK_MODEL, 3);
-                         return fbRes.data;
+                         setLoadingStatus("啟動備援模型...");
+                         const fbWrapper = await attemptRequest(FALLBACK_MODEL, 2);
+                         return fbWrapper.data;
                     }
                     throw e;
                 }
@@ -818,10 +873,10 @@
                     if(!geminiKey) { setShowSettings(true); throw new Error("請輸入 API Key"); }
                     
                     const safetySettings = [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
                     ];
 
                     const payload = {
@@ -1052,10 +1107,10 @@
                     ctx += `User: ${newUserMsg.text}\nModel:`;
                     
                     const safetySettings = [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
                     ];
 
                     const payload = {
@@ -1731,7 +1786,17 @@
                                 <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
                                     {activeTab === 'general' && (
                                         <div className="space-y-4">
-                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Gemini API Key</label><input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-white" placeholder="AIzaSy..." /><div className="mt-1 text-xs text-slate-400">請至 Google AI Studio 申請 API Key</div></div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Gemini API Key</label>
+                                                <div className="flex gap-2">
+                                                    <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="flex-1 p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-white" placeholder="AIzaSy..." />
+                                                    <button onClick={testApiKey} disabled={isLoading} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold whitespace-nowrap disabled:opacity-50 flex items-center gap-1">
+                                                        {isLoading ? <Icons.RotateCw className="w-3 h-3 animate-spin"/> : <Icons.Check className="w-3 h-3"/>}
+                                                        驗證 Key
+                                                    </button>
+                                                </div>
+                                                <div className="mt-1 text-xs text-slate-400">請至 Google AI Studio 申請 API Key</div>
+                                            </div>
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">模型選擇 (Model)</label><select value={geminiModel} onChange={e => setGeminiModel(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">自訂指令 (System Instruction)</label><textarea value={customInstruction} onChange={e => setCustomInstruction(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm h-24 resize-none outline-none dark:text-white" placeholder="例如：你是一位專業的翻譯人員，請使用優雅的詞彙..." /></div>
                                             <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">字體大小 (結果區)</label><input type="range" min="12" max="32" value={globalFontSize} onChange={e => setGlobalFontSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{globalFontSize}px</div></div><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">創意程度 (Temperature)</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={e => setAiTemperature(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{aiTemperature}</div></div></div>
