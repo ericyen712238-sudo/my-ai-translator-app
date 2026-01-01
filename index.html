@@ -294,8 +294,8 @@
         };
 
         const GEMINI_MODELS = [
-            {id:'gemini-2.0-flash-exp',name:'Flash 2.0 (Stable)'},
             {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
+            {id:'gemini-2.0-flash-exp',name:'Flash 2.0 (Stable)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
             {id:'gemini-1.5-pro',name:'Pro 1.5'}
         ];
@@ -359,7 +359,7 @@
             const [bilingualMode, setBilingualMode] = useState(false);
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
-            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.0-flash-exp');
+            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.5-flash-preview-09-2025');
             const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
@@ -527,27 +527,38 @@
                 setLoadingStatus("正在驗證 API Key...");
                 
                 try {
-                    // Use a simple prompt to check validity
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+                    // Try to use the user's selected model first, fallback to flash 1.5
+                    const modelToTest = geminiModel || 'gemini-1.5-flash';
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTest}:generateContent?key=${geminiKey}`;
+                    
                     const res = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: "Ping" }] }] })
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "Hello" }] }] })
                     });
                     
                     const data = await res.json();
                     
                     if (!res.ok) {
-                        let errorMsg = data.error?.message || "未知錯誤";
-                        if (res.status === 400) errorMsg = "無效的 API Key (400)";
-                        if (res.status === 403) errorMsg = "權限不足或 Key 已過期 (403)";
-                        if (res.status === 429) errorMsg = "額度已滿或請求過於頻繁 (429)";
+                        console.error("API Error Data:", data);
+                        let errorMsg = data.error?.message || `HTTP Error: ${res.status}`;
+                        
+                        // User-friendly mapping
+                        if (res.status === 400) {
+                            if (errorMsg.includes("API key not valid")) errorMsg = "無效的 API Key (請檢查是否複製完整)";
+                            else errorMsg = `請求錯誤 (400): ${errorMsg}`;
+                        }
+                        else if (res.status === 403) errorMsg = "權限不足 (403): Key 可能有網域限制或已過期";
+                        else if (res.status === 429) errorMsg = "額度已滿 (429): 請稍候再試 (Google 免費版限制)";
+                        else if (res.status === 404) errorMsg = `模型不存在 (${modelToTest}): 請嘗試更換模型`;
+                        
                         throw new Error(errorMsg);
                     }
                     
-                    showToast("API Key 驗證成功！功能正常", "success");
+                    showToast("✅ 驗證成功！API Key 運作正常", "success");
                 } catch (e) {
-                    showToast(`驗證失敗：${e.message}`, "error");
+                    alert(`驗證失敗:\n${e.message}\n\n建議：\n1. 檢查 Key 是否有複製空白\n2. 若顯示 429 請休息幾分鐘\n3. 嘗試切換至 Flash 1.5 模型`);
+                    showToast("❌ 驗證失敗", "error");
                 } finally {
                     setIsLoading(false);
                     setLoadingStatus(originalStatus);
