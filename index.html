@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4.13 Clipboard Fix)</title>
+    <title>Gemini AI 文件助手 (Pro v4.14 UI Fix)</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -929,6 +929,7 @@
                     <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-sm border-b dark:border-slate-800 sticky top-0 z-20 h-14 flex items-center justify-between px-4">
                         <div className="flex items-center gap-2 font-bold text-lg text-slate-800 dark:text-white">
                             <Icons.Languages className="text-blue-600"/> Gemini 助手 
+                            <span className="text-xs font-normal text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Cloud className="w-3 h-3"/>Sync</span>
                             <div className={`w-2.5 h-2.5 rounded-full ${apiHealth==='success'?'bg-green-500':apiHealth==='loading'?'bg-yellow-400 animate-pulse':apiHealth==='error'?'bg-red-500':'bg-slate-300'}`} title={`API 狀態: ${apiHealth}`}></div>
                         </div>
                         <div className="flex gap-2">
@@ -942,7 +943,9 @@
                     <main className="max-w-6xl mx-auto px-4 py-6 gap-4 flex-1 flex flex-col w-full">
                           <div className="flex flex-col gap-3">
                             <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full md:w-fit">
-                                {['text','file','conversation'].map(m => <button key={m} onClick={()=>setMode(m)} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 capitalize ${mode===m?'bg-blue-50 text-blue-600':'text-slate-400'}`}>{m==='conversation'?'對話':m==='file'?'文件':'文字'}</button>)}
+                                <button onClick={()=>setMode('text')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.Type className="w-4 h-4"/>文字</button>
+                                <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
+                                <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
                             {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
                                 {TASKS.map(t => <button key={t.id} onClick={() => { setCurrentTask(t.id); setTranslatedText(''); setErrorMsg(''); }} className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>{t.icon}<span>{t.name}</span></button>)}
@@ -1174,7 +1177,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.13 Clipboard Fix</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.14 UI Fix</div>
                 </div>
             );
         }
