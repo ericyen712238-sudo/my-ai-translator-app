@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4.21)</title>
+    <title>Gemini AI 文件助手 (Pro v4.4 Studio)</title>
     
-    <!-- Favicon -->
+    <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
 
     <!-- Tailwind CSS -->
@@ -19,7 +19,6 @@
                         'slide-up': 'slideUp 0.3s ease-out forwards', 
                         'fade-out': 'fadeOut 0.3s ease-in forwards',
                         'pop-in': 'popIn 0.2s ease-out forwards',
-                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                         'slide-in-bottom': 'slideInBottom 0.3s ease-out forwards'
                     },
                     keyframes: {
@@ -33,12 +32,13 @@
         }
     </script>
     
-    <!-- KaTeX -->
+    <!-- KaTeX for Math Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
-    <!-- React & Libs -->
+    <!-- Fonts & Libs -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -53,12 +53,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs (Compat version for easier HTML usage) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <style>
-        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+        body { font-family: 'Zen Maru Gothic', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
@@ -70,16 +70,26 @@
         .crop-modal { touch-action: none; }
         input[type=range] { accent-color: #2563eb; }
 
-        /* Dark mode prose overrides */
+        /* Force dark mode overrides */
         .dark .prose { color: #e2e8f0 !important; }
         .dark .prose h1, .dark .prose h2, .dark .prose h3, .dark .prose h4, .dark .prose h5, .dark .prose h6 { color: #f1f5f9 !important; }
         .dark .prose strong { color: #fcd34d !important; background-color: rgba(255,255,255,0.1); padding: 0 4px; border-radius: 4px; }
         .dark .prose li { color: #e2e8f0 !important; }
+        .dark .prose ul > li::marker { color: #94a3b8 !important; }
+        .dark .prose ol > li::marker { color: #94a3b8 !important; }
         .dark .prose code { color: #fca5a5 !important; background-color: #1e293b !important; border: 1px solid #334155; }
         .dark .prose a { color: #60a5fa !important; }
         .dark .prose blockquote { color: #cbd5e1 !important; border-left-color: #60a5fa !important; background-color: #1e293b !important; }
         
+        /* Chat Input Styling */
         .chat-input { min-height: 40px; max-height: 120px; line-height: 1.5; }
+        
+        /* Dashed Border Animation */
+        .dashed-border {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='8' ry='8' stroke='%23333' stroke-width='2' stroke-dasharray='10%2c 10' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+        }
+        
+        /* Safe Area for Mobile */
         .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
@@ -88,8 +98,9 @@
     <script type="text/babel">
         const { useState, useRef, useEffect, useCallback } = React;
 
-        if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+        if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
 
+        // --- User's Pre-configured Firebase Settings (Locked) ---
         const DEFAULT_FIREBASE_CONFIG = {
           "apiKey": "AIzaSyAwbquRwB2p_2zXXHYo_Vzk_EDPYyOSeKY",
           "authDomain": "aitools-40017.firebaseapp.com",
@@ -103,6 +114,12 @@
         // --- Global Helper Functions ---
         const loadPdfWithPassword = (data) => {
             const loadingTask = window.pdfjsLib.getDocument({ data });
+            loadingTask.onPassword = (updatePassword, reason) => {
+                let msg = '此 PDF 受密碼保護，請輸入密碼：';
+                if (reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) msg = '密碼錯誤，請重新輸入：';
+                const password = prompt(msg);
+                if (password) updatePassword(password); else loadingTask.destroy();
+            };
             return loadingTask.promise;
         };
 
@@ -136,31 +153,47 @@
             return imgs;
         };
 
-        // Simple Fetch for rotation
-        const simpleFetch = async (url, options) => {
-            if (options.signal && options.signal.aborted) throw new Error("Request cancelled");
-            const res = await fetch(url, options);
-            if (!res.ok) {
-                if (res.status === 429) throw new Error("429_TOO_MANY_REQUESTS");
-                if (res.status === 403) throw new Error("403_FORBIDDEN"); 
-                if (res.status === 404) throw new Error("404_MODEL_NOT_FOUND");
-                if (res.status >= 500) throw new Error("SERVER_ERROR");
-                
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.error?.message || `HTTP Error: ${res.status}`);
-            }
-            return await res.json();
-        };
-
+        // Optimized fetchWithRetry handling cancellations and abort signals
         const fetchWithRetry = async (url, options, retries = 3, delay = 1000, onRetry) => {
             try {
-                return await simpleFetch(url, options);
+                if (options.signal && options.signal.aborted) throw new Error("Request cancelled");
+                
+                const res = await fetch(url, options);
+                
+                if (res.status === 429) {
+                    if (retries > 0) {
+                        if(onRetry) onRetry(delay / 1000);
+                        // Wait with abort check
+                        await new Promise((resolve, reject) => {
+                            const timer = setTimeout(resolve, delay);
+                            if (options.signal) {
+                                options.signal.addEventListener('abort', () => {
+                                    clearTimeout(timer);
+                                    reject(new Error("Request cancelled"));
+                                });
+                            }
+                        });
+                        // Exponential backoff capped at 8s
+                        return fetchWithRetry(url, options, retries - 1, Math.min(delay * 2, 8000), onRetry);
+                    }
+                    throw new Error("429_TOO_MANY_REQUESTS");
+                }
+                
+                return await res.json().then(data => ({ status: res.status, ok: res.ok, data }));
             } catch (e) {
                 if (e.message === "Request cancelled") throw e;
-                if ((e.message === "429_TOO_MANY_REQUESTS" || e.message === "SERVER_ERROR") && retries > 0) {
-                    if(onRetry) onRetry(delay / 1000, e.message);
-                    await new Promise(r => setTimeout(r, delay));
-                    return fetchWithRetry(url, options, retries - 1, delay * 2, onRetry);
+                if (retries > 0) {
+                    if(onRetry) onRetry(delay / 1000);
+                    await new Promise((resolve, reject) => {
+                        const timer = setTimeout(resolve, delay);
+                        if (options.signal) {
+                            options.signal.addEventListener('abort', () => {
+                                clearTimeout(timer);
+                                reject(new Error("Request cancelled"));
+                            });
+                        }
+                    });
+                    return fetchWithRetry(url, options, retries - 1, delay * 1.5, onRetry);
                 }
                 throw e;
             }
@@ -179,7 +212,7 @@
             }, [content]);
             useEffect(() => {
                 if(containerRef.current && typeof renderMathInElement === 'function') {
-                    try { renderMathInElement(containerRef.current, { delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}, {left: "\\(", right: "\\)", display: false}, {left: "\\[", right: "\\]", display: true}], throwOnError: false }); } catch(e) {}
+                    try { renderMathInElement(containerRef.current, { delimiters: [{left: "$$", right: "$$", display: true}, {left: "$", right: "$", display: false}, {left: "\\(", right: "\\)", display: false}, {left: "\\[", right: "\\]", display: true}], throwOnError: false }); } catch(e) { console.error("KaTeX render error", e); }
                 }
             }, [html]);
             const userClasses = "text-white [&_*]:text-white";
@@ -189,13 +222,23 @@
 
         const MermaidDiagram = ({code, darkMode}) => {
             const [svg, setSvg] = useState('');
+            const [err, setErr] = useState(null);
             useEffect(() => {
+                setSvg(''); setErr(null);
                 if(code && typeof mermaid !== 'undefined') {
                     const id = `mermaid-${Date.now()}`;
-                    mermaid.render(id, code).then(({svg}) => setSvg(svg)).catch(e => { console.error(e); setSvg(''); });
+                    const run = async () => {
+                        try {
+                            mermaid.initialize({startOnLoad:true, theme:darkMode?'dark':'default', securityLevel:'loose', fontFamily:'Zen Maru Gothic', darkMode});
+                            const {svg} = await mermaid.render(id, code);
+                            setSvg(svg);
+                        } catch(e) { console.error(e); setErr('無法繪製圖表'); const el=document.getElementById(id); if(el)el.remove(); }
+                    };
+                    setTimeout(run, 100);
                 }
             }, [code, darkMode]);
-            return svg ? <div className="w-full overflow-x-auto flex justify-center bg-white dark:bg-slate-800 p-4 rounded-lg" dangerouslySetInnerHTML={{__html:svg}}/> : null;
+            if(err) return <div className="text-red-500 text-sm p-4 bg-red-50 rounded">{err}<br/><span className="text-xs text-gray-500">Code: {code.substring(0,50)}...</span></div>;
+            return <div className="w-full overflow-x-auto flex justify-center bg-white dark:bg-slate-800 p-4 rounded-lg" dangerouslySetInnerHTML={{__html:svg}}/>;
         };
 
         const Icon = ({ children, className = "w-6 h-6" }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>;
@@ -228,36 +271,48 @@
             Scissors: () => <Icon><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></Icon>,
             MessageSquare: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></Icon>,
             Maximize: () => <Icon><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Icon>,
+            CPU: () => <Icon><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></Icon>,
             Image: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></Icon>,
             Code: () => <Icon><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></Icon>,
             Download: () => <Icon><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>,
+            MessageSquarePlus: () => <Icon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></Icon>,
             Book: () => <Icon><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></Icon>,
+            Columns: () => <Icon><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/></Icon>,
             Monitor: () => <Icon><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></Icon>,
+            FileDown: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></Icon>,
+            FileUp: () => <Icon><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v6"/><path d="m9 15 3-3 3 3"/></Icon>,
             Palette: () => <Icon><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></Icon>,
+            Scaling: () => <Icon><path d="M16 16l5 5"/><path d="M15 21h6v-6"/><path d="M21 9v-6h-6"/><path d="M21 3l-5 5"/><path d="M3 9v-6h6"/><path d="M3 3l5 5"/><path d="M9 21h-6v-6"/><path d="M3 21l5-5"/></Icon>,
             Moon: () => <Icon><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></Icon>,
             Sun: () => <Icon><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></Icon>,
             Brain: () => <Icon><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></Icon>,
+            ExternalLink: () => <Icon><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Icon>,
             Notebook: () => <Icon><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></Icon>,
             Send: () => <Icon><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>,
             Cloud: () => <Icon><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M19 19h.5c1.933 0 3.5-1.567 3.5-3.5S21.433 12 19.5 12c-.22 0-.435.02-.646.06A5.505 5.505 0 0 0 12 7a5.505 5.505 0 0 0-6.854 5.06c-.211-.04-.426-.06-.646-.06C2.567 12 1 13.567 1 15.5S2.567 19 4.5 19h.5"/></Icon>,
-            Wifi: () => <Icon><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></Icon>,
-            Key: () => <Icon><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></Icon>
+            Wifi: () => <Icon><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></Icon>
         };
 
-        // NEW: Updated Model List with Stable Fallbacks
         const GEMINI_MODELS = [
+            {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
             {id:'gemini-2.0-flash-exp',name:'Flash 2.0 (Stable)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
-            {id:'gemini-1.5-flash-002',name:'Flash 1.5-002'},
-            {id:'gemini-1.5-flash-8b',name:'Flash 1.5-8b'},
             {id:'gemini-1.5-pro',name:'Pro 1.5'}
         ];
         
         const LANGUAGES = [
-            {code:'auto',name:'自動'},{code:'zh-TW',name:'繁中'},{code:'en',name:'English'},
-            {code:'ja',name:'日本語'},{code:'ko',name:'韓語'},{code:'vi',name:'越南'},
-            {code:'th',name:'泰文'},{code:'nan',name:'台語'},{code:'yue',name:'粵語'},
-            {code:'fr',name:'法文'},{code:'de',name:'德文'},{code:'nl',name:'荷蘭文'}
+            {code:'auto',name:'自動'},
+            {code:'zh-TW',name:'繁中'},
+            {code:'en',name:'English'},
+            {code:'ja',name:'日本語'},
+            {code:'ko',name:'韓語'},
+            {code:'vi',name:'越南'},
+            {code:'th',name:'泰文'},
+            {code:'nan',name:'台語'},
+            {code:'yue',name:'粵語'},
+            {code:'fr',name:'法文'},
+            {code:'de',name:'德文'},
+            {code:'nl',name:'荷蘭文'}
         ];
         const TASKS = [
             {id:'notes',name:'筆記',icon:<Icons.Notebook/>,btnColor:'bg-teal-600'},
@@ -271,26 +326,13 @@
         ];
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
-        // Use a more stable fallback
-        const FALLBACK_MODEL = 'gemini-1.5-flash-8b';
+        // 更穩定的備援模型
+        const FALLBACK_MODEL = 'gemini-1.5-flash';
 
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
             return <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type==='success'?'bg-slate-800/90':'bg-red-500/90'}`}>{type==='success'?<Icons.Check className="w-4 h-4 text-green-400"/>:<Icons.AlertCircle className="w-4 h-4 text-white"/>}{message}</div>;
         };
-
-        const ConfirmModal = ({ message, onConfirm, onCancel }) => (
-            <div className="fixed inset-0 bg-black/60 z-[150] flex items-center justify-center p-4 animate-in fade-in" onClick={onCancel}>
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-pop-in border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
-                    <h3 className="text-lg font-bold mb-3 dark:text-white flex items-center gap-2"><Icons.AlertCircle className="text-red-500"/> 確認操作</h3>
-                    <p className="text-slate-600 dark:text-slate-300 mb-6">{message}</p>
-                    <div className="flex gap-3 justify-end">
-                        <button onClick={onCancel} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors">取消</button>
-                        <button onClick={onConfirm} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors">確認清除</button>
-                    </div>
-                </div>
-            </div>
-        );
 
         function App() {
             const [mode, setMode] = useState('text');
@@ -314,9 +356,10 @@
             const [globalFontSize, setGlobalFontSize] = useState(16);
             const [fsWidth, setFsWidth] = useState(1000); 
             const [aiTemperature, setAiTemperature] = useState(0.7);
+            const [bilingualMode, setBilingualMode] = useState(false);
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
-            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.0-flash-exp');
+            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.5-flash-preview-09-2025');
             const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
@@ -338,7 +381,7 @@
             const visualResizeStartRef = useRef(null);
             const fileInputRef = useRef(null);
             const cameraInputRef = useRef(null);
-            const chatFileInputRef = useRef(null);
+            const chatFileInputRef = useRef(null); // New ref for chat image upload
             const requestCounter = useRef(0);
             const chatEndRef = useRef(null);
             const [isListening, setIsListening] = useState(false);
@@ -359,25 +402,15 @@
             const recognitionRef = useRef(null);
             const abortControllerRef = useRef(null);
             
-            // --- NEW: API Health & Image Gen States ---
-            const [apiHealth, setApiHealth] = useState('idle'); // idle, loading, error, success
+            // --- NEW: IMAGE GEN STATE ---
             const [imageGenState, setImageGenState] = useState({ show: false, prompt: '' });
-            const [confirmModal, setConfirmModal] = useState({ show: false, message: '', onConfirm: null });
             
-            // --- MULTI-KEY SUPPORT ---
-            const currentKeyIndexRef = useRef(parseInt(localStorage.getItem('gemini_key_index') || '0'));
-
-            const getApiKeys = useCallback(() => {
-                if (!geminiKey) return [];
-                return geminiKey.split(/[\n,]+/).map(k => k.trim()).filter(k => k.length > 0);
-            }, [geminiKey]);
-
             // --- FIREBASE SYNC STATES ---
             const [firebaseConfigStr, setFirebaseConfigStr] = useState(localStorage.getItem('firebase_config_str') || JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2));
             const [syncId, setSyncId] = useState(localStorage.getItem('sync_id') || '');
             const [isSyncing, setIsSyncing] = useState(false);
             const [syncStatusMsg, setSyncStatusMsg] = useState('');
-            const [isCloudInitialized, setIsCloudInitialized] = useState(false);
+            const [isCloudInitialized, setIsCloudInitialized] = useState(false); // SAFETY LOCK
             const dbRef = useRef(null);
             const isRemoteUpdate = useRef(false);
 
@@ -386,9 +419,13 @@
                 if (firebaseConfigStr && syncId && typeof firebase !== 'undefined') {
                     try {
                         const config = JSON.parse(firebaseConfigStr);
-                        if (!firebase.apps.length) firebase.initializeApp(config);
+                        if (!firebase.apps.length) {
+                            firebase.initializeApp(config);
+                        }
                         const db = firebase.firestore();
                         dbRef.current = db;
+                        
+                        // Initial Fetch to prevent overwriting cloud data with empty local state
                         db.collection('gemini_sync_data').doc(syncId).get().then((doc) => {
                             if (doc.exists) {
                                 const data = doc.data();
@@ -396,13 +433,21 @@
                                 if (data.history) setHistory(data.history);
                                 if (data.glossary) setGlossary(data.glossary);
                                 if (data.customInstruction) setCustomInstruction(data.customInstruction);
-                                showToast("資料已從雲端載入", "success");
-                                setTimeout(() => { isRemoteUpdate.current = false; setIsCloudInitialized(true); }, 500);
-                            } else setIsCloudInitialized(true);
-                        }).catch(e => { console.error(e); setIsCloudInitialized(true); });
+                                showToast("資料已從雲端載入 (初始化)", "success");
+                                setTimeout(() => { isRemoteUpdate.current = false; setIsCloudInitialized(true); }, 500); // UNLOCK
+                            } else {
+                                setIsCloudInitialized(true); // New ID, safe to write
+                            }
+                        }).catch(e => {
+                            console.error("Init fetch failed", e);
+                            setIsCloudInitialized(true); // Fallback to allow local usage
+                        });
+
+                        // Real-time listener
                         const unsubscribe = db.collection('gemini_sync_data').doc(syncId).onSnapshot((doc) => {
-                            setIsSyncing(true); setSyncStatusMsg('已連線');
-                            if (doc.exists && isCloudInitialized) {
+                            setIsSyncing(true);
+                            setSyncStatusMsg('已連線');
+                            if (doc.exists && isCloudInitialized) { // Only process updates if initialized
                                 const data = doc.data();
                                 isRemoteUpdate.current = true;
                                 if (data.history) setHistory(data.history);
@@ -410,103 +455,152 @@
                                 if (data.customInstruction) setCustomInstruction(data.customInstruction);
                                 setTimeout(() => { isRemoteUpdate.current = false; }, 1000);
                             }
-                        }, (e) => { setIsSyncing(false); setSyncStatusMsg(e.code==='permission-denied'?'權限不足':'連線失敗'); });
+                        }, (error) => {
+                            console.error("Sync Error:", error);
+                            setIsSyncing(false);
+                            if (error.code === 'permission-denied') {
+                                setSyncStatusMsg('權限不足：請檢查 Firebase Rules');
+                            } else if (error.code === 'unavailable') {
+                                setSyncStatusMsg('無法連線：請檢查網路或 Firestore 狀態');
+                            } else {
+                                setSyncStatusMsg('連線失敗：請檢查 Config 或 ID');
+                            }
+                        });
+
                         return () => unsubscribe();
-                    } catch (e) { setIsSyncing(false); setSyncStatusMsg('JSON 格式錯誤'); }
+                    } catch (e) {
+                        console.error("Firebase Init Error", e);
+                        setIsSyncing(false);
+                        setSyncStatusMsg('設定錯誤：JSON 格式不正確');
+                    }
                 }
             }, [firebaseConfigStr, syncId]);
 
             const pushToCloud = useCallback((type, data) => {
                 if (dbRef.current && syncId && !isRemoteUpdate.current && isCloudInitialized) {
-                    dbRef.current.collection('gemini_sync_data').doc(syncId).set({ [type]: data, lastUpdated: new Date().toISOString() }, { merge: true }).catch(err => console.error(err));
+                    dbRef.current.collection('gemini_sync_data').doc(syncId).set({
+                        [type]: data,
+                        lastUpdated: new Date().toISOString()
+                    }, { merge: true }).catch(err => {
+                        console.error("Upload failed", err);
+                        if (err.code === 'permission-denied') {
+                            showToast("同步失敗：資料庫權限不足", "error");
+                        }
+                    });
                 }
             }, [syncId, isCloudInitialized]);
             
             const testConnection = async () => {
-                if (!dbRef.current || !syncId) { showToast("請輸入 Config 和 ID", "error"); return; }
+                if (!dbRef.current || !syncId) {
+                    showToast("請先輸入完整的 Firebase Config 和 Sync ID", "error");
+                    return;
+                }
                 setIsLoading(true);
                 try {
-                    await dbRef.current.collection('gemini_sync_data').doc(syncId).set({ lastTest: new Date().toISOString() }, { merge: true });
-                    showToast("測試成功", "success"); setSyncStatusMsg("連線正常");
-                } catch (e) { showToast("測試失敗: " + e.message, "error"); setSyncStatusMsg("連線錯誤"); } finally { setIsLoading(false); }
-            };
-
-            const testApiKey = async () => {
-                const keys = getApiKeys();
-                if (keys.length === 0) { showToast("請先輸入 API Key", "error"); return; }
-                
-                const originalStatus = loadingStatus;
-                setIsLoading(true); 
-                
-                let validCount = 0;
-                let tested = 0;
-                let lastError = "";
-
-                // Use user selected model for test
-                const modelToTest = geminiModel || 'gemini-2.0-flash-exp';
-
-                for (let i = 0; i < keys.length; i++) {
-                    const key = keys[i];
-                    setLoadingStatus(`正在驗證 Key ${i+1}/${keys.length}...`);
-                    try {
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTest}:generateContent?key=${key}`;
-                        const res = await fetch(url, { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] }) 
-                        });
-                        
-                        if (res.ok) {
-                            validCount++;
-                        } else {
-                            const errData = await res.json().catch(()=>({}));
-                            lastError = errData.error?.message || res.statusText;
-                            console.error(`Key ${i+1} failed:`, lastError);
-                        }
-                    } catch(e) {
-                        lastError = e.message;
-                        console.error(`Key ${i+1} error:`, e);
-                    }
-                    tested++;
-                }
-                
-                setIsLoading(false); 
-                setLoadingStatus(originalStatus);
-                
-                if (validCount > 0) {
-                    showToast(`✅ 驗證完成：${validCount}/${keys.length} 組 Key 有效`, "success");
-                    setApiHealth('success');
-                } else {
-                    showToast(`❌ 全部 Key 無效。錯誤: ${lastError}`, "error");
-                    setApiHealth('error');
+                    await dbRef.current.collection('gemini_sync_data').doc(syncId).set({
+                        lastTest: new Date().toISOString()
+                    }, { merge: true });
+                    showToast("測試成功！寫入權限正常", "success");
+                    setSyncStatusMsg("連線正常，可同步");
+                } catch (error) {
+                    console.error("Test Connection Failed:", error);
+                    let msg = "測試失敗";
+                    if (error.code === 'permission-denied') msg = "權限不足 (Permission Denied) - 請檢查 Firestore Rules";
+                    else if (error.code === 'unavailable') msg = "服務無法使用 - 請確認是否已建立 Firestore 資料庫";
+                    else if (error.code === 'invalid-argument') msg = "參數錯誤 - 請檢查 Config 格式";
+                    else msg = `連線錯誤: ${error.message}`;
+                    
+                    showToast(msg, "error");
+                    setSyncStatusMsg(msg);
+                } finally {
+                    setIsLoading(false);
                 }
             };
 
+// --- 修改區塊開始：testApiKey ---
+const testApiKey = async () => {
+    // 解析所有 Keys
+    const allKeys = geminiKey.split(/[\n,]+/).map(k => k.trim()).filter(k => k);
+
+    if (allKeys.length === 0) {
+        showToast("請先輸入 API Key", "error");
+        return;
+    }
+
+    const originalStatus = loadingStatus;
+    setIsLoading(true);
+    setLoadingStatus(`正在驗證 ${allKeys.length} 組 API Key...`);
+
+    try {
+        const modelToTest = geminiModel || 'gemini-1.5-flash';
+        
+        // 只測試第一組，或者你可以寫迴圈測試全部
+        // 這裡示範測試第一組即可，因為 runGeminiRequest 會自動輪詢
+        const keyToTest = allKeys[0]; 
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTest}:generateContent?key=${keyToTest}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: "Hello" }] }] })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            let errorMsg = data.error?.message || `HTTP Error: ${res.status}`;
+            if (res.status === 400) errorMsg = "無效的 Key";
+            else if (res.status === 429) errorMsg = "第一組 Key 額度已滿 (但系統會嘗試其他組)";
+            throw new Error(errorMsg);
+        }
+
+        showToast(`✅ 驗證成功！已載入 ${allKeys.length} 組 Key`, "success");
+
+    } catch (e) {
+        showToast("❌ 驗證失敗: " + e.message, "error");
+    } finally {
+        setIsLoading(false);
+        setLoadingStatus(originalStatus);
+    }
+};
+// --- 修改區塊結束 ---
+
+            // Auto-sync triggers
             useEffect(() => { localStorage.setItem('translate_history', JSON.stringify(history)); pushToCloud('history', history); }, [history, pushToCloud]);
             useEffect(() => { localStorage.setItem('gemini_glossary', JSON.stringify(glossary)); pushToCloud('glossary', glossary); }, [glossary, pushToCloud]);
             useEffect(() => { localStorage.setItem('gemini_custom_instruction', customInstruction); pushToCloud('customInstruction', customInstruction); }, [customInstruction, pushToCloud]);
+
+            // Normal LocalStorage effects
             useEffect(() => { if(darkMode){document.documentElement.classList.add('dark');localStorage.setItem('gemini_dark_mode','true');}else{document.documentElement.classList.remove('dark');localStorage.setItem('gemini_dark_mode','false');} }, [darkMode]);
             useEffect(() => { localStorage.setItem('gemini_api_key', geminiKey); }, [geminiKey]);
             useEffect(() => { localStorage.setItem('gemini_model', geminiModel); }, [geminiModel]);
             useEffect(() => { localStorage.setItem('firebase_config_str', firebaseConfigStr); }, [firebaseConfigStr]);
             useEffect(() => { localStorage.setItem('sync_id', syncId); }, [syncId]);
-            useEffect(() => { const getVoices = () => { const v = window.speechSynthesis.getVoices(); setAvailableVoices(v); }; getVoices(); window.speechSynthesis.onvoiceschanged = getVoices; }, []);
+            useEffect(() => { 
+                const getVoices = () => { const v = window.speechSynthesis.getVoices(); setAvailableVoices(v); }; 
+                getVoices(); window.speechSynthesis.onvoiceschanged = getVoices; 
+            }, []);
             useEffect(() => { chatEndRef.current?.scrollIntoView({behavior:'smooth'}); }, [chatMessages, imageGenState.show]);
 
+            // --- Helper Functions ---
             const addToHistory = (src, res, s, t) => setHistory(prev => [{ id: Date.now(), src, res, s, t, timestamp: new Date().toLocaleString() }, ...prev].slice(0, 50));
-            const triggerConfirm = (message, onConfirm) => setConfirmModal({ show: true, message, onConfirm });
-            const clearHistory = () => triggerConfirm("確定要清除所有歷史紀錄嗎？", () => { setHistory([]); setConfirmModal({ show: false, message: '', onConfirm: null }); });
+            const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) { setHistory([]); } };
             const addGlossaryTerm = () => { if(newGlossaryTerm && newGlossaryTrans) { setGlossary([...glossary, { term: newGlossaryTerm, trans: newGlossaryTrans }]); setNewGlossaryTerm(''); setNewGlossaryTrans(''); } };
             const removeGlossaryTerm = (index) => { const newG = [...glossary]; newG.splice(index, 1); setGlossary(newG); };
+            
             const showToast = (msg, type = 'success') => { setToast({ message: msg, type }); };
-            
-            // --- Helper Handlers ---
-            
+
             const resetApp = () => {
-                setSourceText(''); setTranslatedText(''); setErrorMsg('');
-                setCropImageSrc(null); setDisplayImage(null); setCropSelection(null);
-                setShowCropModal(false); setShowVisualMode(false);
-                setChatMessages([]); setLoadingStatus('');
+                setSourceText('');
+                setTranslatedText('');
+                setErrorMsg('');
+                setCropImageSrc(null);
+                setDisplayImage(null);
+                setCropSelection(null);
+                setShowCropModal(false);
+                setShowVisualMode(false);
+                setChatMessages([]);
+                setLoadingStatus('');
                 setImageGenState({ show: false, prompt: '' });
                 if (fileInputRef.current) fileInputRef.current.value = '';
                 if (cameraInputRef.current) cameraInputRef.current.value = '';
@@ -514,165 +608,296 @@
             };
 
             const handleClearAll = () => {
-                triggerConfirm("確定要清除所有內容（原文、結果、對話）嗎？", () => {
-                    resetApp(); setFileName(null); showToast("已清除所有內容", "success");
-                    setConfirmModal({ show: false, message: '', onConfirm: null });
-                });
-            };
-
-            const handleCancelRequest = () => {
-                if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null; }
-                setIsLoading(false); setLoadingStatus(''); showToast("已取消請求", "success"); setApiHealth('idle');
-            };
-
-            // --- CORE LOGIC: Multi-Key Rotation & Model Fallback ---
-            const runGeminiRequest = async (payload, preferredModel) => {
-                if (abortControllerRef.current) abortControllerRef.current.abort();
-                abortControllerRef.current = new AbortController();
-                const signal = abortControllerRef.current.signal;
-                setApiHealth('loading');
-
-                const keys = getApiKeys();
-                if (keys.length === 0) throw new Error("請先設定 API Key");
-
-                const executeWithRotation = async (modelId) => {
-                    let attempts = 0; let lastError = null;
-                    while (attempts < keys.length) {
-                        const currentIdx = (currentKeyIndexRef.current + attempts) % keys.length;
-                        const activeKey = keys[currentIdx];
-                        try {
-                            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${activeKey}`;
-                            const options = { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload), signal };
-                            const result = await simpleFetch(url, options);
-                            if (currentIdx !== currentKeyIndexRef.current) {
-                                currentKeyIndexRef.current = currentIdx;
-                                localStorage.setItem('gemini_key_index', currentIdx.toString());
-                                console.log(`Switched to API Key #${currentIdx + 1}`);
-                            }
-                            return result;
-                        } catch (e) {
-                            if (e.message === "Request cancelled") throw e;
-                            
-                            // Check error types for rotation
-                            const isRotatable = e.message === "429_TOO_MANY_REQUESTS" || e.message === "403_FORBIDDEN" || e.message === "SERVER_ERROR" || e.message.includes("400"); // 400 might mean invalid key
-                            
-                            // 404 means MODEL not found, don't rotate key, break to try fallback model
-                            if (e.message.includes("404")) {
-                                throw new Error("404_MODEL_NOT_FOUND");
-                            }
-
-                            if (isRotatable) {
-                                console.warn(`Key #${currentIdx + 1} failed (${e.message}). Rotating...`);
-                                attempts++;
-                                if (attempts < keys.length) {
-                                    setLoadingStatus(`Key ${currentIdx+1} 忙碌，切換至 Key ${(currentKeyIndexRef.current + attempts) % keys.length + 1}...`);
-                                    await new Promise(r => setTimeout(r, 200)); 
-                                    continue; 
-                                }
-                            }
-                            lastError = e; break; 
-                        }
-                    }
-                    throw lastError || new Error("All keys failed");
-                };
-
-                try {
-                    const resultWrapper = await executeWithRotation(preferredModel);
-                    if (resultWrapper.candidates && resultWrapper.candidates.length > 0) {
-                        setApiHealth('success');
-                        return resultWrapper;
-                    }
-                    throw new Error("無回應 (內容可能被過濾)");
-
-                } catch (e) {
-                    // Smart Model Fallback
-                    const isModelError = e.message.includes("404") || e.message.includes("not found") || e.message.includes("not supported");
-                    
-                    if ((isModelError || preferredModel !== FALLBACK_MODEL) && e.message !== "Request cancelled") {
-                        const fallback = FALLBACK_MODEL;
-                        console.log(`Primary model ${preferredModel} failed, switching to ${fallback}...`);
-                        setLoadingStatus(`模型 ${preferredModel} 異常，切換至 ${fallback}...`);
-                        
-                        try {
-                            const fbResult = await executeWithRotation(fallback);
-                            setApiHealth('success');
-                            return fbResult;
-                        } catch (fbError) {
-                            setApiHealth('error');
-                            throw fbError;
-                        }
-                    }
-                    setApiHealth('error');
-                    throw e;
+                if(confirm("確定要清除所有內容（原文、結果、對話）嗎？")) {
+                    resetApp();
+                    setFileName(null);
+                    showToast("已清除所有內容", "success");
                 }
             };
             
+            const handleCancelRequest = () => {
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                    abortControllerRef.current = null;
+                }
+                setIsLoading(false);
+                setLoadingStatus('');
+                showToast("已取消請求", "success");
+            };
+
+          // --- 修改區塊開始：runGeminiRequest ---
+const runGeminiRequest = async (payload, preferredModel) => {
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    // 1. 解析所有 Keys (支援換行或逗號分隔)
+    const allKeys = geminiKey.split(/[\n,]+/).map(k => k.trim()).filter(k => k);
+
+    if (allKeys.length === 0) throw new Error("請先輸入 API Key");
+
+    // 內部請求函式 (單次嘗試)
+    const executeFetch = async (modelId, key) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${key}`;
+        const options = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal
+        };
+        const res = await fetch(url, options);
+        // 如果是 429 (額度滿)，拋出特定錯誤以便外層捕捉換 Key
+        if (res.status === 429) throw new Error("429_QUOTA");
+        return await res.json().then(data => ({ status: res.status, ok: res.ok, data }));
+    };
+
+    // 嘗試所有 Keys 的迴圈邏輯
+    const attemptWithKeyRotation = async (modelId) => {
+        let lastError = null;
+
+        for (let i = 0; i < allKeys.length; i++) {
+            const currentKey = allKeys[i];
+            try {
+                // 如果不是第一組 Key，顯示切換狀態
+                if (i > 0) setLoadingStatus(`Key #${i} 額度已滿，切換至 Key #${i + 1}...`);
+                
+                return await executeFetch(modelId, currentKey);
+            } catch (e) {
+                if (e.message === "Request cancelled") throw e;
+                if (e.message === "429_QUOTA") {
+                    console.warn(`Key ending in ...${currentKey.slice(-4)} exhausted.`);
+                    lastError = e;
+                    continue; // 嘗試下一組 Key
+                }
+                throw e; // 其他錯誤 (如 400, 500) 直接拋出
+            }
+        }
+        // 如果所有 Keys 都跑完還是 429
+        throw new Error("429_TOO_MANY_REQUESTS"); 
+    };
+
+    try {
+        // 優先嘗試選定的模型
+        let resultWrapper = await attemptWithKeyRotation(preferredModel);
+        let resData = resultWrapper.data;
+
+        // 檢查是否有 API 錯誤
+        if (resData.error) throw new Error(resData.error.message || "API Error");
+
+        // 如果成功且有內容
+        if (resData && resData.candidates && resData.candidates.length > 0) {
+            return resData;
+        }
+
+        // 如果是 PromptFeedback 被擋
+        if (resData.promptFeedback) console.warn("Safety Filter triggered:", resData.promptFeedback);
+
+        // 如果主要模型失敗且不是 Flash 1.5，嘗試備援模型 (Fallback)
+        if (preferredModel !== FALLBACK_MODEL) {
+            console.log("Primary model empty/failed, trying fallback...");
+            setLoadingStatus(`切換至穩定模型 (${FALLBACK_MODEL})...`);
+            resultWrapper = await attemptWithKeyRotation(FALLBACK_MODEL);
+            if (resultWrapper.data.error) throw new Error(resultWrapper.data.error.message);
+            return resultWrapper.data;
+        }
+
+        return resData;
+
+    } catch (e) {
+        if (e.message === 'Request cancelled') throw new Error("Request cancelled");
+
+        console.error("Gemini Request Failed:", e);
+
+        // 如果所有 Key 都滿了，或是其他錯誤，且還沒試過備援模型
+        if (preferredModel !== FALLBACK_MODEL) {
+            const errorType = e.message.includes("404") ? "模型不存在" : "連線異常或額度全滿";
+            showToast(`${errorType}，嘗試備援模型`, "error");
+            setLoadingStatus("啟動備援模型...");
+            try {
+                const fbWrapper = await attemptWithKeyRotation(FALLBACK_MODEL);
+                return fbWrapper.data;
+            } catch (fbError) {
+                throw fbError; // 備援也失敗，徹底失敗
+            }
+        }
+        throw e;
+    }
+};
+// --- 修改區塊結束 ---
+            
             const handleSmartAction = async (actionType) => {
-                if(chatMessages.length === 0 && actionType !== 'image_prompt') { showToast("請先進行對話", "error"); return; }
+                if(chatMessages.length === 0 && actionType !== 'image_prompt') {
+                    showToast("請先進行對話再使用此功能", "error");
+                    return;
+                }
+                
                 setIsLoading(true);
+                const currentRequestId = ++requestCounter.current;
+                
                 let historyStr = '';
-                const recentMessages = chatMessages.slice(-10); 
-                recentMessages.forEach(m => { historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`; });
+                chatMessages.forEach(m => {
+                    historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`;
+                });
 
                 if (actionType === 'summary') {
-                    setLoadingStatus('整理對話重點...');
-                    const prompt = `Summarize in Traditional Chinese bullet points:\n${historyStr}`;
+                    setLoadingStatus('正在整理對話重點...');
+                    const prompt = `Based on the following conversation history, please provide a concise summary in Traditional Chinese bullet points. Highlight key takeaways and action items if any.\n\nConversation:\n${historyStr}`;
+                    
                     try {
-                         const res = await runGeminiRequest({ contents:[{parts:[{text:prompt}]}] }, geminiModel);
+                         const payload = { contents:[{parts:[{text:prompt}]}] };
+                         const res = await runGeminiRequest(payload, geminiModel);
                          const summary = res.candidates?.[0]?.content?.parts?.[0]?.text;
-                         if(summary) setChatMessages(prev => [...prev, {role:'model', text: `### 📝 重點整理\n\n${summary}`}]);
-                    } catch(e) { if (e.message !== "Request cancelled") showToast("整理失敗: " + e.message, "error"); }
-                } else if (actionType === 'image_prompt') {
-                    setLoadingStatus('構思繪圖指令...');
-                    let context = historyStr || `Source Text: ${sourceText}`;
-                    if (!context) context = "Creative scene";
-                    const prompt = `Create a detailed English image generation prompt based on this context. Output ONLY prompt.\nContext:\n${context}`;
+                         
+                         if(summary) {
+                             setChatMessages(prev => [...prev, {role:'model', text: `### 📝 對話重點整理\n\n${summary}`}]);
+                         }
+                    } catch(e) {
+                        if (e.message !== "Request cancelled") showToast("整理失敗: " + e.message, "error");
+                    }
+                } 
+                else if (actionType === 'image_prompt') {
+                    setLoadingStatus('正在構思繪圖指令...');
+                    // If no history, assume user wants to start fresh
+                    let context = historyStr;
+                    if (!context && sourceText) context = `Source Text: ${sourceText}`;
+                    if (!context) context = "A creative and artistic scene.";
+
+                    const prompt = `Based on the visual concepts discussed in this conversation (or the source text provided), create a detailed image generation prompt (in English, as it works best for image models). The prompt should be descriptive, artistic, and suitable for a high-quality image generator. Output ONLY the prompt text, no intro/outro.\n\nContext:\n${context}`;
+                    
                     try {
-                         const res = await runGeminiRequest({ contents:[{parts:[{text:prompt}]}] }, geminiModel);
+                         const payload = { contents:[{parts:[{text:prompt}]}] };
+                         const res = await runGeminiRequest(payload, geminiModel);
                          const promptText = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                         if(promptText) setImageGenState({ show: true, prompt: promptText });
-                    } catch(e) { if (e.message !== "Request cancelled") showToast("失敗: " + e.message, "error"); }
+                         
+                         if(promptText) {
+                             setImageGenState({ show: true, prompt: promptText });
+                             // Don't auto-send message, just open panel
+                         }
+                    } catch(e) {
+                        if (e.message !== "Request cancelled") showToast("產生指令失敗: " + e.message, "error");
+                    }
                 }
+                
                 setIsLoading(false);
             };
             
+            // --- NEW: Handle Image Upload in Chat for Style Analysis ---
+            const handleChatImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                
+                if(!geminiKey) {
+                    showToast("請先在設定中輸入 API Key 才能使用圖片分析功能", "error");
+                    return;
+                }
+
+                setIsLoading(true);
+                setLoadingStatus("正在分析圖片風格...");
+                
+                try {
+                    const b64 = await compressImage(file);
+                    
+                    let prompt = "";
+                    let successTitle = "";
+                    
+                    // Check if there is text in the input box to combine
+                    if (chatInput.trim()) {
+                        prompt = `Analyze the artistic style of the provided image. Then, create a detailed image generation prompt in English that depicts the following subject: "${chatInput}". The image must be generated strictly in the analyzed style (colors, brushstrokes, lighting, mood) of the provided image. Output ONLY the prompt text.`;
+                        successTitle = "🎨 風格+內容整合完成";
+                    } else {
+                        // Original Style Analysis
+                        prompt = `Analyze the artistic style, color palette, lighting, and composition of this image. Create a detailed image generation prompt in English that would allow an AI to generate a NEW image with this exact same style and aesthetic. Output ONLY the prompt text.`;
+                        successTitle = "🎨 風格分析完成";
+                    }
+                    
+                    const payload = {contents:[{parts:[{text: prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
+                    const res = await runGeminiRequest(payload, geminiModel);
+                    const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    
+                    const successBody = chatInput.trim() 
+                        ? `已將您的描述「${chatInput}」與圖片風格結合。`
+                        : `已根據您上傳的圖片提取風格提示詞。`;
+
+                    setChatMessages(prev => [...prev, {
+                        role: 'model', 
+                        text: `### ${successTitle}\n\n${successBody} 您可以在下方「繪圖工坊」查看或修改，並生成新圖片。`
+                    }]);
+
+                    if (newPrompt) {
+                        setImageGenState({ show: true, prompt: newPrompt });
+                    }
+                } catch(e) {
+                    if (e.message !== "Request cancelled") showToast("分析圖片失敗: " + e.message, "error");
+                } finally {
+                    setIsLoading(false);
+                    setLoadingStatus('');
+                    if(chatFileInputRef.current) chatFileInputRef.current.value = '';
+                }
+            };
+
             const handleResultToImageGen = async () => {
-                if (!translatedText) { showToast("沒有內容可供繪圖", "error"); return; }
-                setIsLoading(true); setLoadingStatus("正在將內容轉換為繪圖提示詞...");
+                if (!translatedText) {
+                    showToast("沒有內容可供繪圖", "error");
+                    return;
+                }
+                setIsLoading(true);
+                setLoadingStatus("正在將內容轉換為繪圖提示詞...");
                 try {
                     const prompt = `Based on the following text, create a detailed, artistic image generation prompt in English. Output ONLY the prompt text.\n\nText:\n${translatedText.substring(0, 2000)}`;
                     const payload = { contents:[{parts:[{text:prompt}]}] };
                     const res = await runGeminiRequest(payload, geminiModel);
                     const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    
                     setMode('conversation');
+                    // Add a context message to chat
                     setChatMessages(prev => [...prev, {role:'model', text: `### 🎨 聯想繪圖模式\n\n已根據您的內容產生初步提示詞，請在下方「繪圖工坊」面板進行確認或修改。`}]);
-                    if (newPrompt) setImageGenState({ show: true, prompt: newPrompt }); else setImageGenState({ show: true, prompt: translatedText }); 
+                    
+                    if (newPrompt) {
+                        setImageGenState({ show: true, prompt: newPrompt });
+                    } else {
+                        setImageGenState({ show: true, prompt: translatedText }); 
+                    }
                 } catch(e) {
                     if (e.message !== "Request cancelled") showToast("轉換失敗: " + e.message, "error");
-                    setMode('conversation'); setImageGenState({ show: true, prompt: translatedText });
-                } finally { setIsLoading(false); }
+                    setMode('conversation');
+                    setImageGenState({ show: true, prompt: translatedText });
+                } finally {
+                    setIsLoading(false);
+                }
             };
 
             const callAI = async (promptType, textOverride = null) => {
                 const textToUse = textOverride !== null ? textOverride : sourceText;
                 if (!textToUse.trim()) return;
-                setIsLoading(true); setErrorMsg('');
+                
+                const currentRequestId = ++requestCounter.current;
+                setIsLoading(true);
+                setErrorMsg('');
                 if (!isRealTime && textOverride === null) setTranslatedText('');
 
+                // Image Generation Branch - NOW REDIRECTS TO CHAT PANEL
                 if (promptType === 'image-gen') {
-                    setIsLoading(false); setMode('conversation');
-                    setImageGenState({ show: true, prompt: textToUse || '' });
+                    setIsLoading(false);
+                    // Switch to chat mode
+                    setMode('conversation');
+                    // If there is source text, use it as initial prompt
+                    if (textToUse) {
+                        setImageGenState({ show: true, prompt: textToUse });
+                    } else {
+                        // Just open empty panel
+                        setImageGenState({ show: true, prompt: '' });
+                    }
                     return;
                 }
                 
+                // Text Generation Branch
                 const tName = LANGUAGES.find(l=>l.code===targetLang)?.name || targetLang;
                 const toneInfo = TONES.find(t => t.id === selectedTone)?.name || 'Standard';
+                
                 const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                let sys = `Current DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
                 
-                let sys = `DateTime: ${now}. Task: ${promptType}. Target: ${tName}. Tone: ${toneInfo}. Input: ${textToUse}.`;
-                
-                // RESTORED FULL TRANSLATION LOGIC
-                if (promptType === 'translate') {
+                if(promptType==='translate') {
                     if (targetLang === 'nan') {
                         sys = `Current DateTime: ${now}. Translate the following text to Taiwanese Hokkien (台語). You may use Traditional Chinese characters (漢字) or Pe̍h-ōe-jī (POJ) mixed as appropriate for natural Taiwanese reading. Source: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown. Text:\n${textToUse}`;
                     } else if (targetLang === 'yue') {
@@ -681,70 +906,152 @@
                         sys = `Current DateTime: ${now}. Translate the following text to ${tName}. Source language: Auto. Tone: ${toneInfo}. Output ONLY the translated result in Markdown format. Text to translate:\n${textToUse}`;
                     }
                 } else if(promptType==='mindmap') {
-                    sys = `Generate Mermaid JS mindmap code. No intro/outro. Use ${tName}. Text:\n${textToUse}`;
+                    sys = `Current DateTime: ${now}. Generate a Mind Map for the following text using Mermaid JS syntax (mindmap). Output ONLY the code block starting with \`\`\`mermaid. Do NOT include intro/outro. Use ${tName} for node labels. Text to analyze:\n${textToUse}`;
                 } else if (promptType === 'vision') {
                     sys = `Current DateTime: ${now}. The user has provided a description of an image. Please organize this description into a clear, readable Markdown format. Input:\n${textToUse}`;
                 }
                 
                 if(glossary.length>0) sys += `\nGlossary:${JSON.stringify(glossary)}`;
-                if(customInstruction) sys += `\nInstruction:${customInstruction}`;
+                if(customInstruction) sys += `\nSystem Instruction:${customInstruction}`;
 
                 try {
+                    let out = "";
+                    if(!geminiKey) { setShowSettings(true); throw new Error("請輸入 API Key"); }
+                    
+                    const safetySettings = [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ];
+
                     const payload = {
                         contents:[{parts:[{text:sys}]}], 
                         generationConfig:{temperature:aiTemperature},
-                        safetySettings: [{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }]
+                        safetySettings: safetySettings
                     };
+
                     const res = await runGeminiRequest(payload, geminiModel);
-                    const candidate = res.candidates?.[0];
                     
-                    let out = candidate.content?.parts?.[0]?.text || "Error: Empty content";
-                    if(promptType==='mindmap') {
-                        out = out.replace(/```mermaid|```/g, '').trim();
-                        if (!out.startsWith('mindmap')) out = 'mindmap\n' + out;
+                    // Safety check
+                    if (res.promptFeedback && res.promptFeedback.blockReason) {
+                         throw new Error(`⚠️ 內容被安全系統阻擋 (${res.promptFeedback.blockReason})`);
                     }
-                    setTranslatedText(out);
-                    if(!out.startsWith('Error')) addToHistory(textToUse, out, sourceLang, targetLang);
+
+                    const candidate = res.candidates?.[0];
+                    if (!candidate) {
+                       console.error("AI Response Error:", res);
+                       throw new Error("No response candidates from AI. (可能原因: 模型負載過高或內容被過濾)");
+                    }
+                    if (candidate.finishReason !== "STOP" && !candidate.content) {
+                       throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
+                    }
+                    
+                    out = candidate.content?.parts?.[0]?.text || "Error: Empty content";
+                    
+                    if(currentRequestId === requestCounter.current) {
+                        if(promptType==='mindmap') {
+                            let cleaned = out;
+                            if(cleaned.includes('```mermaid')) {
+                                cleaned = cleaned.split('```mermaid')[1];
+                            } else if(cleaned.includes('```')) {
+                                cleaned = cleaned.split('```')[1]; 
+                            }
+                            if(cleaned.includes('```')) {
+                                cleaned = cleaned.split('```')[0];
+                            }
+                            cleaned = cleaned.trim();
+                            if (!cleaned.startsWith('mindmap')) {
+                                cleaned = 'mindmap\n' + cleaned;
+                            } else {
+                                const firstLineEnd = cleaned.indexOf('\n');
+                                if (firstLineEnd === -1) {
+                                    cleaned = cleaned.replace('mindmap', 'mindmap\n');
+                                } else {
+                                    const firstLine = cleaned.substring(0, firstLineEnd).trim();
+                                    if (firstLine !== 'mindmap') {
+                                       cleaned = cleaned.replace('mindmap', 'mindmap\n');
+                                    }
+                                }
+                            }
+                            setTranslatedText(cleaned);
+                        } else {
+                            setTranslatedText(out);
+                        }
+                        if(!out.startsWith('Error') && !out.startsWith('此模式')) addToHistory(textToUse, out, sourceLang, targetLang);
+                    }
                 } catch(e) { 
-                    if (e.message !== "Request cancelled") {
-                        setErrorMsg(e.message); 
-                        setTranslatedText(`錯誤: ${e.message}\n建議：\n1. 檢查 Key 是否有效\n2. 嘗試更換模型\n3. 內容可能過長`);
+                    if(currentRequestId === requestCounter.current) {
+                        if (e.message !== "Request cancelled") {
+                            setErrorMsg(e.message); 
+                            setTranslatedText(`錯誤: ${e.message}\n\n1. 請檢查 API Key 是否正確\n2. 嘗試更換其他模型 (Flash/Pro)\n3. 內容可能涉及敏感話題`);
+                        }
                     }
-                } finally { setIsLoading(false); }
+                }
+                if(currentRequestId === requestCounter.current) setIsLoading(false);
             };
 
-            const sendChat = async () => {
-                if(!chatInput.trim())return;
-                if(!geminiKey) { setChatMessages(p=>[...p, {role:'user',text:chatInput}, {role:'model',text:"請先輸入 API Key"}]); setChatInput(''); return; }
-                const newUserMsg = {role:'user',text:chatInput}; 
-                setChatMessages(prev => [...prev, newUserMsg]); 
-                setChatInput(''); setIsLoading(true);
+            const processFile = async (f) => {
+                if(!f) return;
+                resetApp(); // HARD RESET ON NEW FILE
+                
+                if (currentTask === 'vision' && !f.type.startsWith('image/')) {
+                    showToast("識圖模式僅限上傳圖片", "error");
+                    return;
+                }
 
+                setFileName(f.name); 
+                if(f.type.startsWith('image/')) {
+                      const r = new FileReader(); 
+                      r.onload = e => { 
+                          setTimeout(() => {
+                              setCropImageSrc(e.target.result); 
+                              setDisplayImage(e.target.result); 
+                              setShowCropModal(true); 
+                          }, 50);
+                      }; 
+                      r.readAsDataURL(f);
+                      return;
+                }
+                setMode('text'); setIsLoading(true); setLoadingStatus('讀取中...'); setErrorMsg('');
                 try {
-                    const MAX_HISTORY_MSG = 15;
-                    const currentHistory = [...chatMessages, newUserMsg];
-                    const recentMsgs = currentHistory.slice(-MAX_HISTORY_MSG);
-                    
-                    let historyStr = '';
-                    recentMsgs.forEach(m => { historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`; }); // FIXED Variable Name
-
-                    let ctx = `Context:\nSource:${sourceText.substring(0, 1000)}\nResult:${translatedText.substring(0, 1000)}`; 
-                    if(customInstruction) ctx += `\nInstruction:${customInstruction}`;
-                    ctx += `\n\nHistory:\n${historyStr}User: ${newUserMsg.text}\nModel:`;
-                    
-                    const payload = { contents:[{parts:[{text:ctx}]}] };
-                    const res = await runGeminiRequest(payload, geminiModel);
-                    const responseText = res.candidates?.[0]?.content?.parts?.[0]?.text || "Error: No response";
-                    setChatMessages(p=>[...p,{role:'model',text:responseText}]);
-                } catch(e) { 
-                    if (e.message !== "Request cancelled") setChatMessages(p=>[...p,{role:'model',text:"Error: " + e.message}]); 
-                } finally { setIsLoading(false); }
+                    let text = "";
+                    if(f.name.endsWith('.pdf')) {
+                        const ab = await f.arrayBuffer();
+                        if(usePdfVision && geminiKey) {
+                            setLoadingStatus('AI 視覺讀取 PDF...');
+                            const imgs = await renderPdfToImages(ab.slice(0));
+                            text = await performGeminiOCR_Multi(imgs.images || imgs); 
+                        } else {
+                            const pdf = await loadPdfWithPassword(ab.slice(0));
+                            for(let i=1;i<=pdf.numPages;i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(' ')+'\n';
+                            if((!text || text.length<50) && geminiKey) {
+                                setLoadingStatus('文字過少，切換至 AI 視覺讀取...');
+                                const imgs = await renderPdfToImages(ab.slice(0));
+                                text = await performGeminiOCR_Multi(imgs.images || imgs);
+                            }
+                        }
+                    } else if(f.name.endsWith('.docx')) {
+                        text = (await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
+                    } else {
+                        text = await new Promise(r=>{const rd=new FileReader(); rd.onload=e=>r(e.target.result); rd.readAsText(f);});
+                    }
+                    if(!text.trim()) throw new Error("無法讀取文字");
+                    setSourceText(text);
+                    callAI(currentTask, text);
+                } catch(e) { console.error(e); setErrorMsg(e.message||"讀取失敗"); setIsLoading(false); }
+            };
+            
+            const handleFileChange = (e) => { 
+                const f = e.target.files[0]; 
+                if(f) processFile(f); 
+                e.target.value = ''; 
             };
 
             const performGeminiOCR = async (file, task) => {
                 const b64 = await compressImage(file);
                 let promptText = "OCR this image. Output text only.";
-                if (task === 'vision') promptText = "請用繁體中文詳細描述這張圖片的內容。如果有文字，請也一併列出。";
+                if (task === 'vision') promptText = "請用繁體中文詳細描述這張圖片的內容。如果有文字，請也一併列出。 (Describe this image in detail in Traditional Chinese)";
                 
                 const payload = {contents:[{parts:[{text: promptText},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
                 const res = await runGeminiRequest(payload, geminiModel);
@@ -766,156 +1073,131 @@
             };
 
             const runOCR = async (file) => {
-                setShowCropModal(false); setIsLoading(true); setSourceText(''); setErrorMsg('');
+                setShowCropModal(false); 
+                setIsLoading(true); 
+                setSourceText(''); 
+                setErrorMsg('');
+                
                 try {
                     let text = "";
+                    
+                    // 1. 檢查是否有 API Key
                     if (geminiKey) {
                         setLoadingStatus('AI 視覺分析中...');
                         text = await performGeminiOCR(file, currentTask); 
                     } else {
+                        // 2. 沒有 Key，使用本機 OCR
                         setLoadingStatus('無 API Key，使用本機 OCR 辨識文字...');
-                        if (currentTask === 'vision') throw new Error("「識圖模式」需要 AI 模型介入，請先至設定輸入 API Key。");
+                        // 如果當前任務是「識圖 (Vision)」，但沒有 Key，直接報錯提醒
+                        if (currentTask === 'vision') {
+                            throw new Error("「識圖模式」需要 AI 模型介入，請先至設定輸入 API Key。");
+                        }
                         text = await performLegacyOCR(file);
                     }
+                    
+                    // 3. 檢查結果
                     if (!text || !text.trim()) {
-                        if (!geminiKey) throw new Error("本機辨識找不到文字。若需辨識圖片內容(非文字)，請輸入 API Key。");
-                        else throw new Error("AI 無法識別此圖片，請嘗試更清晰的圖片。");
-                    }
-                    setSourceText(text); callAI(currentTask, text);
-                } catch (e) { 
-                    if (e.message !== "Request cancelled") { console.error(e); setErrorMsg(e.message); }
-                    if (currentTask === 'vision' && !geminiKey) setCurrentTask('notes');
-                } finally { setIsLoading(false); }
-            };
-
-            const handleChatImageUpload = async (e) => {
-                const file = e.target.files[0];
-                if(!file) return;
-                setIsLoading(true); setLoadingStatus("分析圖片風格...");
-                try {
-                    const b64 = await compressImage(file);
-                    let prompt = chatInput.trim() ? `Analyze style of image. Create generation prompt for: "${chatInput}" in that style.` : `Analyze style. Create generation prompt to recreate this style.`;
-                    const res = await runGeminiRequest({contents:[{parts:[{text: prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]}, geminiModel);
-                    const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                    setChatMessages(prev => [...prev, { role: 'model', text: `### 🎨 風格分析完成\n\n已提取風格。可在下方「繪圖工坊」查看。` }]);
-                    if (newPrompt) setImageGenState({ show: true, prompt: newPrompt });
-                } catch(e) { showToast(e.message, "error"); } finally { setIsLoading(false); setLoadingStatus(''); if(chatFileInputRef.current) chatFileInputRef.current.value = ''; }
-            };
-
-            const processFile = async (f) => {
-                if(!f) return;
-                setFileName(f.name); setIsLoading(true); setLoadingStatus('讀取中...'); setSourceText('');
-                try {
-                    let text = "";
-                    if(f.name.endsWith('.pdf')) {
-                        const ab = await f.arrayBuffer();
-                        if(usePdfVision && geminiKey) {
-                            setLoadingStatus('AI 視覺讀取 PDF...');
-                            const imgs = await renderPdfToImages(ab.slice(0));
-                            text = await performGeminiOCR_Multi(imgs.images || imgs); 
+                        if (!geminiKey) {
+                            throw new Error("本機辨識找不到文字。若需辨識圖片內容(非文字)，請輸入 API Key。");
                         } else {
-                            const pdf = await loadPdfWithPassword(ab.slice(0));
-                            for(let i=1;i<=Math.min(pdf.numPages, 10);i++) text += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(' ')+'\n'; 
-                            if((!text || text.length<50) && geminiKey) {
-                                setLoadingStatus('文字過少，切換至 AI 視覺讀取...');
-                                const imgs = await renderPdfToImages(ab.slice(0));
-                                text = await performGeminiOCR_Multi(imgs.images || imgs);
-                            }
+                            throw new Error("AI 無法識別此圖片，請嘗試更清晰的圖片。");
                         }
-                    } else if(f.name.endsWith('.docx')) {
-                        text = (await window.mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
-                    } else if(f.type.startsWith('image/')) {
-                        setCropImageSrc(URL.createObjectURL(f)); setShowCropModal(true); setIsLoading(false); return;
-                    } else {
-                        text = await new Promise(r=>{const rd=new FileReader(); rd.onload=e=>r(e.target.result); rd.readAsText(f);});
                     }
-                    if(!text.trim()) throw new Error("無文字");
-                    setSourceText(text); callAI(currentTask, text);
-                } catch(e) { console.error(e); setErrorMsg("讀取失敗"); setIsLoading(false); }
-            };
-            
-            // --- Helper Handlers ---
-            const handleFileChange = (e) => { const f = e.target.files[0]; if(f) processFile(f); e.target.value = ''; };
-            
-            // UPDATED copy function with robust fallback for iframe/sandbox
-            const copy = (text) => {
-                if (!text) return;
-                
-                // Fallback function using execCommand
-                const fallbackCopy = (text) => {
-                    try {
-                        const textArea = document.createElement("textarea");
-                        textArea.value = text;
-                        
-                        // Ensure it's not visible but part of the DOM
-                        textArea.style.top = "0";
-                        textArea.style.left = "0";
-                        textArea.style.position = "fixed";
-                        textArea.style.opacity = "0";
-                        
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        
-                        const successful = document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                        
-                        if (successful) showToast("已複製", 'success');
-                        else showToast("複製失敗", 'error');
-                    } catch (err) {
-                        console.error('Fallback copy failed', err);
-                        showToast("複製失敗", 'error');
-                    }
-                };
 
-                // Try modern API first
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text)
-                        .then(() => showToast("已複製", 'success'))
-                        .catch(err => {
-                            console.warn("Clipboard API failed (likely permissions), using fallback", err);
-                            fallbackCopy(text);
-                        });
-                } else {
-                    fallbackCopy(text);
+                    setSourceText(text);
+                    callAI(currentTask, text);
+
+                } catch (e) { 
+                    if (e.message !== "Request cancelled") {
+                        console.error(e); 
+                        setErrorMsg(e.message); 
+                    }
+                    // 如果是 Vision 模式且失敗，自動切回文字模式以免卡住
+                    if (currentTask === 'vision' && !geminiKey) {
+                        setCurrentTask('notes');
+                    }
+                } finally {
+                    setIsLoading(false);
                 }
             };
 
-            const handleGenerateImageFinal = () => {
-                const textToUse = imageGenState.prompt;
-                if (!textToUse) return;
-
-                const textToCopy = "請幫我畫一張圖: " + textToUse;
-                
-                // Call robust copy function (no need to reimplement logic here)
-                copy(textToCopy);
-                
-                // Open Window immediately
-                window.open("https://gemini.google.com/app", "_blank");
-
-                // Update UI
-                setChatMessages(prev => [...prev, {role:'model', text: `### 🎨 外部繪圖已啟動\n\n使用了以下提示詞：\n> ${textToUse}\n\n(已自動複製並開啟 Gemini 網頁)`}]);
-                setImageGenState({ show: false, prompt: '' });
+            const switchToChat = () => {
+                setMode('conversation');
+                if(translatedText && chatMessages.length===0) setChatMessages([{role:'model', text:`已為您準備好內容。您可以針對剛才的分析結果提問。`}]);
             };
 
-            const handleRefineImage = async () => {
-                 if(!imageGenState.prompt)return; setIsLoading(true);
-                 try { const res = await runGeminiRequest({contents:[{parts:[{text:`Improve this prompt for image gen:\n${imageGenState.prompt}`}]}]}, geminiModel);
-                 const np = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                 if(np) setImageGenState(p=>({...p, prompt:np})); showToast("優化完成","success"); } catch(e){showToast(e.message,"error");} finally{setIsLoading(false);}
-            };
-            const handleImageToPrompt = async () => {
-                if(!cropImageSrc) return; setIsLoading(true); setLoadingStatus("分析圖片轉繪圖指令..."); setShowCropModal(false);
+            const sendChat = async () => {
+                if(!chatInput.trim())return;
+                if(!geminiKey) {
+                    setChatMessages(p=>[...p, {role:'user',text:chatInput}, {role:'model',text:"請先在設定中輸入 API Key 才能使用對話功能。"}]);
+                    setChatInput('');
+                    return;
+                }
+
+                const newUserMsg = {role:'user',text:chatInput}; 
+                setChatMessages(prev => [...prev, newUserMsg]); 
+                setChatInput(''); 
+                setIsLoading(true);
+
                 try {
-                    const b64 = cropImageSrc.split(',')[1];
-                    const prompt = `Describe this image in detail as an image generation prompt in English. Output ONLY the prompt text.`;
-                    const res = await runGeminiRequest({contents:[{parts:[{text: prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]}, geminiModel);
-                    const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                    setMode('conversation');
-                    setChatMessages(prev => [...prev, {role:'model', text: `### 🎨 圖片轉繪圖指令\n\n已分析圖片。`}]);
-                    if (newPrompt) setImageGenState({ show: true, prompt: newPrompt });
-                } catch(e) { if (e.message !== "Request cancelled") showToast("分析失敗: " + e.message, "error"); } finally { setIsLoading(false); }
+                    const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+                    
+                    let historyStr = '';
+                    chatMessages.forEach(m => {
+                        historyStr += `${m.role === 'user' ? 'User' : 'Model'}: ${m.text}\n`;
+                    });
+
+                    let ctx = `Current DateTime: ${now}.\nContext:\nSource:${sourceText}\nResult:${translatedText}`;
+                    if(customInstruction) ctx += `\nSystem Instruction:${customInstruction}`;
+                    ctx += `\n\nConversation History:\n${historyStr}`;
+                    ctx += `User: ${newUserMsg.text}\nModel:`;
+                    
+                    const safetySettings = [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ];
+
+                    const payload = {
+                        contents:[{parts:[{text:ctx}]}],
+                        safetySettings: safetySettings
+                    };
+
+                    const res = await runGeminiRequest(payload, geminiModel);
+                    
+                    // Safety check
+                    if (res.promptFeedback && res.promptFeedback.blockReason) {
+                         throw new Error(`⚠️ 內容被安全系統阻擋 (${res.promptFeedback.blockReason})`);
+                    }
+
+                    const candidate = res.candidates?.[0];
+                    let responseText = "Error";
+                    if (!candidate) {
+                        responseText = "Error: No response from AI.";
+                    } else if (candidate.finishReason !== "STOP" && !candidate.content) {
+                        responseText = `Error: Blocked by safety settings (${candidate.finishReason})`;
+                    } else {
+                        responseText = candidate.content?.parts?.[0]?.text || "Error";
+                    }
+
+                    setChatMessages(p=>[...p,{role:'model',text:responseText}]);
+                } catch(e) { 
+                    if (e.message !== "Request cancelled") {
+                        let errMsg = "Error: " + e.message;
+                        if (e.message === "429_TOO_MANY_REQUESTS") {
+                            errMsg = "系統目前流量過大，請稍後再試。";
+                        }
+                        setChatMessages(p=>[...p,{role:'model',text:errMsg}]); 
+                    }
+                }
+                setIsLoading(false);
             };
+
+             const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
+            const handleCropStart = (e) => { const coords = getClientCoordinates(e); setCropSelection({x:coords.x,y:coords.y,w:0,h:0}); isDraggingRef.current=true; dragStartRef.current=coords; };
+            const handleCropMove = (e) => { if(!isDraggingRef.current)return; const coords = getClientCoordinates(e); const r = imageRef.current.getBoundingClientRect(); const cx = Math.min(Math.max(0, coords.x), r.width); const cy = Math.min(Math.max(0, coords.y), r.height); setCropSelection({x:Math.min(dragStartRef.current.x,cx),y:Math.min(dragStartRef.current.y,cy),w:Math.abs(cx-dragStartRef.current.x),h:Math.abs(cy-dragStartRef.current.y)}); };
+            const handleCropEnd = () => isDraggingRef.current = false;
             const handleFullImageConfirm = async () => { const res = await fetch(cropImageSrc); const blob = await res.blob(); const file = new File([blob], "full.jpg", {type:'image/jpeg'}); runOCR(file); };
             const handleCropConfirm = () => {
                 if(!cropSelection) return;
@@ -926,149 +1208,507 @@
                 ctx.drawImage(img, cropSelection.x*scaleX, cropSelection.y*scaleY, cropSelection.w*scaleX, cropSelection.h*scaleY, 0, 0, canvas.width, canvas.height);
                 canvas.toBlob(blob => { runOCR(new File([blob], "crop.jpg", {type:'image/jpeg'})); }, 'image/jpeg');
             };
-            const handleVisualDragStart = (e) => { e.preventDefault(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; visualDragStartRef.current = { x: clientX, y: clientY }; setVisualDragging(true); };
-            const handleVisualResizeStart = (e) => { e.preventDefault(); e.stopPropagation(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; visualResizeStartRef.current = { startX: clientX, startY: clientY, startW: visualBox.w, startH: typeof visualBox.h === 'number' ? visualBox.h : 200, fontSize: visualFontSize }; setVisualResizing(true); };
+            
+             const handleVisualDragStart = (e) => {
+                e.preventDefault();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                visualDragStartRef.current = { x: clientX, y: clientY };
+                setVisualDragging(true);
+            };
+            const handleVisualResizeStart = (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                visualResizeStartRef.current = { startX: clientX, startY: clientY, startW: visualBox.w, startH: typeof visualBox.h === 'number' ? visualBox.h : 200, fontSize: visualFontSize };
+                setVisualResizing(true);
+            };
             const handleVisualMove = (e) => {
                 if (visualDragging && visualDragStartRef.current && visualContainerRef.current) {
-                    e.preventDefault(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const containerRect = visualContainerRef.current.getBoundingClientRect(); const deltaX = ((clientX - visualDragStartRef.current.x) / containerRect.width) * 100; const deltaY = ((clientY - visualDragStartRef.current.y) / containerRect.height) * 100; setVisualBox(prev => ({ ...prev, x: Math.max(0, Math.min(100, prev.x + deltaX)), y: Math.max(0, Math.min(100, prev.y + deltaY)) })); visualDragStartRef.current = { x: clientX, y: clientY };
+                    e.preventDefault();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    const containerRect = visualContainerRef.current.getBoundingClientRect();
+                    const deltaX = ((clientX - visualDragStartRef.current.x) / containerRect.width) * 100;
+                    const deltaY = ((clientY - visualDragStartRef.current.y) / containerRect.height) * 100;
+                    setVisualBox(prev => ({ ...prev, x: Math.max(0, Math.min(100, prev.x + deltaX)), y: Math.max(0, Math.min(100, prev.y + deltaY)) }));
+                    visualDragStartRef.current = { x: clientX, y: clientY };
                 } else if (visualResizing && visualResizeStartRef.current) {
-                    e.preventDefault(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const deltaX = clientX - visualResizeStartRef.current.startX; const deltaY = clientY - visualResizeStartRef.current.startY; const newWidth = Math.max(100, visualResizeStartRef.current.startW + deltaX); const newHeight = Math.max(50, visualResizeStartRef.current.startH + deltaY); const scaleRatio = newWidth / visualResizeStartRef.current.startW; const newFontSize = Math.max(10, Math.min(100, visualResizeStartRef.current.fontSize * scaleRatio)); setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight })); setVisualFontSize(newFontSize);
+                    e.preventDefault();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    const deltaX = clientX - visualResizeStartRef.current.startX;
+                    const deltaY = clientY - visualResizeStartRef.current.startY;
+                    const newWidth = Math.max(100, visualResizeStartRef.current.startW + deltaX);
+                    const newHeight = Math.max(50, visualResizeStartRef.current.startH + deltaY);
+                    const scaleRatio = newWidth / visualResizeStartRef.current.startW;
+                    const newFontSize = Math.max(10, Math.min(100, visualResizeStartRef.current.fontSize * scaleRatio));
+                    setVisualBox(prev => ({ ...prev, w: newWidth, h: newHeight }));
+                    setVisualFontSize(newFontSize);
                 }
             };
             const handleVisualEnd = () => { setVisualDragging(false); setVisualResizing(false); visualDragStartRef.current = null; visualResizeStartRef.current = null; };
-            const handleSaveVisualImage = async () => { if (!visualContainerRef.current) return; try { const canvas = await html2canvas(visualContainerRef.current, { useCORS: true, backgroundColor: '#000000' }); const link = document.createElement('a'); link.download = `visual_translation_${new Date().getTime()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("圖片已儲存", "success"); } catch (err) { showToast("儲存失敗", "error"); } };
-            const toggleListening = () => { if (isListening) { if (recognitionRef.current) recognitionRef.current.stop(); setIsListening(false); return; } const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setErrorMsg("瀏覽器不支援語音辨識"); return; } const recognition = new SpeechRecognition(); recognitionRef.current = recognition; let langCode = sourceLang; if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; recognition.lang = langCode; recognition.continuous = true; recognition.interimResults = true; recognition.onstart = () => setIsListening(true); recognition.onend = () => setIsListening(false); recognition.onerror = (e) => { console.error("Speech recognition error", e); setIsListening(false); showToast("語音辨識錯誤: " + e.error, "error"); }; recognition.onresult = (e) => { let final = ''; for (let i = e.resultIndex; i < e.results.length; ++i) { if (e.results[i].isFinal) final += e.results[i][0].transcript; } if (final) { if (mode === 'conversation') setChatInput(prev => prev + final); else setSourceText(prev => prev + (prev ? ' ' : '') + final); } }; recognition.start(); };
-            const handlePasteClick = async () => { try { try { const items = await navigator.clipboard.read(); for (const item of items) { if (item.types.some(type => type.startsWith('image/'))) { const type = item.types.find(type => type.startsWith('image/')); const blob = await item.getType(type); const file = new File([blob], "pasted_image.png", { type }); processFile(file); showToast("已貼上剪貼簿圖片", "success"); return; } } } catch (err) {} const text = await navigator.clipboard.readText(); if (text) { if (currentTask === 'vision') { showToast("識圖模式僅限貼上圖片", "error"); return; } setSourceText(prev => prev + text); showToast("已貼上剪貼簿內容", "success"); } else showToast("無法讀取剪貼簿", "error"); } catch (err) { showToast("無法讀取剪貼簿，請用 Ctrl+V", "error"); } };
-            const handleSelection = () => { const selection = window.getSelection(); const text = selection.toString().trim(); if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) { const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); setSelectionMenu({ visible: true, x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY - 10, text: text }); } else setSelectionMenu({ ...selectionMenu, visible: false }); };
-            const handleSelectionAction = async (action) => { setSelectionMenu({ ...selectionMenu, visible: false }); const text = selectionMenu.text; if (action === 'explain') await callAI('grammar', `Explain: "${text}"`); else if (action === 'glossary') { setNewGlossaryTerm(text); setShowSettings(true); setActiveTab('data'); } else if (action === 'speak') speak(text, targetLang); };
-            const speak = (t, l) => { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (v) u.voice = v; } window.speechSynthesis.speak(u); };
-            const handleDownload = () => { if (!translatedText) return; const blob = new Blob([translatedText], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); };
-            const handleExportData = () => { const data = { settings: { geminiKey, geminiModel, customInstruction, voiceRate, voicePitch, fsSize, globalFontSize, aiTemperature, firebaseConfigStr, syncId }, glossary, history, chatMessages }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `gemini_backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url); showToast("備份已下載", "success"); };
-            const handleImportData = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const data = JSON.parse(event.target.result); if (data.settings) { if (data.settings.geminiKey) setGeminiKey(data.settings.geminiKey); if (data.settings.geminiModel) setGeminiModel(data.settings.geminiModel); if (data.settings.customInstruction) setCustomInstruction(data.settings.customInstruction); } if (data.glossary) setGlossary(data.glossary); if (data.history) setHistory(data.history); if (data.chatMessages) setChatMessages(data.chatMessages); showToast("匯入成功", "success"); } catch (err) { showToast("匯入失敗", "error"); } }; reader.readAsText(file); };
-            const handleScreenCapture = async () => { try { const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false }); const video = document.createElement('video'); video.srcObject = stream; await video.play(); const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0); stream.getTracks().forEach(track => track.stop()); canvas.toBlob(blob => { const file = new File([blob], "screenshot.png", { type: 'image/png' }); processFile(file); }); } catch (e) { showToast("截圖取消或失敗", "error"); } };
-            const handleFullScreenDownload = async () => { if (!fsInnerRef.current) return; setIsLoading(true); setLoadingStatus('正在產生全螢幕截圖...'); try { const element = fsInnerRef.current; const height = element.scrollHeight; let dynamicScale = 4; if (height > 6000) dynamicScale = 2; else if (height > 2500) dynamicScale = 3; const canvas = await html2canvas(element, { useCORS: true, backgroundColor: darkMode ? '#0f172a' : '#ffffff', scale: dynamicScale, logging: false, allowTaint: false, scrollY: -window.scrollY }); const link = document.createElement('a'); link.download = `fullscreen_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("全螢幕截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } finally { setIsLoading(false); setLoadingStatus(''); } };
-            const handleScreenshotMsg = async (id) => { const element = document.getElementById(id); if (!element) return; try { const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 }); const link = document.createElement('a'); link.download = `chat_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } };
-            const handleCropStart = (e) => { const coords = getClientCoordinates(e); setCropSelection({x:coords.x,y:coords.y,w:0,h:0}); isDraggingRef.current=true; dragStartRef.current=coords; };
-            const handleCropMove = (e) => { if(!isDraggingRef.current)return; const coords = getClientCoordinates(e); const r = imageRef.current.getBoundingClientRect(); const cx = Math.min(Math.max(0, coords.x), r.width); const cy = Math.min(Math.max(0, coords.y), r.height); setCropSelection({x:Math.min(dragStartRef.current.x,cx),y:Math.min(dragStartRef.current.y,cy),w:Math.abs(cx-dragStartRef.current.x),h:Math.abs(cy-dragStartRef.current.y)}); };
-            const handleCropEnd = () => isDraggingRef.current = false;
-            const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
+            const handleSaveVisualImage = async () => {
+                if (!visualContainerRef.current) return;
+                try {
+                    const canvas = await html2canvas(visualContainerRef.current, { useCORS: true, backgroundColor: '#000000' });
+                    const link = document.createElement('a'); link.download = `visual_translation_${new Date().getTime()}.png`; link.href = canvas.toDataURL('image/png'); link.click();
+                    showToast("圖片已儲存", "success");
+                } catch (err) { showToast("儲存失敗", "error"); }
+            };
+            
+            const toggleListening = () => {
+                if (isListening) {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.stop();
+                    }
+                    setIsListening(false);
+                    return;
+                }
 
-            useEffect(() => { const handleGlobalPaste = (e) => { if (e.clipboardData && e.clipboardData.files.length > 0) { const file = e.clipboardData.files[0]; if (file.type.startsWith('image/')) { e.preventDefault(); processFile(file); showToast("已偵測到圖片貼上", "success"); } } }; window.addEventListener('paste', handleGlobalPaste); return () => window.removeEventListener('paste', handleGlobalPaste); }, []);
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    setErrorMsg("瀏覽器不支援語音辨識");
+                    return;
+                }
+
+                const recognition = new SpeechRecognition();
+                recognitionRef.current = recognition;
+                
+                let langCode = sourceLang;
+                if (langCode === 'auto' || langCode === 'nan' || langCode === 'yue') langCode = 'zh-TW'; 
+                
+                recognition.lang = langCode;
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
+                recognition.onstart = () => setIsListening(true);
+                recognition.onend = () => setIsListening(false);
+                recognition.onerror = (e) => {
+                    console.error("Speech recognition error", e);
+                    setIsListening(false);
+                    showToast("語音辨識錯誤: " + e.error, "error");
+                };
+
+                recognition.onresult = (e) => {
+                    let final = '';
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {
+                        if (e.results[i].isFinal) {
+                            final += e.results[i][0].transcript;
+                        }
+                    }
+                    
+                    if (final) {
+                        if (mode === 'conversation') {
+                            setChatInput(prev => prev + final);
+                        } else {
+                            setSourceText(prev => prev + (prev ? ' ' : '') + final);
+                        }
+                    }
+                };
+
+                recognition.start();
+            };
+            
+             const handleSelection = () => { 
+                 const selection = window.getSelection(); 
+                 const text = selection.toString().trim(); 
+                 if (text.length > 0 && (selection.anchorNode.parentElement.tagName === 'TEXTAREA' || selection.anchorNode.parentElement.closest('.prose'))) { 
+                     const range = selection.getRangeAt(0); 
+                     const rect = range.getBoundingClientRect(); 
+                     setSelectionMenu({ visible: true, x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY - 10, text: text }); 
+                 } else { 
+                     setSelectionMenu({ ...selectionMenu, visible: false }); 
+                 } 
+             };
+            
+            const handleSelectionAction = async (action) => { 
+                setSelectionMenu({ ...selectionMenu, visible: false }); 
+                const text = selectionMenu.text; 
+                if (action === 'explain') { await callAI('grammar', `Explain: "${text}"`); } 
+                else if (action === 'glossary') { setNewGlossaryTerm(text); setShowSettings(true); setActiveTab('data'); } 
+                else if (action === 'speak') { speak(text, targetLang); } 
+            };
+            
+            const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); showToast(isS?"已複製原文":"已複製譯文", 'success'); };
+            const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (v) u.voice = v; } window.speechSynthesis.speak(u); };
+            
+            const handleDownload = () => { 
+                if (!translatedText) return; 
+                const blob = new Blob([translatedText], { type: 'text/plain' }); 
+                const url = window.URL.createObjectURL(blob); 
+                const a = document.createElement('a'); 
+                a.href = url; 
+                a.download = `translation_${new Date().toISOString().slice(0,10)}.md`; 
+                document.body.appendChild(a); 
+                a.click(); 
+                document.body.removeChild(a); 
+                window.URL.revokeObjectURL(url); 
+            };
+
+            const handleExportData = () => {
+                const data = { settings: { geminiKey, geminiModel, customInstruction, voiceRate, voicePitch, fsSize, globalFontSize, aiTemperature, firebaseConfigStr, syncId }, glossary, history, chatMessages };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `gemini_backup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
+                showToast("備份已下載", "success");
+            };
+
+            const handleImportData = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.settings) {
+                            if (data.settings.geminiKey) setGeminiKey(data.settings.geminiKey);
+                            if (data.settings.geminiModel) setGeminiModel(data.settings.geminiModel);
+                            if (data.settings.customInstruction) setCustomInstruction(data.settings.customInstruction);
+                            if (data.settings.voiceRate) setVoiceRate(data.settings.voiceRate);
+                            if (data.settings.voicePitch) setVoicePitch(data.settings.voicePitch);
+                            if (data.settings.fsSize) setFsSize(data.settings.fsSize);
+                            if (data.settings.globalFontSize) setGlobalFontSize(data.settings.globalFontSize);
+                            if (data.settings.aiTemperature) setAiTemperature(data.settings.aiTemperature);
+                            if (data.settings.firebaseConfigStr) setFirebaseConfigStr(data.settings.firebaseConfigStr);
+                            if (data.settings.syncId) setSyncId(data.settings.syncId);
+                        }
+                        if (data.glossary) setGlossary(data.glossary);
+                        if (data.history) setHistory(data.history);
+                        if (data.chatMessages) setChatMessages(data.chatMessages);
+                        showToast("設定與資料匯入成功！", "success");
+                    } catch (err) { showToast("匯入失敗：檔案格式錯誤", "error"); }
+                };
+                reader.readAsText(file);
+            };
+            
+            const handleScreenCapture = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
+                    const video = document.createElement('video'); video.srcObject = stream; await video.play();
+                    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
+                    stream.getTracks().forEach(track => track.stop());
+                    canvas.toBlob(blob => { const file = new File([blob], "screenshot.png", { type: 'image/png' }); processFile(file); });
+                } catch (e) { showToast("截圖取消或失敗", "error"); }
+            };
+            
+            const handleFullScreenDownload = async () => {
+                if (!fsInnerRef.current) return; 
+                setIsLoading(true);
+                setLoadingStatus('正在產生全螢幕截圖...');
+                
+                try {
+                    const element = fsInnerRef.current;
+                    const height = element.scrollHeight;
+                    let dynamicScale = 4;
+                    
+                    if (height > 6000) {
+                        dynamicScale = 2; // 超長內容使用 2x (確保成功率)
+                    } else if (height > 2500) {
+                        dynamicScale = 3; // 中長內容使用 3x
+                    }
+                    // 短內容維持 4x (最高畫質)
+
+                    const canvas = await html2canvas(element, {
+                        useCORS: true,
+                        backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+                        scale: dynamicScale, 
+                        logging: false,
+                        allowTaint: false,
+                        scrollY: -window.scrollY
+                    });
+                    const link = document.createElement('a');
+                    link.download = `fullscreen_capture_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    showToast(`全螢幕截圖已下載 (${dynamicScale}x 畫質)`, "success");
+                } catch (err) {
+                    console.error("FS Download Error:", err);
+                    showToast("截圖失敗，內容可能過長", "error");
+                } finally {
+                    setIsLoading(false);
+                    setLoadingStatus('');
+                }
+            };
+
+            const handleScreenshotMsg = async (id) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+                try {
+                    const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 });
+                    const link = document.createElement('a');
+                    link.download = `chat_capture_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    showToast("截圖已下載", "success");
+                } catch (err) {
+                    showToast("截圖失敗", "error");
+                }
+            };
+
+            const handlePasteClick = async () => {
+                try {
+                    try {
+                        const items = await navigator.clipboard.read();
+                        for (const item of items) {
+                            if (item.types.some(type => type.startsWith('image/'))) {
+                                const type = item.types.find(type => type.startsWith('image/'));
+                                const blob = await item.getType(type);
+                                const file = new File([blob], "pasted_image.png", { type });
+                                processFile(file);
+                                showToast("已貼上剪貼簿圖片", "success");
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        console.log("Clipboard read() failed or denied, falling back to text.");
+                    }
+
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                        if (currentTask === 'vision') {
+                             showToast("識圖模式僅限貼上圖片 (Vision mode only accepts images)", "error");
+                             return;
+                        }
+                        setSourceText(prev => prev + text);
+                        showToast("已貼上剪貼簿內容", "success");
+                    } else {
+                        showToast("無法讀取剪貼簿內容", "error");
+                    }
+                } catch (err) {
+                    console.error('Clipboard Error: ', err);
+                    showToast("無法讀取剪貼簿，請嘗試使用 Ctrl+V", "error");
+                }
+            };
+
+            const processFileRef = useRef(processFile);
+            useEffect(() => { processFileRef.current = processFile; }, [processFile]);
+
+            useEffect(() => {
+                const handleGlobalPaste = (e) => {
+                    if (e.clipboardData && e.clipboardData.files.length > 0) {
+                        const file = e.clipboardData.files[0];
+                        if (file.type.startsWith('image/')) {
+                            e.preventDefault();
+                            processFileRef.current(file);
+                            showToast("已偵測到圖片貼上", "success");
+                        }
+                    }
+                };
+                window.addEventListener('paste', handleGlobalPaste);
+                return () => window.removeEventListener('paste', handleGlobalPaste);
+            }, []);
+
             useEffect(() => { document.addEventListener('mouseup', handleSelection); document.addEventListener('touchend', handleSelection); return () => { document.removeEventListener('mouseup', handleSelection); document.removeEventListener('touchend', handleSelection); }; }, [selectionMenu]);
 
-            // Render
-            return (
-                <div className="pb-12 dark:bg-slate-900 min-h-screen transition-colors flex flex-col font-sans">
-                    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-                    {confirmModal.show && <ConfirmModal message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal({ show: false, message: '', onConfirm: null })} />}
+            // --- IMAGE GEN FUNCTIONS ---
+            const handleRefineImage = async () => {
+                if (!imageGenState.prompt) return;
+                setIsLoading(true);
+                setLoadingStatus('AI 正在優化提示詞...');
+                try {
+                    const prompt = `Please rewrite and improve the following image generation prompt to be more descriptive, artistic, and detailed. Keep the original intent but enhance the visual description. Output ONLY the improved prompt text.\n\nOriginal Prompt:\n${imageGenState.prompt}`;
+                    const payload = { contents:[{parts:[{text:prompt}]}] };
+                    const res = await runGeminiRequest(payload, geminiModel);
+                    const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    if (newPrompt) {
+                        setImageGenState(prev => ({ ...prev, prompt: newPrompt }));
+                        showToast("提示詞已優化", "success");
+                    }
+                } catch(e) {
+                    if (e.message !== "Request cancelled") showToast("優化失敗: " + e.message, "error");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleGenerateImageFinal = async () => {
+                const textToUse = imageGenState.prompt;
+                if (!textToUse) return;
+                
+                try {
+                    await navigator.clipboard.writeText("請幫我畫一張圖: " + textToUse);
+                    showToast("提示詞已複製！正在開啟 Gemini...", "success");
+                } catch (err) {
+                    // Fallback copy
+                    const ta = document.createElement('textarea');
+                    ta.value = "請幫我畫一張圖: " + textToUse;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    showToast("提示詞已複製！正在開啟 Gemini...", "success");
+                }
+
+                setTimeout(() => {
+                    window.open("https://gemini.google.com/app", "_blank");
+                }, 500);
+                
+                // Add to chat history so user knows what happened
+                setChatMessages(prev => [...prev, {role:'model', text: `### 🎨 外部繪圖已啟動\n\n使用了以下提示詞：\n> ${textToUse}\n\n(已自動複製並開啟 Gemini 網頁)`}]);
+                setImageGenState({ show: false, prompt: '' });
+            };
+            
+            // --- NEW: REVERSE IMAGE PROMPT ---
+            const handleImageToPrompt = async () => {
+                if(!cropImageSrc) return;
+                setIsLoading(true);
+                setLoadingStatus("正在分析圖片並轉換為繪圖指令...");
+                setShowCropModal(false);
+                
+                try {
+                    // Extract base64 without prefix
+                    const b64 = cropImageSrc.split(',')[1];
+                    const prompt = `Describe this image in detail as an image generation prompt in English. Focus on visual style, colors, composition, and mood. Output ONLY the prompt text.`;
+                    const payload = {contents:[{parts:[{text: prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}]};
+                    const res = await runGeminiRequest(payload, geminiModel);
+                    const newPrompt = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                     
+                    setMode('conversation');
+                    setChatMessages(prev => [...prev, {role:'model', text: `### 🎨 圖片轉繪圖指令\n\n已分析您上傳的圖片，並產生對應的 Prompt。您可以修改後再重新生成。`}]);
+                    
+                    if (newPrompt) {
+                        setImageGenState({ show: true, prompt: newPrompt });
+                    }
+                } catch(e) {
+                    if (e.message !== "Request cancelled") showToast("分析失敗: " + e.message, "error");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="pb-12 dark:bg-slate-900 min-h-screen transition-colors flex flex-col">
+                    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
                     <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-sm border-b dark:border-slate-800 sticky top-0 z-20 h-14 flex items-center justify-between px-4">
-                        <div className="flex items-center gap-2 font-bold text-lg text-slate-800 dark:text-white">
-                            <Icons.Languages className="text-blue-600"/> Gemini 助手 
-                            <span className="text-xs font-normal text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Cloud className="w-3 h-3"/>Sync</span>
-                            <div className={`w-2.5 h-2.5 rounded-full ${apiHealth==='success'?'bg-green-500':apiHealth==='loading'?'bg-yellow-400 animate-pulse':apiHealth==='error'?'bg-red-500':'bg-slate-300'}`} title={`API 狀態: ${apiHealth}`}></div>
-                        </div>
+                        <div className="flex items-center gap-2 font-bold text-lg text-slate-800 dark:text-white"><Icons.Languages className="text-blue-600"/> Gemini 助手 <span className="text-xs font-normal text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full flex items-center gap-1"><Icons.Cloud className="w-3 h-3"/>Sync</span></div>
                         <div className="flex gap-2">
-                            <button onClick={handleClearAll} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" title="清除全部"><Icons.Trash className="text-red-500"/></button>
+                            <button onClick={handleClearAll} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" title="清除所有內容"><Icons.Trash className="text-red-500"/></button>
                             <button onClick={()=>setDarkMode(!darkMode)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">{darkMode?<Icons.Sun className="text-yellow-400"/>:<Icons.Moon className="text-slate-600"/>}</button>
                             <button onClick={()=>setShowHistory(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><Icons.Clock/></button>
-                            <button onClick={()=>setShowSettings(true)} className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 ${isSyncing?'text-green-500':''}`}><Icons.Settings/></button>
+                            <button onClick={()=>setShowSettings(true)} className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 ${isSyncing ? 'text-green-500' : ''}`}><Icons.Settings/></button>
                         </div>
                     </header>
 
                     <main className="max-w-6xl mx-auto px-4 py-6 gap-4 flex-1 flex flex-col w-full">
                           <div className="flex flex-col gap-3">
                             <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full md:w-fit">
-                                {['text','file','conversation'].map(m => <button key={m} onClick={()=>setMode(m)} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 capitalize ${mode===m?'bg-blue-50 text-blue-600':'text-slate-400'}`}>{m==='conversation'?'對話':m==='file'?'文件':'文字'}</button>)}
+                                <button onClick={()=>setMode('text')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.Type className="w-4 h-4"/>文字</button>
+                                <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
+                                <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
-                            {mode!=='conversation' && (
-                                <>
-                                    <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
-                                        {TASKS.map(t => (
-                                            <button 
-                                                key={t.id} 
-                                                onClick={() => setCurrentTask(t.id)} 
-                                                className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
-                                            >
-                                                {t.icon}<span>{t.name}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
-                                        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                                            <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
-                                                {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
-                                            </select>
-                                            <button onClick={()=>{const t=targetLang; setTargetLang(sourceLang==='auto'?'en':sourceLang); setSourceLang(t);}} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></button>
-                                            <select value={targetLang} onChange={(e)=>setTargetLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
-                                                {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-slate-400 font-bold hidden md:inline">語氣:</span>
-                                            <select value={selectedTone} onChange={(e)=>setSelectedTone(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white min-w-[100px]">
-                                                {TONES.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
+                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
+                                {TASKS.map(t => (
                                     <button 
-                                        onClick={() => callAI(currentTask)} 
-                                        disabled={isLoading || !sourceText}
-                                        className={`w-full py-3 mb-4 rounded-xl font-bold text-white shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}
+                                        key={t.id} 
+                                        onClick={() => { 
+                                            setCurrentTask(t.id); setTranslatedText(''); setErrorMsg(''); 
+                                        }} 
+                                        className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id && mode !== 'conversation' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                     >
-                                        {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : TASKS.find(t=>t.id===currentTask)?.icon}
-                                        {isLoading ? '處理中...' : `開始${TASKS.find(t=>t.id===currentTask)?.name}`}
+                                        {t.icon} 
+                                        <span>{t.name}</span>
                                     </button>
-                                </>
-                            )}
+                                ))}
+                            </div>}
                         </div>
 
-                        {mode !== 'conversation' ? (
+                        {mode !== 'conversation' && (
+                            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
+                                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                                    <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
+                                        {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
+                                    </select>
+                                    <button onClick={()=>{const t=targetLang; setTargetLang(sourceLang==='auto'?'en':sourceLang); setSourceLang(t);}} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></button>
+                                    <select value={targetLang} onChange={(e)=>setTargetLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
+                                        {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400 font-bold hidden md:inline">語氣:</span>
+                                    <select value={selectedTone} onChange={(e)=>setSelectedTone(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white min-w-[100px]">
+                                        {TONES.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
+                        {mode!=='conversation' && (
                             <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-[500px]">
                                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 overflow-hidden relative">
                                     <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center">
-                                        <div className="flex items-center gap-2"><span className="text-xs font-bold text-slate-500">原文</span>{isListening && <span className="text-xs text-red-500 animate-pulse">● 聽寫中</span>}</div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-500">原文</span>
+                                            {isListening && <span className="text-xs text-red-500 animate-pulse">● 聽寫中</span>}
+                                        </div>
                                         <div className="flex gap-1">
                                             <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                             <button onClick={handlePasteClick} className="p-1 text-slate-400 hover:text-blue-600" title="貼上"><Icons.Paste className="w-4 h-4"/></button>
                                             <button onClick={handleScreenCapture} className="p-1 text-slate-400 hover:text-blue-600" title="截圖"><Icons.Scissors className="w-4 h-4"/></button>
-                                            <button onClick={()=>cameraInputRef.current?.click()} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Camera className="w-4 h-4"/></button>
+                                            <button onClick={() => cameraInputRef.current?.click()} className="p-1 text-slate-400 hover:text-blue-600" title="上傳圖片/拍照"><Icons.Camera className="w-4 h-4"/></button>
                                             <button onClick={toggleListening} className={`p-1 ${isListening ? 'text-red-500' : 'text-slate-400 hover:text-blue-600'}`} title="語音輸入"><Icons.Mic className="w-4 h-4"/></button>
                                             <button onClick={()=>setSourceText('')} className="p-1 text-slate-400 hover:text-red-500" title="清除"><Icons.X className="w-4 h-4"/></button>
                                         </div>
                                     </div>
-                                    <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="flex-1 p-4 bg-transparent outline-none resize-none dark:text-slate-200 text-lg" placeholder="輸入文字..." style={{fontSize: `${globalFontSize}px`}}/>
-                                    {mode==='file' && !sourceText && <div onClick={()=>fileInputRef.current.click()} className={`absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-900/80 cursor-pointer border-2 border-dashed m-4 rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-300 dark:border-slate-700'}`}><Icons.UploadCloud className="w-8 h-8 text-blue-400"/><span className="text-sm text-slate-500 mt-2">{currentTask === 'vision' ? '上傳圖片 (Vision Mode Only)' : '上傳文件 / 圖片'}</span><input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept={currentTask==='vision' ? "image/*" : "*/*"}/></div>}
+                                    <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} className="flex-1 p-4 bg-transparent outline-none resize-none dark:text-slate-200 text-lg" placeholder={currentTask === 'vision' ? "請上傳或貼上圖片以進行辨識..." : "輸入文字..."} style={{fontSize: `${globalFontSize}px`}}/>
+                                    {mode==='file' && !sourceText && <div onClick={()=>fileInputRef.current.click()} className={`absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-900/80 cursor-pointer border-2 border-dashed m-4 rounded-xl transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-300 dark:border-slate-700'}`} onDragOver={e=>{e.preventDefault();setIsDragOver(true)}} onDragLeave={()=>{setIsDragOver(false)}} onDrop={e=>{e.preventDefault();setIsDragOver(false);processFile(e.dataTransfer.files[0])}}><Icons.UploadCloud className="w-8 h-8 text-blue-400"/><span className="text-sm text-slate-500 mt-2">{currentTask === 'vision' ? '上傳圖片 (Vision Mode Only)' : '上傳文件 / 圖片'}</span><input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept={currentTask==='vision' ? "image/*" : "*/*"}/></div>}
                                 </div>
                                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 overflow-hidden relative">
                                     <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center">
                                         <span className="text-xs font-bold text-slate-500">結果</span>
                                         <div className="flex gap-1">
-                                            <button onClick={handleResultToImageGen} className="p-1 text-pink-500 hover:text-pink-600 bg-pink-50 dark:bg-pink-900/30 rounded" title="聯想繪圖"><Icons.Palette className="w-4 h-4"/></button>
+                                            <button onClick={handleResultToImageGen} className="p-1 text-pink-500 hover:text-pink-600 bg-pink-50 dark:bg-pink-900/30 rounded" title="聯想繪圖 (AI Image Gen)"><Icons.Palette className="w-4 h-4"/></button>
                                             {displayImage && <button onClick={()=>setShowVisualMode(true)} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Image className="w-4 h-4"/></button>}
                                             {currentTask!=='mindmap' && currentTask!=='image-gen' && <button onClick={()=>setIsMarkdownMode(!isMarkdownMode)} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Code className="w-4 h-4"/></button>}
                                             <button onClick={handleDownload} className="p-1 text-slate-400 hover:text-blue-600" title="下載"><Icons.Download className="w-4 h-4"/></button>
-                                            <button onClick={()=>copy(translatedText)} className="p-1 text-slate-400 hover:text-blue-600"><Icons.Copy className="w-4 h-4"/></button>
+                                            <button onClick={()=>copy(translatedText, false)} className="p-1 text-slate-400 hover:text-blue-600" title="複製"><Icons.Copy className="w-4 h-4"/></button>
                                             <button onClick={()=>speak(translatedText, targetLang)} className="p-1 text-slate-400 hover:text-blue-600" title="朗讀"><Icons.Volume2 className="w-4 h-4"/></button>
                                             <button onClick={()=>setShowBigText(true)} className="p-1 text-slate-400 hover:text-blue-600" title="全螢幕"><Icons.Maximize className="w-4 h-4"/></button>
                                         </div>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto bg-slate-50/30 dark:bg-slate-900/30 relative p-4">
-                                        {isLoading && <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 z-10"><Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin mb-2"/><span className="text-xs font-bold text-blue-500 mb-2">{loadingStatus}</span><button onClick={handleCancelRequest} className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold">取消</button></div>}
-                                        {currentTask==='mindmap' ? <MermaidDiagram code={translatedText} darkMode={darkMode}/> : isMarkdownMode ? <SafeMarkdown content={translatedText} fontSize={globalFontSize}/> : <textarea readOnly value={translatedText} className="w-full h-full p-4 bg-transparent outline-none resize-none text-lg dark:text-slate-200" style={{fontSize: `${globalFontSize}px`}}/>}
+                                    <div className="flex-1 overflow-y-auto bg-slate-50/30 dark:bg-slate-900/30 relative">
+                                        {isLoading && <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 z-10">
+                                            <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin mb-2"/>
+                                            <span className="text-xs font-bold text-blue-500 mb-2">{loadingStatus}</span>
+                                            <button onClick={handleCancelRequest} className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-xs font-bold hover:bg-red-200">取消</button>
+                                        </div>}
+                                        {currentTask==='mindmap' ? <div className="p-4"><MermaidDiagram code={translatedText} darkMode={darkMode}/></div> : isMarkdownMode ? <div className="p-4"><SafeMarkdown content={translatedText} fontSize={globalFontSize}/></div> : <textarea readOnly value={translatedText} className="w-full h-full p-4 bg-transparent outline-none resize-none text-lg dark:text-slate-200" style={{fontSize: `${globalFontSize}px`}}/>}
                                     </div>
-                                    <div className="absolute bottom-3 right-3"><button onClick={()=>{setMode('conversation'); if(translatedText && chatMessages.length===0) setChatMessages([{role:'model', text:`已為您準備好內容。您可以針對剛才的分析結果提問。`}]);}} className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full shadow hover:bg-blue-700 flex items-center gap-1"><Icons.MessageSquare className="w-3 h-3"/> 針對結果對話</button></div>
+                                    <div className="absolute bottom-3 right-3"><button onClick={switchToChat} className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full shadow hover:bg-blue-700 flex items-center gap-1"><Icons.MessageSquare className="w-3 h-3"/> 針對結果對話</button></div>
                                 </div>
                             </div>
-                        ) : (
+                        )}
+
+                        {mode === 'conversation' && (
                             <div className="bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 flex-1 flex flex-col min-h-[500px] relative overflow-hidden">
+                                {/* Header for Chat */}
                                 <div className="flex items-center justify-between p-3 border-b dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur">
-                                     <button onClick={() => setMode('text')} className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors group"><Icons.ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/><span className="text-sm font-bold">返回文件</span></button>
+                                     <button onClick={() => setMode('text')} className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors group">
+                                        <Icons.ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/>
+                                        <span className="text-sm font-bold">返回文件</span>
+                                     </button>
+                                     {/* Top buttons removed as requested */}
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                    {chatMessages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div id={`msg-${i}`} className={`max-w-[85%] p-3 rounded-2xl text-sm flex flex-col gap-1 ${m.role==='user'?'bg-blue-600 text-white':'bg-slate-100 dark:bg-slate-700 dark:text-slate-200'}`}><SafeMarkdown content={m.text} fontSize={globalFontSize} isUser={m.role==='user'}/>{m.role==='model' && (<div className="flex items-center gap-2 mt-1 self-end"><button onClick={() => copy(m.text)} className="text-slate-400 hover:text-blue-500" title="複製"><Icons.Copy className="w-3 h-3" /></button><button onClick={() => handleScreenshotMsg(`msg-${i}`)} className="text-slate-400 hover:text-blue-500" title="截圖"><Icons.Camera className="w-3 h-3" /></button><button onClick={() => speak(m.text, targetLang)} className="text-slate-400 hover:text-blue-500" title="朗讀"><Icons.Volume2 className="w-3 h-3" /></button></div>)}</div></div>)}
+                                
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+                                    {chatMessages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}>
+                                        <div id={`msg-${i}`} className={`max-w-[85%] p-3 rounded-2xl text-sm flex flex-col gap-1 ${m.role==='user'?'bg-blue-600 text-white':'bg-slate-100 dark:bg-slate-700 dark:text-slate-200'}`}>
+                                            <SafeMarkdown content={m.text} fontSize={globalFontSize} isUser={m.role==='user'}/>
+                                            {m.role==='model' && (
+                                                <div className="flex items-center gap-2 mt-1 self-end">
+                                                     <button onClick={() => copy(m.text)} className="text-slate-400 hover:text-blue-500" title="複製"><Icons.Copy className="w-3 h-3" /></button>
+                                                     <button onClick={() => handleScreenshotMsg(`msg-${i}`)} className="text-slate-400 hover:text-blue-500" title="截圖"><Icons.Camera className="w-3 h-3" /></button>
+                                                     <button onClick={() => speak(m.text, targetLang)} className="text-slate-400 hover:text-blue-500" title="朗讀"><Icons.Volume2 className="w-3 h-3" /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>)}
                                     <div ref={chatEndRef}/>
                                 </div>
+
+                                {/* --- IMAGE GEN PANEL (Discussion Area) --- */}
                                 {imageGenState.show && (
                                     <div className="absolute bottom-[130px] left-0 right-0 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20 animate-slide-in-bottom rounded-t-2xl overflow-hidden flex flex-col max-h-[300px]">
                                         <div className="bg-pink-100 dark:bg-pink-900/40 px-4 py-2 flex justify-between items-center border-b border-pink-200 dark:border-pink-800">
@@ -1099,81 +1739,142 @@
                                                     className="px-4 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold shadow transition-transform active:scale-95 flex items-center gap-1"
                                                 >
                                                     <Icons.Image className="w-3 h-3"/>
-                                                    生成 (開啟 Gemini)
+                                                    生成圖片 (開啟 Gemini)
                                                 </button>
                                             </div>
                                         </div>
                                     </div>
                                 )}
+                                
                                 <div className="border-t dark:border-slate-700 bg-white dark:bg-slate-800 z-30 relative">
+                                    {/* Moved Buttons Toolbar */}
                                     <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto hide-scrollbar border-b border-slate-100 dark:border-slate-700/50">
-                                        <button onClick={() => handleSmartAction('summary')} className="flex-shrink-0 flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"><Icons.List className="w-3 h-3"/> 整理重點</button>
-                                        <button onClick={() => handleSmartAction('image_prompt')} className="flex-shrink-0 flex items-center gap-1.5 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"><Icons.Palette className="w-3 h-3"/> 聯想繪圖</button>
-                                        <button onClick={() => setImageGenState(prev => ({...prev, show: !prev.show}))} className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${imageGenState.show ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300'}`}><Icons.Image className="w-3 h-3"/> 繪圖工坊</button>
+                                        <button onClick={() => handleSmartAction('summary')} className="flex-shrink-0 flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                            <Icons.List className="w-3 h-3"/> 整理重點
+                                        </button>
+                                        <button onClick={() => handleSmartAction('image_prompt')} className="flex-shrink-0 flex items-center gap-1.5 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                            <Icons.Palette className="w-3 h-3"/> 聯想繪圖
+                                        </button>
+                                        <button onClick={() => setImageGenState(prev => ({...prev, show: !prev.show}))} className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${imageGenState.show ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300'}`}>
+                                            <Icons.Image className="w-3 h-3"/> 繪圖工坊
+                                        </button>
                                     </div>
+                                    
+                                    {/* Input Area */}
                                     <div className="p-3 flex gap-2 items-center">
-                                        <button onClick={()=>handleSmartAction('image_prompt')} className="p-2 text-pink-500 hover:bg-pink-50 rounded-full" title="聯想繪圖"><Icons.Palette className="w-5 h-5"/></button>
-                                        <button onClick={()=>chatFileInputRef.current?.click()} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full"><Icons.Image className="w-5 h-5"/></button>
-                                        <input type="file" ref={chatFileInputRef} className="hidden" accept="image/*" onChange={handleChatImageUpload}/>
+                                        <button onClick={() => chatFileInputRef.current?.click()} className="p-2 rounded-full transition-colors bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300" title="上傳圖片分析風格"><Icons.Image className="w-5 h-5"/></button>
+                                        <input type="file" ref={chatFileInputRef} className="hidden" accept="image/*" onChange={handleChatImageUpload} />
+                                        
                                         <button onClick={toggleListening} className={`p-2 rounded-full transition-colors ${isListening ? 'bg-red-100 text-red-500' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300'}`} title="語音輸入"><Icons.Mic className="w-5 h-5"/></button>
-                                        <textarea value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}} className="flex-1 p-2 bg-slate-50 dark:bg-slate-900 border dark:border-slate-600 rounded-lg outline-none dark:text-white chat-input resize-none" placeholder="輸入訊息..."/>
-                                        <button onClick={isLoading?handleCancelRequest:sendChat} className={`p-2 ${isLoading?'bg-red-500':'bg-blue-600'} text-white rounded-lg`}>{isLoading?<Icons.X className="w-5 h-5"/>:<Icons.Send className="w-5 h-5"/>}</button>
+                                        <textarea 
+                                            value={chatInput} 
+                                            onChange={e=>setChatInput(e.target.value)} 
+                                            onKeyDown={e=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault();sendChat();}}} 
+                                            className="flex-1 p-2 bg-slate-50 dark:bg-slate-900 border dark:border-slate-600 rounded-lg outline-none dark:text-white chat-input resize-none hide-scrollbar" 
+                                            placeholder="輸入訊息..."
+                                        />
+                                        <button onClick={isLoading ? handleCancelRequest : sendChat} className={`p-2 ${isLoading ? 'bg-red-500' : 'bg-blue-600'} text-white rounded-lg`}>{isLoading?<Icons.X className="w-5 h-5"/>:<Icons.Send className="w-5 h-5"/>}</button>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {mode!=='conversation' && <div className="w-full h-1"></div>}
+                        {mode!=='conversation' && <button onClick={()=>callAI(currentTask)} disabled={isLoading||!sourceText} className={`w-full py-3 rounded-xl font-bold text-white shadow transition-all active:scale-[0.99] disabled:opacity-50 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading?'處理中...':TASKS.find(t=>t.id===currentTask)?.name}</button>}
                         {errorMsg && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded">{errorMsg}</div>}
                     </main>
+                    
+                    {showHistory && (
+                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowHistory(false)}>
+                            <div className="bg-white dark:bg-slate-800 w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[80vh] flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
+                                    <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Icons.Clock className="w-5 h-5 text-blue-500"/> 歷史紀錄</h3>
+                                    <div className="flex gap-2">
+                                        <button onClick={clearHistory} className="text-red-500 text-xs font-bold hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-full transition-colors">清除全部</button>
+                                        <button onClick={() => setShowHistory(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><Icons.X className="w-5 h-5 text-slate-500" /></button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                                    {history.length === 0 ? (
+                                        <div className="text-center text-slate-400 py-12 flex flex-col items-center">
+                                            <Icons.Clock className="w-12 h-12 mb-3 opacity-20"/>
+                                            <span>尚無歷史紀錄</span>
+                                        </div>
+                                    ) : (
+                                        history.map(h => (
+                                            <div key={h.id} className="group bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all" onClick={() => { setSourceText(h.src); setTranslatedText(h.res); setSourceLang(h.s); setTargetLang(h.t); setShowHistory(false); }}>
+                                                <div className="flex justify-between text-[10px] uppercase tracking-wider text-slate-400 mb-2">
+                                                    <span>{h.timestamp}</span>
+                                                    <span className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 dark:text-slate-400 font-bold">{LANGUAGES.find(l=>l.code===h.s)?.name || h.s} → {LANGUAGES.find(l=>l.code===h.t)?.name || h.t}</span>
+                                                </div>
+                                                <div className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-1.5 font-medium">{h.src}</div>
+                                                <div className="text-sm text-slate-900 dark:text-slate-100 line-clamp-2 pl-2 border-l-2 border-blue-500">{h.res.substring(0, 100)}...</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
+                    {/* --- RE-ADDED MISSING MODALS --- */}
                     {showSettings && (
                         <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSettings(false)}>
-                            <div className="bg-white dark:bg-slate-800 w-full max-w-lg p-6 rounded-2xl shadow-xl flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-xl dark:text-white">設定</h3><button onClick={() => setShowSettings(false)}><Icons.X className="w-5 h-5 text-slate-500"/></button></div>
+                            <div className="bg-white dark:bg-slate-800 w-full max-w-2xl p-6 rounded-2xl shadow-xl max-h-[90vh] flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
+                                    <h3 className="font-bold text-xl dark:text-white flex items-center gap-2"><Icons.Settings className="w-6 h-6 text-slate-500"/> 設定</h3>
+                                    <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"><Icons.X className="w-5 h-5 text-slate-500"/></button>
+                                </div>
                                 <div className="flex gap-4 mb-6 border-b border-slate-100 dark:border-slate-700">
                                     {['general', 'voice', 'sync', 'data'].map(tab => (
                                         <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-2 px-1 text-sm font-bold capitalize transition-colors relative ${activeTab === tab ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>{tab === 'general' ? '一般' : tab === 'voice' ? '語音' : tab === 'sync' ? '同步' : '資料'}{activeTab === tab && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-full"></span>}</button>
                                     ))}
                                 </div>
-                                <div className="space-y-4 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                                <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
                                     {activeTab === 'general' && (
                                         <div className="space-y-4">
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <label className="block text-sm font-bold text-slate-600 dark:text-slate-300">API Key (支援多組)</label>
-                                                    <span className="text-xs text-blue-500 bg-blue-50 dark:bg-blue-900 px-2 py-0.5 rounded-full">{getApiKeys().length} 組已輸入</span>
-                                                </div>
-                                                <textarea value={geminiKey} onChange={e => setGeminiKey(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white h-24 font-mono text-xs resize-none" placeholder="輸入 API Key (一行一個，或用逗號分隔)...&#10;AIzaSy...&#10;AIzaSy..." />
-                                                <div className="flex justify-between mt-2">
-                                                    <div className="text-xs text-slate-400">當前使用: 第 {currentKeyIndexRef.current + 1} 組</div>
-                                                    <button onClick={testApiKey} disabled={isLoading} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition-colors">{isLoading ? <Icons.RotateCw className="w-3 h-3 animate-spin"/> : <Icons.Check className="w-3 h-3"/>} 驗證全部</button>
-                                                </div>
+                                                <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Gemini API Key</label>
+{/* --- 修改 UI 開始：將 Input 改為 Textarea --- */}
+<div className="flex gap-2 items-start">
+    <textarea 
+        value={geminiKey} 
+        onChange={e => setGeminiKey(e.target.value)}
+        className="flex-1 p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-white resize-none h-20" 
+        placeholder="請輸入 API Key (支援多組，一行一組)&#10;Key_1...&#10;Key_2..." 
+    />
+    <button onClick={testApiKey} disabled={isLoading} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold whitespace-nowrap disabled:opacity-50 flex items-center gap-1 h-20 justify-center">
+        {isLoading ? <Icons.RotateCw className="w-3 h-3 animate-spin"/> : <Icons.Check className="w-3 h-3"/>}
+        驗證 Keys
+    </button>
+</div>
+<div className="mt-1 text-xs text-slate-400">當一組 Key 額度用盡 (429) 時，系統會自動切換至下一行 Key。</div>
+{/* --- 修改 UI 結束 --- */}
+                                                <div className="mt-1 text-xs text-slate-400">請至 Google AI Studio 申請 API Key</div>
                                             </div>
-                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">模型</label><select value={geminiModel} onChange={e => setGeminiModel(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white">{GEMINI_MODELS.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
-                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">自訂指令</label><textarea value={customInstruction} onChange={e => setCustomInstruction(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm h-20 resize-none outline-none dark:text-white"/></div>
-                                            <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">字體大小</label><input type="range" min="12" max="32" value={globalFontSize} onChange={e => setGlobalFontSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{globalFontSize}px</div></div><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">創意程度</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={e => setAiTemperature(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{aiTemperature}</div></div></div>
+                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">模型選擇 (Model)</label><select value={geminiModel} onChange={e => setGeminiModel(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
+                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">自訂指令 (System Instruction)</label><textarea value={customInstruction} onChange={e => setCustomInstruction(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm h-24 resize-none outline-none dark:text-white" placeholder="例如：你是一位專業的翻譯人員，請使用優雅的詞彙..." /></div>
+                                            <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">字體大小 (結果區)</label><input type="range" min="12" max="32" value={globalFontSize} onChange={e => setGlobalFontSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{globalFontSize}px</div></div><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">創意程度 (Temperature)</label><input type="range" min="0" max="1" step="0.1" value={aiTemperature} onChange={e => setAiTemperature(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{aiTemperature}</div></div></div>
                                         </div>
                                     )}
                                     {activeTab === 'voice' && (
                                         <div className="space-y-4">
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">語音引擎</label><select value={selectedVoiceURI} onChange={e => setSelectedVoiceURI(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white"><option value="">預設</option>{availableVoices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}</select></div>
-                                            <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">語速</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={e => setVoiceRate(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{voiceRate}x</div></div><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">音調</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={e => setVoicePitch(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{voicePitch}</div></div></div>
+                                            <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">語速 (Rate)</label><input type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={e => setVoiceRate(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{voiceRate}x</div></div><div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">音調 (Pitch)</label><input type="range" min="0.5" max="2" step="0.1" value={voicePitch} onChange={e => setVoicePitch(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" /><div className="text-right text-xs text-slate-400">{voicePitch}</div></div></div>
                                         </div>
                                     )}
                                     {activeTab === 'sync' && (
                                         <div className="space-y-4">
                                             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-600 dark:text-blue-300"><p className="font-bold mb-1">☁️ Firebase 雲端同步</p><p>設定此功能可讓您在不同裝置間同步歷史紀錄與設定。</p></div>
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Firebase Config (JSON)</label><textarea value={firebaseConfigStr} onChange={e => setFirebaseConfigStr(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-xs font-mono h-32 resize-none outline-none dark:text-white" placeholder='{"apiKey": "...", ...}' /></div>
-                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Sync ID</label><input type="text" value={syncId} onChange={e => setSyncId(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white" placeholder="例如：my-gemini-sync-001" /></div>
+                                            <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Sync ID (自訂識別碼)</label><input type="text" value={syncId} onChange={e => setSyncId(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white" placeholder="例如：my-gemini-sync-001" /></div>
                                             <div className="flex justify-between items-center"><span className={`text-xs font-bold ${syncStatusMsg.includes('成功') || syncStatusMsg.includes('已連線') ? 'text-green-500' : 'text-red-500'}`}>{syncStatusMsg}</span><button onClick={testConnection} disabled={isLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50">{isLoading ? '連線中...' : '測試連線'}</button></div>
                                         </div>
                                     )}
                                     {activeTab === 'data' && (
                                         <div className="space-y-6">
                                             <div>
-                                                <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">自訂術語表</label>
-                                                <div className="flex gap-2 mb-2"><input type="text" value={newGlossaryTerm} onChange={e => setNewGlossaryTerm(e.target.value)} placeholder="原文" className="flex-1 p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white" /><input type="text" value={newGlossaryTrans} onChange={e => setNewGlossaryTrans(e.target.value)} placeholder="譯文" className="flex-1 p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white" /><button onClick={addGlossaryTerm} className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Icons.Check className="w-4 h-4"/></button></div>
+                                                <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">自訂術語表 (Glossary)</label>
+                                                <div className="flex gap-2 mb-2"><input type="text" value={newGlossaryTerm} onChange={e => setNewGlossaryTerm(e.target.value)} placeholder="原文 (如: Apple)" className="flex-1 p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white" /><input type="text" value={newGlossaryTrans} onChange={e => setNewGlossaryTrans(e.target.value)} placeholder="譯文 (如: 蘋果)" className="flex-1 p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white" /><button onClick={addGlossaryTerm} className="p-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Icons.Check className="w-4 h-4"/></button></div>
                                                 <div className="max-h-40 overflow-y-auto rounded-lg border dark:border-slate-700">{glossary.length === 0 ? <div className="p-4 text-center text-slate-400 text-sm">尚無術語</div> : glossary.map((g, i) => (<div key={i} className="flex justify-between items-center p-2 border-b dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/50"><span className="text-sm dark:text-slate-300">{g.term} → {g.trans}</span><button onClick={() => removeGlossaryTerm(i)} className="text-red-400 hover:text-red-500"><Icons.X className="w-3 h-3"/></button></div>))}</div>
                                             </div>
                                             <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
@@ -1189,20 +1890,34 @@
                             </div>
                         </div>
                     )}
-                    
-                    {showCropModal && <div className="fixed inset-0 bg-black/80 z-[200] flex flex-col animate-in fade-in crop-modal">
-                        <div className="p-4 flex justify-between items-center text-white"><span className="font-bold">裁切圖片 / 選取範圍 (Crop)</span><button onClick={()=>setShowCropModal(false)}><Icons.X className="w-6 h-6"/></button></div>
-                        <div className="flex-1 overflow-hidden relative flex items-center justify-center bg-black" onTouchMove={(e)=>e.preventDefault()}>
-                            <img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-full object-contain touch-none select-none" onMouseDown={handleCropStart} onMouseMove={handleCropMove} onMouseUp={handleCropEnd} onTouchStart={handleCropStart} onTouchMove={handleCropMove} onTouchEnd={handleCropEnd} alt="Crop Target" draggable="false" />
-                            {cropSelection && <div className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-none" style={{left:cropSelection.x, top:cropSelection.y, width:cropSelection.w, height:cropSelection.h}}></div>}
+
+                    {showBigText && (
+                        <div ref={fsContentRef} className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col animate-in fade-in">
+                            <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
+                                <div className="flex items-center gap-3"><button onClick={()=>setShowBigText(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Icons.ArrowLeft/></button><span className="font-bold text-lg">全螢幕閱讀</span></div>
+                                <div className="flex items-center gap-4"><input type="range" min="16" max="64" value={fsSize} onChange={e=>setFsSize(Number(e.target.value))} className="w-32"/><input type="range" min="600" max="1200" step="100" value={fsWidth} onChange={e=>setFsWidth(Number(e.target.value))} className="w-32 hidden md:block"/><button onClick={handleFullScreenDownload} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full" title="下載長圖"><Icons.Camera/></button></div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-white dark:bg-slate-900">
+                                <div ref={fsInnerRef} className="h-fit min-h-full bg-white dark:bg-slate-900 p-8" style={{width: `${fsWidth}px`, maxWidth: '100%'}}><SafeMarkdown content={translatedText} fontSize={fsSize} /></div>
+                            </div>
                         </div>
-                        <div className="p-4 bg-black flex gap-4 justify-center pb-8 safe-area-pb">
-                            <button onClick={handleFullImageConfirm} className="px-6 py-3 bg-slate-700 text-white rounded-xl font-bold flex-1">使用原圖</button>
-                            <button onClick={handleCropConfirm} disabled={!cropSelection} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold flex-1 disabled:opacity-50">確認裁切</button>
-                            {currentTask === 'image-gen' && <button onClick={handleImageToPrompt} className="px-6 py-3 bg-pink-600 text-white rounded-xl font-bold flex-1">轉繪圖指令</button>}
+                    )}
+
+                    {showCropModal && (
+                        <div className="fixed inset-0 bg-black/80 z-[200] flex flex-col animate-in fade-in crop-modal">
+                            <div className="p-4 flex justify-between items-center text-white"><span className="font-bold">裁切圖片 / 選取範圍 (Crop)</span><button onClick={()=>setShowCropModal(false)}><Icons.X className="w-6 h-6"/></button></div>
+                            <div className="flex-1 overflow-hidden relative flex items-center justify-center bg-black" onTouchMove={(e)=>e.preventDefault()}>
+                                <img ref={imageRef} src={cropImageSrc} className="max-w-full max-h-full object-contain touch-none select-none" onMouseDown={handleCropStart} onMouseMove={handleCropMove} onMouseUp={handleCropEnd} onTouchStart={handleCropStart} onTouchMove={handleCropMove} onTouchEnd={handleCropEnd} alt="Crop Target" draggable="false" />
+                                {cropSelection && <div className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-none" style={{left:cropSelection.x, top:cropSelection.y, width:cropSelection.w, height:cropSelection.h}}></div>}
+                            </div>
+                            <div className="p-4 bg-black flex gap-4 justify-center pb-8 safe-area-pb">
+                                <button onClick={handleFullImageConfirm} className="px-6 py-3 bg-slate-700 text-white rounded-xl font-bold flex-1">使用原圖</button>
+                                <button onClick={handleCropConfirm} disabled={!cropSelection} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold flex-1 disabled:opacity-50">確認裁切</button>
+                                {currentTask === 'image-gen' && <button onClick={handleImageToPrompt} className="px-6 py-3 bg-pink-600 text-white rounded-xl font-bold flex-1">轉繪圖指令</button>}
+                            </div>
                         </div>
-                    </div>}
-                    
+                    )}
+
                     {showVisualMode && displayImage && (
                         <div className="fixed inset-0 bg-black/90 z-[150] flex flex-col animate-in fade-in">
                             <div className="p-4 flex justify-between items-center text-white bg-black/50 backdrop-blur-sm z-10"><span className="font-bold">視覺化模式 (Visual Mode)</span><div className="flex gap-2"><button onClick={handleSaveVisualImage} className="p-2 bg-blue-600 rounded-full"><Icons.Save className="w-5 h-5"/></button><button onClick={()=>setShowVisualMode(false)} className="p-2 hover:bg-white/10 rounded-full"><Icons.X className="w-6 h-6"/></button></div></div>
@@ -1228,7 +1943,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.18 Confirm Fix</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.4 (Studio)</div>
                 </div>
             );
         }
