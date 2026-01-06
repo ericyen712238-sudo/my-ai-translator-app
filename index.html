@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4.20 Button Fix)</title>
+    <title>Gemini AI 文件助手 (Pro v4.21)</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -143,6 +143,7 @@
             if (!res.ok) {
                 if (res.status === 429) throw new Error("429_TOO_MANY_REQUESTS");
                 if (res.status === 403) throw new Error("403_FORBIDDEN"); 
+                if (res.status === 404) throw new Error("404_MODEL_NOT_FOUND");
                 if (res.status >= 500) throw new Error("SERVER_ERROR");
                 
                 const errorData = await res.json().catch(() => ({}));
@@ -243,10 +244,12 @@
             Key: () => <Icon><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></Icon>
         };
 
+        // NEW: Updated Model List with Stable Fallbacks
         const GEMINI_MODELS = [
-            {id:'gemini-2.5-flash-preview-09-2025',name:'Flash 2.5 (Preview)'},
             {id:'gemini-2.0-flash-exp',name:'Flash 2.0 (Stable)'},
             {id:'gemini-1.5-flash',name:'Flash 1.5'},
+            {id:'gemini-1.5-flash-002',name:'Flash 1.5-002'},
+            {id:'gemini-1.5-flash-8b',name:'Flash 1.5-8b'},
             {id:'gemini-1.5-pro',name:'Pro 1.5'}
         ];
         
@@ -268,7 +271,8 @@
         ];
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
-        const FALLBACK_MODEL = 'gemini-1.5-flash';
+        // Use a more stable fallback
+        const FALLBACK_MODEL = 'gemini-1.5-flash-8b';
 
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
@@ -312,7 +316,7 @@
             const [aiTemperature, setAiTemperature] = useState(0.7);
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
-            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.5-flash-preview-09-2025');
+            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.0-flash-exp');
             const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
@@ -438,8 +442,8 @@
                 let tested = 0;
                 let lastError = "";
 
-                // Use user selected model, default to 1.5 flash if weird
-                const modelToTest = geminiModel || 'gemini-1.5-flash';
+                // Use user selected model for test
+                const modelToTest = geminiModel || 'gemini-2.0-flash-exp';
 
                 for (let i = 0; i < keys.length; i++) {
                     const key = keys[i];
@@ -521,7 +525,7 @@
                 setIsLoading(false); setLoadingStatus(''); showToast("已取消請求", "success"); setApiHealth('idle');
             };
 
-            // --- CORE LOGIC: Multi-Key Rotation ---
+            // --- CORE LOGIC: Multi-Key Rotation & Model Fallback ---
             const runGeminiRequest = async (payload, preferredModel) => {
                 if (abortControllerRef.current) abortControllerRef.current.abort();
                 abortControllerRef.current = new AbortController();
@@ -548,7 +552,15 @@
                             return result;
                         } catch (e) {
                             if (e.message === "Request cancelled") throw e;
-                            const isRotatable = e.message === "429_TOO_MANY_REQUESTS" || e.message === "403_FORBIDDEN" || e.message === "SERVER_ERROR" || e.message.includes("400");
+                            
+                            // Check error types for rotation
+                            const isRotatable = e.message === "429_TOO_MANY_REQUESTS" || e.message === "403_FORBIDDEN" || e.message === "SERVER_ERROR" || e.message.includes("400"); // 400 might mean invalid key
+                            
+                            // 404 means MODEL not found, don't rotate key, break to try fallback model
+                            if (e.message.includes("404")) {
+                                throw new Error("404_MODEL_NOT_FOUND");
+                            }
+
                             if (isRotatable) {
                                 console.warn(`Key #${currentIdx + 1} failed (${e.message}). Rotating...`);
                                 attempts++;
@@ -571,13 +583,27 @@
                         return resultWrapper;
                     }
                     throw new Error("無回應 (內容可能被過濾)");
+
                 } catch (e) {
-                    if (preferredModel !== FALLBACK_MODEL && e.message !== "Request cancelled") {
-                        setLoadingStatus("主要模型忙碌，切換至 Flash 1.5...");
-                        try { const fbResult = await executeWithRotation(FALLBACK_MODEL); setApiHealth('success'); return fbResult; } 
-                        catch (fbError) { setApiHealth('error'); throw fbError; }
+                    // Smart Model Fallback
+                    const isModelError = e.message.includes("404") || e.message.includes("not found") || e.message.includes("not supported");
+                    
+                    if ((isModelError || preferredModel !== FALLBACK_MODEL) && e.message !== "Request cancelled") {
+                        const fallback = FALLBACK_MODEL;
+                        console.log(`Primary model ${preferredModel} failed, switching to ${fallback}...`);
+                        setLoadingStatus(`模型 ${preferredModel} 異常，切換至 ${fallback}...`);
+                        
+                        try {
+                            const fbResult = await executeWithRotation(fallback);
+                            setApiHealth('success');
+                            return fbResult;
+                        } catch (fbError) {
+                            setApiHealth('error');
+                            throw fbError;
+                        }
                     }
-                    setApiHealth('error'); throw e;
+                    setApiHealth('error');
+                    throw e;
                 }
             };
             
@@ -953,13 +979,10 @@
                     <main className="max-w-6xl mx-auto px-4 py-6 gap-4 flex-1 flex flex-col w-full">
                           <div className="flex flex-col gap-3">
                             <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full md:w-fit">
-                                <button onClick={()=>setMode('text')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.Type className="w-4 h-4"/>文字</button>
-                                <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
-                                <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
+                                {['text','file','conversation'].map(m => <button key={m} onClick={()=>setMode(m)} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 capitalize ${mode===m?'bg-blue-50 text-blue-600':'text-slate-400'}`}>{m==='conversation'?'對話':m==='file'?'文件':'文字'}</button>)}
                             </div>
                             {mode!=='conversation' && (
                                 <>
-                                    {/* 1. Task Selector Grid (Selection Only) */}
                                     <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
                                         {TASKS.map(t => (
                                             <button 
@@ -971,8 +994,6 @@
                                             </button>
                                         ))}
                                     </div>
-
-                                    {/* 2. Language & Tone Selection */}
                                     <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
                                         <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                                             <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
@@ -990,8 +1011,6 @@
                                             </select>
                                         </div>
                                     </div>
-                                    
-                                    {/* 3. BIG EXECUTE BUTTON (MOVED HERE) */}
                                     <button 
                                         onClick={() => callAI(currentTask)} 
                                         disabled={isLoading || !sourceText}
@@ -1200,52 +1219,6 @@
                             </div>
                         </div>
                     )}
-                    
-                    {/* FIXED: History Modal with Custom Confirm */}
-                    {showHistory && (
-                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowHistory(false)}>
-                            <div className="bg-white dark:bg-slate-800 w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[80vh] flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
-                                    <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Icons.Clock className="w-5 h-5 text-blue-500"/> 歷史紀錄</h3>
-                                    <div className="flex gap-2">
-                                        <button onClick={clearHistory} className="text-red-500 text-xs font-bold hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-full transition-colors">清除全部</button>
-                                        <button onClick={() => setShowHistory(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><Icons.X className="w-5 h-5 text-slate-500" /></button>
-                                    </div>
-                                </div>
-                                <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
-                                    {history.length === 0 ? (
-                                        <div className="text-center text-slate-400 py-12 flex flex-col items-center">
-                                            <Icons.Clock className="w-12 h-12 mb-3 opacity-20"/>
-                                            <span>尚無歷史紀錄</span>
-                                        </div>
-                                    ) : (
-                                        history.map(h => (
-                                            <div key={h.id} className="group bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all" onClick={() => { setSourceText(h.src); setTranslatedText(h.res); setSourceLang(h.s); setTargetLang(h.t); setShowHistory(false); }}>
-                                                <div className="flex justify-between text-[10px] uppercase tracking-wider text-slate-400 mb-2">
-                                                    <span>{h.timestamp}</span>
-                                                    <span className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 dark:text-slate-400 font-bold">{LANGUAGES.find(l=>l.code===h.s)?.name || h.s} → {LANGUAGES.find(l=>l.code===h.t)?.name || h.t}</span>
-                                                </div>
-                                                <div className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-1.5 font-medium">{h.src}</div>
-                                                <div className="text-sm text-slate-900 dark:text-slate-100 line-clamp-2 pl-2 border-l-2 border-blue-500">{h.res.substring(0, 100)}...</div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {showBigText && (
-                        <div ref={fsContentRef} className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col animate-in fade-in">
-                            <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
-                                <div className="flex items-center gap-3"><button onClick={()=>setShowBigText(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Icons.ArrowLeft/></button><span className="font-bold text-lg">全螢幕閱讀</span></div>
-                                <div className="flex items-center gap-4"><input type="range" min="16" max="64" value={fsSize} onChange={e=>setFsSize(Number(e.target.value))} className="w-32"/><input type="range" min="600" max="1200" step="100" value={fsWidth} onChange={e=>setFsWidth(Number(e.target.value))} className="w-32 hidden md:block"/><button onClick={handleFullScreenDownload} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full" title="下載長圖"><Icons.Camera/></button></div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-white dark:bg-slate-900">
-                                <div ref={fsInnerRef} className="h-fit min-h-full bg-white dark:bg-slate-900 p-8" style={{width: `${fsWidth}px`, maxWidth: '100%'}}><SafeMarkdown content={translatedText} fontSize={fsSize} /></div>
-                            </div>
-                        </div>
-                    )}
 
                     {selectionMenu.visible && (
                         <div className="fixed bg-slate-800 text-white rounded-lg shadow-xl flex overflow-hidden z-50 animate-pop-in" style={{ left: selectionMenu.x, top: selectionMenu.y, transform: 'translate(-50%, -100%)' }}>
@@ -1255,7 +1228,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.19 Final Layout</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.18 Confirm Fix</div>
                 </div>
             );
         }
