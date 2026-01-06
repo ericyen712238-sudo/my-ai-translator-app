@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4.14 UI Fix)</title>
+    <title>Gemini AI 文件助手 (Pro v4.16 UI Tweak)</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -39,7 +39,6 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
     <!-- React & Libs -->
-    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -59,7 +58,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <style>
-        body { font-family: 'Zen Maru Gothic', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         .dark ::-webkit-scrollbar-thumb { background-color: #475569; }
@@ -89,7 +88,7 @@
     <script type="text/babel">
         const { useState, useRef, useEffect, useCallback } = React;
 
-        if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
+        if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
 
         const DEFAULT_FIREBASE_CONFIG = {
           "apiKey": "AIzaSyAwbquRwB2p_2zXXHYo_Vzk_EDPYyOSeKY",
@@ -247,7 +246,6 @@
             Send: () => <Icon><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Icon>,
             Cloud: () => <Icon><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M19 19h.5c1.933 0 3.5-1.567 3.5-3.5S21.433 12 19.5 12c-.22 0-.435.02-.646.06A5.505 5.505 0 0 0 12 7a5.505 5.505 0 0 0-6.854 5.06c-.211-.04-.426-.06-.646-.06C2.567 12 1 13.567 1 15.5S2.567 19 4.5 19h.5"/></Icon>,
             Wifi: () => <Icon><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></Icon>,
-            WifiOff: () => <Icon><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></Icon>,
             Key: () => <Icon><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></Icon>
         };
 
@@ -915,7 +913,19 @@
             const handleFullScreenDownload = async () => { if (!fsInnerRef.current) return; setIsLoading(true); setLoadingStatus('正在產生全螢幕截圖...'); try { const element = fsInnerRef.current; const height = element.scrollHeight; let dynamicScale = 4; if (height > 6000) dynamicScale = 2; else if (height > 2500) dynamicScale = 3; const canvas = await html2canvas(element, { useCORS: true, backgroundColor: darkMode ? '#0f172a' : '#ffffff', scale: dynamicScale, logging: false, allowTaint: false, scrollY: -window.scrollY }); const link = document.createElement('a'); link.download = `fullscreen_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("全螢幕截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } finally { setIsLoading(false); setLoadingStatus(''); } };
             const handleScreenshotMsg = async (id) => { const element = document.getElementById(id); if (!element) return; try { const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 }); const link = document.createElement('a'); link.download = `chat_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } };
             const handleCropStart = (e) => { const coords = getClientCoordinates(e); setCropSelection({x:coords.x,y:coords.y,w:0,h:0}); isDraggingRef.current=true; dragStartRef.current=coords; };
-            const handleCropMove = (e) => { if(!isDraggingRef.current)return; const coords = getClientCoordinates(e); const r = imageRef.current.getBoundingClientRect(); const cx = Math.min(Math.max(0, coords.x), r.width); const cy = Math.min(Math.max(0, coords.y), r.height); setCropSelection({x:Math.min(dragStartRef.current.x,cx),y:Math.min(dragStartRef.current.y,cy),w:Math.abs(cx-dragStartRef.current.x),h:Math.abs(cy-dragStartRef.current.y)}); };
+            const handleCropMove = (e) => { 
+                if(!isDraggingRef.current)return; 
+                const coords = getClientCoordinates(e); 
+                const r = imageRef.current.getBoundingClientRect(); 
+                const cx = Math.min(Math.max(0, coords.x), r.width); 
+                const cy = Math.min(Math.max(0, coords.y), r.height); 
+                setCropSelection({
+                    x: Math.min(dragStartRef.current.x, cx),
+                    y: Math.min(dragStartRef.current.y, cy),
+                    w: Math.abs(cx - dragStartRef.current.x),
+                    h: Math.abs(cy - dragStartRef.current.y)
+                }); 
+            };
             const handleCropEnd = () => isDraggingRef.current = false;
             const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
 
@@ -947,30 +957,34 @@
                                 <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                                 <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
                             </div>
-                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
-                                {TASKS.map(t => <button key={t.id} onClick={() => { setCurrentTask(t.id); setTranslatedText(''); setErrorMsg(''); }} className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>{t.icon}<span>{t.name}</span></button>)}
-                            </div>}
+                            {mode!=='conversation' && (
+                                <>
+                                    {/* 1. Language & Tone Selection (Moved UP) */}
+                                    <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
+                                        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                                            <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
+                                                {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
+                                            </select>
+                                            <button onClick={()=>{const t=targetLang; setTargetLang(sourceLang==='auto'?'en':sourceLang); setSourceLang(t);}} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></button>
+                                            <select value={targetLang} onChange={(e)=>setTargetLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
+                                                {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-slate-400 font-bold hidden md:inline">語氣:</span>
+                                            <select value={selectedTone} onChange={(e)=>setSelectedTone(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white min-w-[100px]">
+                                                {TONES.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* 2. Action Buttons (Moved UP) */}
+                                    <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
+                                        {TASKS.map(t => <button key={t.id} onClick={() => { setCurrentTask(t.id); callAI(t.id); }} className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>{t.icon}<span>{t.name}</span></button>)}
+                                    </div>
+                                </>
+                            )}
                         </div>
-
-                        {mode !== 'conversation' && (
-                            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
-                                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                                    <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
-                                        {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
-                                    </select>
-                                    <button onClick={()=>{const t=targetLang; setTargetLang(sourceLang==='auto'?'en':sourceLang); setSourceLang(t);}} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400"><Icons.ArrowRightLeft className="w-4 h-4"/></button>
-                                    <select value={targetLang} onChange={(e)=>setTargetLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
-                                        {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-slate-400 font-bold hidden md:inline">語氣:</span>
-                                    <select value={selectedTone} onChange={(e)=>setSelectedTone(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white min-w-[100px]">
-                                        {TONES.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                        )}
 
                         {mode !== 'conversation' ? (
                             <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-[500px]">
@@ -1177,7 +1191,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.14 UI Fix</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.16 UI Tweak</div>
                 </div>
             );
         }
