@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4.16 UI Tweak)</title>
+    <title>Gemini AI 文件助手 (Pro v4.20 Button Fix)</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -103,12 +103,6 @@
         // --- Global Helper Functions ---
         const loadPdfWithPassword = (data) => {
             const loadingTask = window.pdfjsLib.getDocument({ data });
-            loadingTask.onPassword = (updatePassword, reason) => {
-                let msg = '此 PDF 受密碼保護，請輸入密碼：';
-                if (reason === window.pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) msg = '密碼錯誤，請重新輸入：';
-                const password = prompt(msg);
-                if (password) updatePassword(password); else loadingTask.destroy();
-            };
             return loadingTask.promise;
         };
 
@@ -281,6 +275,19 @@
             return <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-white text-sm font-bold flex items-center gap-2 z-[100] animate-slide-up ${type==='success'?'bg-slate-800/90':'bg-red-500/90'}`}>{type==='success'?<Icons.Check className="w-4 h-4 text-green-400"/>:<Icons.AlertCircle className="w-4 h-4 text-white"/>}{message}</div>;
         };
 
+        const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+            <div className="fixed inset-0 bg-black/60 z-[150] flex items-center justify-center p-4 animate-in fade-in" onClick={onCancel}>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full animate-pop-in border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-lg font-bold mb-3 dark:text-white flex items-center gap-2"><Icons.AlertCircle className="text-red-500"/> 確認操作</h3>
+                    <p className="text-slate-600 dark:text-slate-300 mb-6">{message}</p>
+                    <div className="flex gap-3 justify-end">
+                        <button onClick={onCancel} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors">取消</button>
+                        <button onClick={onConfirm} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-bold transition-colors">確認清除</button>
+                    </div>
+                </div>
+            </div>
+        );
+
         function App() {
             const [mode, setMode] = useState('text');
             const [currentTask, setCurrentTask] = useState('notes');
@@ -351,6 +358,7 @@
             // --- NEW: API Health & Image Gen States ---
             const [apiHealth, setApiHealth] = useState('idle'); // idle, loading, error, success
             const [imageGenState, setImageGenState] = useState({ show: false, prompt: '' });
+            const [confirmModal, setConfirmModal] = useState({ show: false, message: '', onConfirm: null });
             
             // --- MULTI-KEY SUPPORT ---
             const currentKeyIndexRef = useRef(parseInt(localStorage.getItem('gemini_key_index') || '0'));
@@ -482,7 +490,8 @@
             useEffect(() => { chatEndRef.current?.scrollIntoView({behavior:'smooth'}); }, [chatMessages, imageGenState.show]);
 
             const addToHistory = (src, res, s, t) => setHistory(prev => [{ id: Date.now(), src, res, s, t, timestamp: new Date().toLocaleString() }, ...prev].slice(0, 50));
-            const clearHistory = () => { if(confirm("確定要清除所有歷史紀錄嗎？")) { setHistory([]); } };
+            const triggerConfirm = (message, onConfirm) => setConfirmModal({ show: true, message, onConfirm });
+            const clearHistory = () => triggerConfirm("確定要清除所有歷史紀錄嗎？", () => { setHistory([]); setConfirmModal({ show: false, message: '', onConfirm: null }); });
             const addGlossaryTerm = () => { if(newGlossaryTerm && newGlossaryTrans) { setGlossary([...glossary, { term: newGlossaryTerm, trans: newGlossaryTrans }]); setNewGlossaryTerm(''); setNewGlossaryTrans(''); } };
             const removeGlossaryTerm = (index) => { const newG = [...glossary]; newG.splice(index, 1); setGlossary(newG); };
             const showToast = (msg, type = 'success') => { setToast({ message: msg, type }); };
@@ -501,9 +510,10 @@
             };
 
             const handleClearAll = () => {
-                if(confirm("確定要清除所有內容（原文、結果、對話）嗎？")) {
+                triggerConfirm("確定要清除所有內容（原文、結果、對話）嗎？", () => {
                     resetApp(); setFileName(null); showToast("已清除所有內容", "success");
-                }
+                    setConfirmModal({ show: false, message: '', onConfirm: null });
+                });
             };
 
             const handleCancelRequest = () => {
@@ -913,19 +923,7 @@
             const handleFullScreenDownload = async () => { if (!fsInnerRef.current) return; setIsLoading(true); setLoadingStatus('正在產生全螢幕截圖...'); try { const element = fsInnerRef.current; const height = element.scrollHeight; let dynamicScale = 4; if (height > 6000) dynamicScale = 2; else if (height > 2500) dynamicScale = 3; const canvas = await html2canvas(element, { useCORS: true, backgroundColor: darkMode ? '#0f172a' : '#ffffff', scale: dynamicScale, logging: false, allowTaint: false, scrollY: -window.scrollY }); const link = document.createElement('a'); link.download = `fullscreen_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("全螢幕截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } finally { setIsLoading(false); setLoadingStatus(''); } };
             const handleScreenshotMsg = async (id) => { const element = document.getElementById(id); if (!element) return; try { const canvas = await html2canvas(element, { useCORS: true, backgroundColor: null, scale: 3 }); const link = document.createElement('a'); link.download = `chat_capture_${Date.now()}.png`; link.href = canvas.toDataURL('image/png'); link.click(); showToast("截圖已下載", "success"); } catch (err) { showToast("截圖失敗", "error"); } };
             const handleCropStart = (e) => { const coords = getClientCoordinates(e); setCropSelection({x:coords.x,y:coords.y,w:0,h:0}); isDraggingRef.current=true; dragStartRef.current=coords; };
-            const handleCropMove = (e) => { 
-                if(!isDraggingRef.current)return; 
-                const coords = getClientCoordinates(e); 
-                const r = imageRef.current.getBoundingClientRect(); 
-                const cx = Math.min(Math.max(0, coords.x), r.width); 
-                const cy = Math.min(Math.max(0, coords.y), r.height); 
-                setCropSelection({
-                    x: Math.min(dragStartRef.current.x, cx),
-                    y: Math.min(dragStartRef.current.y, cy),
-                    w: Math.abs(cx - dragStartRef.current.x),
-                    h: Math.abs(cy - dragStartRef.current.y)
-                }); 
-            };
+            const handleCropMove = (e) => { if(!isDraggingRef.current)return; const coords = getClientCoordinates(e); const r = imageRef.current.getBoundingClientRect(); const cx = Math.min(Math.max(0, coords.x), r.width); const cy = Math.min(Math.max(0, coords.y), r.height); setCropSelection({x:Math.min(dragStartRef.current.x,cx),y:Math.min(dragStartRef.current.y,cy),w:Math.abs(cx-dragStartRef.current.x),h:Math.abs(cy-dragStartRef.current.y)}); };
             const handleCropEnd = () => isDraggingRef.current = false;
             const getClientCoordinates = (e) => { const r = imageRef.current.getBoundingClientRect(); const c = e.touches?e.touches[0]:e; return {x: c.clientX-r.left, y: c.clientY-r.top}; };
 
@@ -936,6 +934,8 @@
             return (
                 <div className="pb-12 dark:bg-slate-900 min-h-screen transition-colors flex flex-col font-sans">
                     {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                    {confirmModal.show && <ConfirmModal message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal({ show: false, message: '', onConfirm: null })} />}
+                    
                     <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-sm border-b dark:border-slate-800 sticky top-0 z-20 h-14 flex items-center justify-between px-4">
                         <div className="flex items-center gap-2 font-bold text-lg text-slate-800 dark:text-white">
                             <Icons.Languages className="text-blue-600"/> Gemini 助手 
@@ -959,7 +959,20 @@
                             </div>
                             {mode!=='conversation' && (
                                 <>
-                                    {/* 1. Language & Tone Selection (Moved UP) */}
+                                    {/* 1. Task Selector Grid (Selection Only) */}
+                                    <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
+                                        {TASKS.map(t => (
+                                            <button 
+                                                key={t.id} 
+                                                onClick={() => setCurrentTask(t.id)} 
+                                                className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                            >
+                                                {t.icon}<span>{t.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* 2. Language & Tone Selection */}
                                     <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
                                         <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                                             <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
@@ -978,10 +991,15 @@
                                         </div>
                                     </div>
                                     
-                                    {/* 2. Action Buttons (Moved UP) */}
-                                    <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
-                                        {TASKS.map(t => <button key={t.id} onClick={() => { setCurrentTask(t.id); callAI(t.id); }} className={`px-1 py-2 md:px-3 text-xs md:text-sm font-bold rounded-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-all ${currentTask === t.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>{t.icon}<span>{t.name}</span></button>)}
-                                    </div>
+                                    {/* 3. BIG EXECUTE BUTTON (MOVED HERE) */}
+                                    <button 
+                                        onClick={() => callAI(currentTask)} 
+                                        disabled={isLoading || !sourceText}
+                                        className={`w-full py-3 mb-4 rounded-xl font-bold text-white shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}
+                                    >
+                                        {isLoading ? <Icons.RotateCw className="w-5 h-5 animate-spin"/> : TASKS.find(t=>t.id===currentTask)?.icon}
+                                        {isLoading ? '處理中...' : `開始${TASKS.find(t=>t.id===currentTask)?.name}`}
+                                    </button>
                                 </>
                             )}
                         </div>
@@ -1086,7 +1104,7 @@
                             </div>
                         )}
 
-                        {mode!=='conversation' && <button onClick={()=>callAI(currentTask)} disabled={isLoading||!sourceText} className={`w-full py-3 rounded-xl font-bold text-white shadow transition-all active:scale-[0.99] disabled:opacity-50 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading?'處理中...':TASKS.find(t=>t.id===currentTask)?.name}</button>}
+                        {mode!=='conversation' && <div className="w-full h-1"></div>}
                         {errorMsg && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded">{errorMsg}</div>}
                     </main>
 
@@ -1182,6 +1200,52 @@
                             </div>
                         </div>
                     )}
+                    
+                    {/* FIXED: History Modal with Custom Confirm */}
+                    {showHistory && (
+                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowHistory(false)}>
+                            <div className="bg-white dark:bg-slate-800 w-full max-w-md p-6 rounded-2xl shadow-xl max-h-[80vh] flex flex-col animate-pop-in" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-700 pb-3">
+                                    <h3 className="font-bold text-lg dark:text-white flex items-center gap-2"><Icons.Clock className="w-5 h-5 text-blue-500"/> 歷史紀錄</h3>
+                                    <div className="flex gap-2">
+                                        <button onClick={clearHistory} className="text-red-500 text-xs font-bold hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-full transition-colors">清除全部</button>
+                                        <button onClick={() => setShowHistory(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><Icons.X className="w-5 h-5 text-slate-500" /></button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                                    {history.length === 0 ? (
+                                        <div className="text-center text-slate-400 py-12 flex flex-col items-center">
+                                            <Icons.Clock className="w-12 h-12 mb-3 opacity-20"/>
+                                            <span>尚無歷史紀錄</span>
+                                        </div>
+                                    ) : (
+                                        history.map(h => (
+                                            <div key={h.id} className="group bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all" onClick={() => { setSourceText(h.src); setTranslatedText(h.res); setSourceLang(h.s); setTargetLang(h.t); setShowHistory(false); }}>
+                                                <div className="flex justify-between text-[10px] uppercase tracking-wider text-slate-400 mb-2">
+                                                    <span>{h.timestamp}</span>
+                                                    <span className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 dark:text-slate-400 font-bold">{LANGUAGES.find(l=>l.code===h.s)?.name || h.s} → {LANGUAGES.find(l=>l.code===h.t)?.name || h.t}</span>
+                                                </div>
+                                                <div className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-1.5 font-medium">{h.src}</div>
+                                                <div className="text-sm text-slate-900 dark:text-slate-100 line-clamp-2 pl-2 border-l-2 border-blue-500">{h.res.substring(0, 100)}...</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {showBigText && (
+                        <div ref={fsContentRef} className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col animate-in fade-in">
+                            <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
+                                <div className="flex items-center gap-3"><button onClick={()=>setShowBigText(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><Icons.ArrowLeft/></button><span className="font-bold text-lg">全螢幕閱讀</span></div>
+                                <div className="flex items-center gap-4"><input type="range" min="16" max="64" value={fsSize} onChange={e=>setFsSize(Number(e.target.value))} className="w-32"/><input type="range" min="600" max="1200" step="100" value={fsWidth} onChange={e=>setFsWidth(Number(e.target.value))} className="w-32 hidden md:block"/><button onClick={handleFullScreenDownload} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full" title="下載長圖"><Icons.Camera/></button></div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-white dark:bg-slate-900">
+                                <div ref={fsInnerRef} className="h-fit min-h-full bg-white dark:bg-slate-900 p-8" style={{width: `${fsWidth}px`, maxWidth: '100%'}}><SafeMarkdown content={translatedText} fontSize={fsSize} /></div>
+                            </div>
+                        </div>
+                    )}
 
                     {selectionMenu.visible && (
                         <div className="fixed bg-slate-800 text-white rounded-lg shadow-xl flex overflow-hidden z-50 animate-pop-in" style={{ left: selectionMenu.x, top: selectionMenu.y, transform: 'translate(-50%, -100%)' }}>
@@ -1191,7 +1255,7 @@
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.16 UI Tweak</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.19 Final Layout</div>
                 </div>
             );
         }
