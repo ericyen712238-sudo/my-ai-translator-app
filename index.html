@@ -1850,7 +1850,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
 </div>
 <div className="mt-1 text-xs text-slate-400">當一組 Key 額度用盡 (429) 時，系統會自動切換至下一行 Key。</div>
 {/* --- 修改 UI 結束 --- */}
-                                                <a href="[https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)" target="_blank" rel="noopener noreferrer" className="mt-1 text-xs text-blue-500 hover:underline block">請至 Google AI Studio 申請 API Key (點此前往)</a>
+                                               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="mt-1 text-xs text-blue-500 hover:underline block">請至 Google AI Studio 申請 API Key (點此前往)</a>
 
                                             </div>
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">模型選擇 (Model)</label><select value={geminiModel} onChange={e => setGeminiModel(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
@@ -1953,6 +1953,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
     </script>
 </body>
 </html>
+
 
 
 
