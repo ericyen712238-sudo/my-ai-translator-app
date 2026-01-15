@@ -297,21 +297,13 @@
 const GEMINI_MODELS = [
     // --- 下一代模型 (Experimental) ---
     // 注意：Gemini 3.0 目前可能僅限部分帳號使用，若失敗請改用 2.5
-    {id:'gemini-3.0-pro-exp', name:'Gemini 3.0 Pro (Exp)'},
-    {id:'gemini-3.0-flash-exp', name:'Gemini 3.0 Flash (Exp)'},
+    {id:'gemini-3-pro-preview', name:'Gemini 3.0 Pro (Exp)'},
+    {id:'gemini-3-flash-preview', name:'Gemini 3.0 Flash (Exp)'},
     
     // --- 最新預覽版 (推薦備援) ---
     {id:'gemini-2.5-flash-preview-09-2025', name:'Gemini 2.5 Flash (Preview)'},
-    {id:'gemini-2.0-flash-exp', name:'Gemini 2.0 Flash (Exp)'},
-    
-    // --- 當前穩定版 ---
-    {id:'gemini-1.5-pro-002', name:'Gemini 1.5 Pro (002)'},
-    {id:'gemini-1.5-flash-002', name:'Gemini 1.5 Flash (002)'},
-    {id:'gemini-1.5-flash-8b', name:'Gemini 1.5 Flash-8B'},
-    
-    // --- 舊版相容 ---
-    {id:'gemini-1.5-pro', name:'Gemini 1.5 Pro (Legacy)'},
-    {id:'gemini-1.5-flash', name:'Gemini 1.5 Flash (Legacy)'}
+    {id:'gemini-2.5-pro', name:'Gemini 2.5 Pro'},
+    {id:'gemini-2.0-flash', name:'Gemini 2.0 Flash'},
 ];
 
         
@@ -1968,6 +1960,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
     </script>
 </body>
 </html>
+
 
 
 
