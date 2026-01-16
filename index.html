@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gemini AI 文件助手 (Pro v4.4 Studio)</title>
+    <title>Gemini AI 文件助手 (Pro v4.5 Voice)</title>
     
     <!-- Favicon (Logo) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275-1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z%22/></svg>">
@@ -19,13 +19,15 @@
                         'slide-up': 'slideUp 0.3s ease-out forwards', 
                         'fade-out': 'fadeOut 0.3s ease-in forwards',
                         'pop-in': 'popIn 0.2s ease-out forwards',
-                        'slide-in-bottom': 'slideInBottom 0.3s ease-out forwards'
+                        'slide-in-bottom': 'slideInBottom 0.3s ease-out forwards',
+                        'wave': 'wave 1.5s infinite'
                     },
                     keyframes: {
                         slideUp: { '0%': { transform: 'translate(-50%, 100%)', opacity: '0' }, '100%': { transform: 'translate(-50%, -1rem)', opacity: '1' } },
                         fadeOut: { '0%': { opacity: '1' }, '100%': { opacity: '0' } },
                         popIn: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
-                        slideInBottom: { '0%': { transform: 'translateY(100%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
+                        slideInBottom: { '0%': { transform: 'translateY(100%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        wave: { '0%, 100%': { transform: 'scaleY(1)' }, '50%': { transform: 'scaleY(0.5)' } }
                     }
                 }
             }
@@ -91,6 +93,13 @@
         
         /* Safe Area for Mobile */
         .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* Voice Wave Animation (New) */
+        .wave-bar { width: 4px; background: #fff; border-radius: 2px; animation: wave 1s ease-in-out infinite; }
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
@@ -99,6 +108,35 @@
         const { useState, useRef, useEffect, useCallback } = React;
 
         if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', fontFamily: 'Zen Maru Gothic' });
+
+        // --- NEW: Audio Helpers (PCM to WAV) ---
+        const pcmToWav = (pcmData, sampleRate = 24000) => {
+            const buffer = new ArrayBuffer(44 + pcmData.byteLength);
+            const view = new DataView(buffer);
+            const writeString = (view, offset, string) => { for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i)); };
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcmData.byteLength, 1);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, 1);
+            view.setUint16(20, 1, 1);
+            view.setUint16(22, 1, 1);
+            view.setUint32(24, sampleRate, 1);
+            view.setUint32(28, sampleRate * 2, 1);
+            view.setUint16(32, 2, 1);
+            view.setUint16(34, 16, 1);
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcmData.byteLength, 1);
+            new Uint8Array(buffer).set(new Uint8Array(pcmData), 44);
+            return buffer;
+        };
+        const base64ToArrayBuffer = (base64) => {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            return bytes.buffer;
+        };
 
         // --- User's Pre-configured Firebase Settings (Locked) ---
         const DEFAULT_FIREBASE_CONFIG = {
@@ -293,7 +331,7 @@
             Wifi: () => <Icon><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></Icon>
         };
 
-     
+      
 const GEMINI_MODELS = [
     // --- 下一代模型 (Experimental) ---
     // 注意：Gemini 3.0 目前可能僅限部分帳號使用，若失敗請改用 2.5
@@ -421,6 +459,13 @@ const GEMINI_MODELS = [
             const [isCloudInitialized, setIsCloudInitialized] = useState(false); // SAFETY LOCK
             const dbRef = useRef(null);
             const isRemoteUpdate = useRef(false);
+
+            // --- V5.0 新增: 錄音狀態 ---
+            const [isRecording, setIsRecording] = useState(false);
+            const [voiceTargetLang, setVoiceTargetLang] = useState('en');
+            const mediaRecorderRef = useRef(null);
+            const audioChunksRef = useRef([]);
+            const audioContextRef = useRef(null);
 
             // --- FIREBASE LOGIC ---
             useEffect(() => {
@@ -732,6 +777,84 @@ const runGeminiRequest = async (payload, preferredModel) => {
     }
 };
 // --- 修改區塊結束 ---
+
+            // --- V5.0 新增: 語音錄製邏輯 ---
+            const startRecording = async () => {
+                if(!geminiKey) { setShowSettings(true); return; }
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorderRef.current = mediaRecorder;
+                    audioChunksRef.current = [];
+                    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+                    mediaRecorder.start();
+                    setIsRecording(true);
+                } catch (err) { showToast("無法存取麥克風: " + err.message, "error"); }
+            };
+
+            const stopRecordingAndProcess = () => {
+                if (!mediaRecorderRef.current) return;
+                setIsRecording(false);
+                setLoadingStatus('思考並翻譯中...');
+                setIsLoading(true);
+
+                mediaRecorderRef.current.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = async () => {
+                        const base64Audio = reader.result.split(',')[1];
+                        try {
+                            const asrRes = await runGeminiRequest({
+                                contents: [{
+                                    parts: [
+                                        { text: `Listen to this audio. Translate it naturally to ${voiceTargetLang === 'en' ? 'English' : voiceTargetLang === 'ja' ? 'Japanese' : 'Traditional Chinese'}. Output ONLY the translated text. Do not add explanations.` },
+                                        { inline_data: { mime_type: 'audio/webm', data: base64Audio } }
+                                    ]
+                                }]
+                            }, 'gemini-2.5-flash-preview-09-2025');
+
+                            const translatedText = asrRes.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+                            if (!translatedText) throw new Error("無法辨識或翻譯");
+
+                            setChatMessages(prev => [...prev, { role: 'model', text: `🗣️ ${translatedText}` }]);
+                            setLoadingStatus('生成語音中...');
+
+                            const voiceName = voiceTargetLang === 'en' ? 'Fenrir' : voiceTargetLang === 'ja' ? 'Puck' : 'Aoede'; 
+                            
+                            const ttsRes = await runGeminiRequest({
+                                contents: [{ parts: [{ text: translatedText }] }],
+                                generationConfig: {
+                                    responseModalities: ["AUDIO"],
+                                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } } }
+                                },
+                            }, 'gemini-2.5-flash-preview-tts');
+
+                            const audioData = ttsRes.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+                            if (audioData) {
+                                if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                                const ctx = audioContextRef.current;
+                                const wavBuffer = pcmToWav(base64ToArrayBuffer(audioData), 24000); 
+                                try {
+                                    const audioBuffer = await ctx.decodeAudioData(wavBuffer);
+                                    const source = ctx.createBufferSource();
+                                    source.buffer = audioBuffer;
+                                    source.connect(ctx.destination);
+                                    source.start(0);
+                                } catch (decodeErr) { console.error("Decode Error", decodeErr); }
+                            }
+                        } catch (e) {
+                            showToast("處理失敗: " + e.message, "error");
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    };
+                };
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            };
             
             const handleSmartAction = async (actionType) => {
                 if(chatMessages.length === 0 && actionType !== 'image_prompt') {
@@ -765,7 +888,6 @@ const runGeminiRequest = async (payload, preferredModel) => {
                 } 
                 else if (actionType === 'image_prompt') {
                     setLoadingStatus('正在構思繪圖指令...');
-                    // If no history, assume user wants to start fresh
                     let context = historyStr;
                     if (!context && sourceText) context = `Source Text: ${sourceText}`;
                     if (!context) context = "A creative and artistic scene.";
@@ -779,7 +901,6 @@ const runGeminiRequest = async (payload, preferredModel) => {
                          
                          if(promptText) {
                              setImageGenState({ show: true, prompt: promptText });
-                             // Don't auto-send message, just open panel
                          }
                     } catch(e) {
                         if (e.message !== "Request cancelled") showToast("產生指令失敗: " + e.message, "error");
@@ -948,11 +1069,11 @@ const runGeminiRequest = async (payload, preferredModel) => {
 
                     const candidate = res.candidates?.[0];
                     if (!candidate) {
-                       console.error("AI Response Error:", res);
-                       throw new Error("No response candidates from AI. (可能原因: 模型負載過高或內容被過濾)");
+                        console.error("AI Response Error:", res);
+                        throw new Error("No response candidates from AI. (可能原因: 模型負載過高或內容被過濾)");
                     }
                     if (candidate.finishReason !== "STOP" && !candidate.content) {
-                       throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
+                        throw new Error(`AI response blocked. Reason: ${candidate.finishReason}`);
                     }
                     
                     out = candidate.content?.parts?.[0]?.text || "Error: Empty content";
@@ -978,7 +1099,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                 } else {
                                     const firstLine = cleaned.substring(0, firstLineEnd).trim();
                                     if (firstLine !== 'mindmap') {
-                                       cleaned = cleaned.replace('mindmap', 'mindmap\n');
+                                     cleaned = cleaned.replace('mindmap', 'mindmap\n');
                                     }
                                 }
                             }
@@ -1339,7 +1460,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
             };
             
             const copy = (t, isS) => { if(!t)return; navigator.clipboard.writeText(t); showToast(isS?"已複製原文":"已複製譯文", 'success'); };
-            const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANGUAGES.find(lang => lang.code === l)?.codeFull || l; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (v) u.voice = v; } window.speechSynthesis.speak(u); };
+            const speak = (t, l) => { if(!t)return; window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = LANGUAGES.find(lang => lang.code === l)?.code || l; u.rate = voiceRate; u.pitch = voicePitch; if (selectedVoiceURI) { const v = availableVoices.find(v => v.voiceURI === selectedVoiceURI); if (v) u.voice = v; } window.speechSynthesis.speak(u); };
             
             const handleDownload = () => { 
                 if (!translatedText) return; 
@@ -1602,12 +1723,88 @@ const runGeminiRequest = async (payload, preferredModel) => {
 
                     <main className="max-w-6xl mx-auto px-4 py-6 gap-4 flex-1 flex flex-col w-full">
                           <div className="flex flex-col gap-3">
+                            {/* --- Modified Mode Switcher with Voice Button --- */}
                             <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full md:w-fit">
                                 <button onClick={()=>setMode('text')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='text'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.Type className="w-4 h-4"/>文字</button>
                                 <button onClick={()=>setMode('file')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='file'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.FileText className="w-4 h-4"/>文件</button>
                                 <button onClick={()=>setMode('conversation')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='conversation'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.MessageSquare className="w-4 h-4"/>對話</button>
+                                <button onClick={()=>setMode('voice')} className={`flex-1 md:flex-none px-3 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1 ${mode==='voice'?'bg-blue-50 text-blue-600':'text-slate-400'}`}><Icons.Mic className="w-4 h-4"/>即時語音</button>
                             </div>
-                            {mode!=='conversation' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
+
+                            {/* --- New Voice Mode UI --- */}
+                            {mode === 'voice' && (
+                                <div className="flex-1 flex flex-col items-center justify-center min-h-[500px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in">
+                                    <div className="absolute top-4 right-4 z-10">
+                                        <select value={voiceTargetLang} onChange={e=>setVoiceTargetLang(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border dark:border-slate-600 rounded-lg px-3 py-1 text-sm font-bold outline-none dark:text-white">
+                                            <option value="en">翻譯成英文 (English)</option>
+                                            <option value="ja">翻譯成日文 (日本語)</option>
+                                            <option value="zh">翻譯成中文 (繁體)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex-1 w-full p-6 flex flex-col items-center justify-center text-center space-y-6">
+                                        {isLoading ? (
+                                            <div className="flex flex-col items-center animate-pulse">
+                                                <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-4">
+                                                    <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin"/>
+                                                </div>
+                                                <p className="text-lg font-bold text-slate-600 dark:text-slate-300">{loadingStatus}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4 w-full">
+                                                {chatMessages.length === 0 ? (
+                                                    <div className="opacity-50">
+                                                        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full mx-auto mb-4 flex items-center justify-center">
+                                                            <Icons.Mic className="w-10 h-10 text-slate-400"/>
+                                                        </div>
+                                                        <p className="text-slate-500 dark:text-slate-400">按住下方按鈕開始說話<br/>放開後自動翻譯並朗讀</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="max-h-[300px] overflow-y-auto w-full space-y-3 custom-scrollbar px-2">
+                                                        {chatMessages.map((m, i) => (
+                                                            <div key={i} className={`p-4 rounded-2xl text-left animate-slide-up ${m.role==='model' ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 border dark:border-slate-500' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                                                <SafeMarkdown content={m.text}/>
+                                                            </div>
+                                                        ))}
+                                                        <div ref={chatEndRef}></div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="w-full p-8 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-slate-700 flex flex-col items-center gap-4">
+                                        {isRecording && (
+                                            <div className="flex gap-1 h-6 items-center">
+                                                <div className="wave-bar h-3 bg-red-500"></div>
+                                                <div className="wave-bar h-5 bg-red-500"></div>
+                                                <div className="wave-bar h-4 bg-red-500"></div>
+                                                <div className="wave-bar h-6 bg-red-500"></div>
+                                                <div className="wave-bar h-3 bg-red-500"></div>
+                                            </div>
+                                        )}
+                                        <button 
+                                            onMouseDown={startRecording} 
+                                            onMouseUp={stopRecordingAndProcess}
+                                            onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+                                            onTouchEnd={(e) => { e.preventDefault(); stopRecordingAndProcess(); }}
+                                            disabled={isLoading}
+                                            className={`w-24 h-24 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 border-4 select-none touch-none ${
+                                                isLoading ? 'bg-slate-300 border-slate-200 opacity-50 cursor-not-allowed' :
+                                                isRecording 
+                                                    ? 'bg-red-500 border-red-200 scale-110 ring-4 ring-red-500/30' 
+                                                    : 'bg-blue-600 border-blue-200 hover:bg-blue-700 hover:scale-105 active:scale-95'
+                                            }`}
+                                        >
+                                            <Icons.Mic className={`w-10 h-10 text-white ${isRecording ? 'animate-pulse' : ''}`} />
+                                        </button>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isRecording ? '正在錄音...' : '按住說話 (Hold)'}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- Original Text/File Mode UI (Visible when not conversation and not voice) --- */}
+                            {mode!=='conversation' && mode!=='voice' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
                                 {TASKS.map(t => (
                                     <button 
                                         key={t.id} 
@@ -1623,7 +1820,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                             </div>}
                         </div>
 
-                        {mode !== 'conversation' && (
+                        {mode !== 'conversation' && mode !== 'voice' && (
                             <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border dark:border-slate-700 flex flex-wrap gap-2 items-center justify-between">
                                 <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                                     <select value={sourceLang} onChange={(e)=>setSourceLang(e.target.value)} className="p-1.5 rounded-md border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white flex-1">
@@ -1642,8 +1839,8 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                 </div>
                             </div>
                         )}
-      {mode!=='conversation' && <button onClick={()=>callAI(currentTask)} disabled={isLoading||!sourceText} className={`w-full py-3 rounded-xl font-bold text-white shadow transition-all active:scale-[0.99] disabled:opacity-50 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading?'處理中...':TASKS.find(t=>t.id===currentTask)?.name}</button>}
-                        {mode!=='conversation' && (
+                        {mode!=='conversation' && mode!=='voice' && <button onClick={()=>callAI(currentTask)} disabled={isLoading||!sourceText} className={`w-full py-3 rounded-xl font-bold text-white shadow transition-all active:scale-[0.99] disabled:opacity-50 ${TASKS.find(t=>t.id===currentTask)?.btnColor}`}>{isLoading?'處理中...':TASKS.find(t=>t.id===currentTask)?.name}</button>}
+                        {mode!=='conversation' && mode!=='voice' && (
                             <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-[500px]">
                                 <div className="flex flex-col bg-white dark:bg-slate-800 rounded-xl border dark:border-slate-700 overflow-hidden relative">
                                     <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center">
@@ -1697,7 +1894,6 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                         <Icons.ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/>
                                         <span className="text-sm font-bold">返回文件</span>
                                      </button>
-                                     {/* Top buttons removed as requested */}
                                 </div>
                                 
                                 <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
@@ -1786,8 +1982,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                 </div>
                             </div>
                         )}
-
-                     
+                        
                         {errorMsg && <div className="text-red-500 text-xs text-center bg-red-50 p-2 rounded">{errorMsg}</div>}
                     </main>
                     
@@ -1842,7 +2037,6 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">Gemini API Key</label>
-{/* --- 修改 UI 開始：將 Input 改為 Textarea --- */}
 <div className="flex gap-2 items-start">
     <textarea 
         value={geminiKey} 
@@ -1856,9 +2050,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
     </button>
 </div>
 <div className="mt-1 text-xs text-slate-400">當一組 Key 額度用盡 (429) 時，系統會自動切換至下一行 Key。</div>
-{/* --- 修改 UI 結束 --- */}
-                                               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="mt-1 text-xs text-blue-500 hover:underline block">請至 Google AI Studio 申請 API Key (點此前往)</a>
-
+                                                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="mt-1 text-xs text-blue-500 hover:underline block">請至 Google AI Studio 申請 API Key (點此前往)</a>
                                             </div>
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">模型選擇 (Model)</label><select value={geminiModel} onChange={e => setGeminiModel(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm outline-none dark:text-white">{GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></div>
                                             <div><label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">自訂指令 (System Instruction)</label><textarea value={customInstruction} onChange={e => setCustomInstruction(e.target.value)} className="w-full p-2 rounded-lg border dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sm h-24 resize-none outline-none dark:text-white" placeholder="例如：你是一位專業的翻譯人員，請使用優雅的詞彙..." /></div>
@@ -1952,18 +2144,24 @@ const runGeminiRequest = async (payload, preferredModel) => {
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v4.4 (Studio)</div>
+                    <div className="text-center text-xs text-slate-300 mt-8">Gemini AI Assistant • Pro v5.0 (Voice Studio)</div>
                 </div>
             );
         }
-        const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<App />);
+        
+        // Helper needed for crop
+// Helper needed for crop
+        function dataURItoBlob(dataURI) { 
+            const byteString = atob(dataURI.split(',')[1]); 
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]; 
+            const ab = new ArrayBuffer(byteString.length); 
+            const ia = new Uint8Array(ab); 
+            for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i); 
+            return new Blob([ab], {type: mimeString}); 
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />); // 確保這裡是單行且正確閉合
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
