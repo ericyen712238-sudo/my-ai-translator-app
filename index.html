@@ -1713,19 +1713,18 @@ const stopRecordingAndProcess = () => {
 
                             {/* --- New Voice Mode UI --- */}
 {mode === 'voice' && (
-    <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in h-[60vh] md:h-[600px] w-full">
+    <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in h-[60vh] md:h-[600px] w-full">
         
-        {/* 1. 頂部固定標題列 (不再懸浮，保證不消失) */}
-        <div className="flex justify-between items-center p-3 bg-slate-100 dark:bg-slate-900 border-b dark:border-slate-700 shrink-0 z-20">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm px-2">
-                <Icons.Mic className="w-4 h-4"/>
-                <span>即時翻譯</span>
+        {/* 1. 頂部標題列 */}
+        <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-800 border-b dark:border-slate-700 shrink-0 z-20 shadow-sm">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-bold text-sm px-2">
+                <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-green-500'}`}></div>
+                <span>即時語音對話</span>
             </div>
-            {/* 語言選單：直接放在這裡，佔據實體空間 */}
             <select 
                 value={voiceTargetLang} 
                 onChange={e=>setVoiceTargetLang(e.target.value)} 
-                className="bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-bold outline-none dark:text-white shadow-sm min-w-[110px]"
+                className="bg-slate-100 dark:bg-slate-700 border dark:border-slate-600 rounded-lg px-3 py-1.5 text-xs font-bold outline-none dark:text-white shadow-sm min-w-[110px]"
             >
                 <option value="en">翻譯成英文</option>
                 <option value="ja">翻譯成日文</option>
@@ -1734,72 +1733,104 @@ const stopRecordingAndProcess = () => {
             </select>
         </div>
 
-        {/* 2. 中間主要內容區 (自動填滿剩餘空間) */}
-        <div className="flex-1 relative w-full overflow-hidden flex flex-col bg-slate-50/50 dark:bg-black/20">
-            {isLoading ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 animate-pulse">
-                    <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                        <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin"/>
+        {/* 2. 中間對話區 (樣式與對話模式一致) */}
+        <div className="flex-1 relative w-full overflow-hidden flex flex-col bg-slate-100/50 dark:bg-black/20">
+            {chatMessages.length === 0 ? (
+                // 空狀態
+                <div className="flex-1 flex flex-col items-center justify-center opacity-40 gap-4 p-4 text-center">
+                    <div className="w-24 h-24 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
+                        <Icons.MessageSquare className="w-10 h-10 text-slate-500"/>
                     </div>
-                    <p className="text-lg font-bold text-slate-600 dark:text-slate-300">{loadingStatus}</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-bold">尚未開始對話</p>
+                    <p className="text-xs text-slate-400">請按住下方按鈕說話</p>
                 </div>
             ) : (
-                <>
-                    {chatMessages.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center opacity-50 gap-4 p-4 text-center">
-                            <div className="w-20 h-20 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                                <Icons.Mic className="w-10 h-10 text-slate-400"/>
-                            </div>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm">請按住下方按鈕說話<br/>系統將自動翻譯並朗讀</p>
-                        </div>
-                    ) : (
-                        // 3. 對話列表
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar w-full scroll-smooth">
-                            {chatMessages.map((m, i) => (
-                                <div key={i} className={`p-4 rounded-2xl text-left shadow-sm max-w-[95%] mx-auto animate-slide-up ${m.role==='model' ? 'bg-white dark:bg-slate-700 border border-blue-100 dark:border-slate-600' : 'bg-blue-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 ml-auto'}`}>
-                                    <div className="flex items-center gap-2 mb-2 opacity-60 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
-                                        {m.role === 'user' ? '👤 You' : '🤖 AI'}
-                                    </div>
-                                    
-                                    {/* 4. 強制文字顏色，防止變透明 */}
-                                    <div className="text-slate-800 dark:text-slate-100 leading-relaxed break-words text-lg font-medium">
-                                         <SafeMarkdown content={m.text} fontSize={globalFontSize} isUser={m.role==='user'}/>
-                                    </div>
+                // 對話列表 (氣泡風格)
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar w-full scroll-smooth">
+                    {chatMessages.map((m, i) => (
+                        <div key={i} className={`flex w-full ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`
+                                max-w-[85%] p-3 md:p-4 rounded-2xl text-left shadow-sm animate-slide-up flex flex-col gap-1
+                                ${m.role === 'user' 
+                                    ? 'bg-blue-600 text-white rounded-br-none' 
+                                    : 'bg-white dark:bg-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-600 rounded-bl-none'}
+                            `}>
+                                {/* 角色標籤 */}
+                                <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70 ${m.role === 'user' ? 'text-blue-100' : 'text-slate-400'}`}>
+                                    {m.role === 'user' ? 'You' : 'Gemini'}
                                 </div>
-                            ))}
-                            <div ref={chatEndRef} className="h-2"></div>
+                                
+                                {/* 內容 */}
+                                <div className="text-sm md:text-base leading-relaxed break-words">
+                                     <SafeMarkdown content={m.text} fontSize={globalFontSize} isUser={m.role==='user'}/>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {isLoading && (
+                        <div className="flex justify-start w-full animate-pulse">
+                             <div className="bg-white dark:bg-slate-700 p-3 rounded-2xl rounded-bl-none border border-slate-200 dark:border-slate-600 flex items-center gap-2">
+                                <Icons.RotateCw className="w-4 h-4 animate-spin text-blue-500"/>
+                                <span className="text-xs text-slate-500 dark:text-slate-300 font-bold">{loadingStatus}</span>
+                             </div>
                         </div>
                     )}
-                </>
+                    <div ref={chatEndRef} className="h-2"></div>
+                </div>
             )}
         </div>
 
-        {/* 5. 底部按鈕區 (固定高度) */}
-        <div className="w-full p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex flex-col items-center gap-2 shrink-0 z-20 pb-6 safe-area-pb shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
-            {isRecording && (
-                 <div className="flex gap-1 h-6 items-center mb-1">
-                    <div className="wave-bar h-3 bg-red-500"></div>
-                    <div className="wave-bar h-5 bg-red-500"></div>
-                    <div className="wave-bar h-4 bg-red-500"></div>
-                    <div className="wave-bar h-6 bg-red-500"></div>
-                    <div className="wave-bar h-3 bg-red-500"></div>
-                </div>
-            )}
+        {/* 3. 底部按鈕區 (手機版修復) */}
+        <div className="w-full p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex flex-col items-center gap-3 shrink-0 z-20 pb-8 safe-area-pb shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+            
+            {/* 錄音波形動畫 */}
+            <div className={`flex gap-1 h-6 items-center transition-opacity duration-200 ${isRecording ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="wave-bar h-3 bg-red-500 rounded-full w-1"></div>
+                <div className="wave-bar h-5 bg-red-500 rounded-full w-1"></div>
+                <div className="wave-bar h-4 bg-red-500 rounded-full w-1"></div>
+                <div className="wave-bar h-6 bg-red-500 rounded-full w-1"></div>
+                <div className="wave-bar h-3 bg-red-500 rounded-full w-1"></div>
+            </div>
+
+            {/* 錄音按鈕 (針對手機優化觸控事件) */}
             <button 
                 onMouseDown={startRecording} 
                 onMouseUp={stopRecordingAndProcess}
-                onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-                onTouchEnd={(e) => { e.preventDefault(); stopRecordingAndProcess(); }}
+                onMouseLeave={stopRecordingAndProcess} // 滑鼠移出也停止
+                
+                onTouchStart={(e) => { 
+                    e.preventDefault(); // 防止滾動
+                    startRecording(); 
+                }}
+                onTouchEnd={(e) => { 
+                    e.preventDefault(); 
+                    stopRecordingAndProcess(); 
+                }}
+                onTouchCancel={(e) => {
+                    e.preventDefault();
+                    stopRecordingAndProcess(); // 手指滑太快或系統中斷時也停止
+                }}
+                onContextMenu={(e) => {
+                    e.preventDefault(); // 禁止長按跳出右鍵選單
+                    return false;
+                }}
+
                 disabled={isLoading}
-                className={`w-20 h-20 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 border-4 select-none touch-none ${
-                    isLoading ? 'bg-slate-300 border-slate-200 opacity-50' :
-                    isRecording ? 'bg-red-500 border-red-200 scale-110 ring-4 ring-red-200' : 'bg-blue-600 border-blue-100 hover:bg-blue-700 active:scale-95'
-                }`}
+                className={`
+                    group relative w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl flex items-center justify-center border-4 
+                    transition-all duration-100 select-none touch-none outline-none
+                    ${isLoading 
+                        ? 'bg-slate-200 border-slate-300 opacity-50 cursor-not-allowed' 
+                        : isRecording 
+                            ? 'bg-red-500 border-red-100 scale-110 shadow-red-500/50' 
+                            : 'bg-blue-600 border-blue-100 hover:bg-blue-700 active:scale-95 shadow-blue-600/30'}
+                `}
             >
-                <Icons.Mic className="w-9 h-9 text-white" />
+                <Icons.Mic className={`w-8 h-8 md:w-10 md:h-10 text-white pointer-events-none ${isRecording ? 'animate-pulse' : ''}`} />
             </button>
-            <p className={`text-xs font-bold mt-2 uppercase tracking-wider ${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
-                {isRecording ? '放開以結束 (Release)' : '按住說話 (Hold)'}
+
+            <p className={`text-xs font-bold uppercase tracking-widest transition-colors ${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
+                {isRecording ? '放開結束 (Release)' : '按住說話 (Hold)'}
             </p>
         </div>
     </div>
@@ -2166,6 +2197,7 @@ const stopRecordingAndProcess = () => {
     </script>
 </body>
 </html>
+
 
 
 
