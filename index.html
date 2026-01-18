@@ -372,7 +372,7 @@ const GEMINI_MODELS = [
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
         // 更穩定的備援模型
-        const FALLBACK_MODEL = 'gemini-1.5-flash';
+        const FALLBACK_MODEL = 'gemini-2.5-flash-preview-09-2025';
 
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
@@ -2227,6 +2227,7 @@ const stopRecordingAndProcess = () => {
     </script>
 </body>
 </html>
+
 
 
 
