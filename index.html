@@ -1732,76 +1732,79 @@ const runGeminiRequest = async (payload, preferredModel) => {
                             </div>
 
                             {/* --- New Voice Mode UI --- */}
-                            {mode === 'voice' && (
-                                <div className="flex-1 flex flex-col items-center justify-center min-h-[500px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in">
-                                    <div className="absolute top-4 right-4 z-10">
-                                        <select value={voiceTargetLang} onChange={e=>setVoiceTargetLang(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border dark:border-slate-600 rounded-lg px-3 py-1 text-sm font-bold outline-none dark:text-white">
-                                            <option value="en">翻譯成英文 (English)</option>
-                                            <option value="ja">翻譯成日文 (日本語)</option>
-                                            <option value="zh">翻譯成中文 (繁體)</option>
-                                        </select>
-                                    </div>
+{mode === 'voice' && (
+    <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] md:min-h-[500px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in">
+        <div className="absolute top-4 right-4 z-10">
+            <select value={voiceTargetLang} onChange={e=>setVoiceTargetLang(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border dark:border-slate-600 rounded-lg px-3 py-1 text-sm font-bold outline-none dark:text-white max-w-[150px]">
+                <option value="en">翻譯成英文</option>
+                <option value="ja">翻譯成日文</option>
+                <option value="zh">翻譯成中文</option>
+            </select>
+        </div>
 
-                                    <div className="flex-1 w-full p-6 flex flex-col items-center justify-center text-center space-y-6">
-                                        {isLoading ? (
-                                            <div className="flex flex-col items-center animate-pulse">
-                                                <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-4">
-                                                    <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin"/>
-                                                </div>
-                                                <p className="text-lg font-bold text-slate-600 dark:text-slate-300">{loadingStatus}</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4 w-full">
-                                                {chatMessages.length === 0 ? (
-                                                    <div className="opacity-50">
-                                                        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full mx-auto mb-4 flex items-center justify-center">
-                                                            <Icons.Mic className="w-10 h-10 text-slate-400"/>
-                                                        </div>
-                                                        <p className="text-slate-500 dark:text-slate-400">按住下方按鈕開始說話<br/>放開後自動翻譯並朗讀</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="max-h-[300px] overflow-y-auto w-full space-y-3 custom-scrollbar px-2">
-                                                        {chatMessages.map((m, i) => (
-                                                            <div key={i} className={`p-4 rounded-2xl text-left animate-slide-up ${m.role==='model' ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 border dark:border-slate-500' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                                                                <SafeMarkdown content={m.text}/>
-                                                            </div>
-                                                        ))}
-                                                        <div ref={chatEndRef}></div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="w-full p-8 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-slate-700 flex flex-col items-center gap-4">
-                                        {isRecording && (
-                                            <div className="flex gap-1 h-6 items-center">
-                                                <div className="wave-bar h-3 bg-red-500"></div>
-                                                <div className="wave-bar h-5 bg-red-500"></div>
-                                                <div className="wave-bar h-4 bg-red-500"></div>
-                                                <div className="wave-bar h-6 bg-red-500"></div>
-                                                <div className="wave-bar h-3 bg-red-500"></div>
-                                            </div>
-                                        )}
-                                        <button 
-                                            onMouseDown={startRecording} 
-                                            onMouseUp={stopRecordingAndProcess}
-                                            onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-                                            onTouchEnd={(e) => { e.preventDefault(); stopRecordingAndProcess(); }}
-                                            disabled={isLoading}
-                                            className={`w-24 h-24 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 border-4 select-none touch-none ${
-                                                isLoading ? 'bg-slate-300 border-slate-200 opacity-50 cursor-not-allowed' :
-                                                isRecording 
-                                                    ? 'bg-red-500 border-red-200 scale-110 ring-4 ring-red-500/30' 
-                                                    : 'bg-blue-600 border-blue-200 hover:bg-blue-700 hover:scale-105 active:scale-95'
-                                            }`}
-                                        >
-                                            <Icons.Mic className={`w-10 h-10 text-white ${isRecording ? 'animate-pulse' : ''}`} />
-                                        </button>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isRecording ? '正在錄音...' : '按住說話 (Hold)'}</p>
-                                    </div>
+        {/* 主要內容區：手機版 padding 改為 p-2，電腦版維持 p-6 */}
+        <div className="flex-1 w-full p-2 md:p-6 flex flex-col items-center justify-center text-center space-y-4 md:space-y-6">
+            {isLoading ? (
+                <div className="flex flex-col items-center animate-pulse">
+                    <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-4">
+                        <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin"/>
+                    </div>
+                    <p className="text-lg font-bold text-slate-600 dark:text-slate-300">{loadingStatus}</p>
+                </div>
+            ) : (
+                <div className="space-y-4 w-full h-full flex flex-col justify-center">
+                    {chatMessages.length === 0 ? (
+                        <div className="opacity-50">
+                            <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-100 dark:bg-slate-700 rounded-full mx-auto mb-4 flex items-center justify-center">
+                                <Icons.Mic className="w-8 h-8 md:w-10 md:h-10 text-slate-400"/>
+                            </div>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base">按住下方按鈕開始說話<br/>放開後自動翻譯並朗讀</p>
+                        </div>
+                    ) : (
+                        /* 對話列表：手機版使用動態高度 h-[50vh] 避免被擠壓 */
+                        <div className="h-[50vh] md:h-auto md:max-h-[300px] overflow-y-auto w-full space-y-3 custom-scrollbar px-2 flex-1">
+                            {chatMessages.map((m, i) => (
+                                <div key={i} className={`p-3 md:p-4 rounded-2xl text-left animate-slide-up ${m.role==='model' ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 border dark:border-slate-500' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                    <SafeMarkdown content={m.text}/>
                                 </div>
-                            )}
+                            ))}
+                            <div ref={chatEndRef}></div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+
+        {/* 底部控制區：手機版 padding 改為 p-4，麥克風按鈕縮小 */}
+        <div className="w-full p-4 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-slate-700 flex flex-col items-center gap-2 md:gap-4 shrink-0">
+            {isRecording && (
+                <div className="flex gap-1 h-6 items-center">
+                    <div className="wave-bar h-3 bg-red-500"></div>
+                    <div className="wave-bar h-5 bg-red-500"></div>
+                    <div className="wave-bar h-4 bg-red-500"></div>
+                    <div className="wave-bar h-6 bg-red-500"></div>
+                    <div className="wave-bar h-3 bg-red-500"></div>
+                </div>
+            )}
+            <button 
+                onMouseDown={startRecording} 
+                onMouseUp={stopRecordingAndProcess}
+                onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+                onTouchEnd={(e) => { e.preventDefault(); stopRecordingAndProcess(); }}
+                disabled={isLoading}
+                className={`w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 border-4 select-none touch-none ${
+                    isLoading ? 'bg-slate-300 border-slate-200 opacity-50 cursor-not-allowed' :
+                    isRecording 
+                        ? 'bg-red-500 border-red-200 scale-110 ring-4 ring-red-500/30' 
+                        : 'bg-blue-600 border-blue-200 hover:bg-blue-700 hover:scale-105 active:scale-95'
+                }`}
+            >
+                <Icons.Mic className={`w-8 h-8 md:w-10 md:h-10 text-white ${isRecording ? 'animate-pulse' : ''}`} />
+            </button>
+            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">{isRecording ? '正在錄音...' : '按住說話 (Hold)'}</p>
+        </div>
+    </div>
+)}
 
                             {/* --- Original Text/File Mode UI (Visible when not conversation and not voice) --- */}
                             {mode!=='conversation' && mode!=='voice' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
@@ -2165,3 +2168,4 @@ const runGeminiRequest = async (payload, preferredModel) => {
     </script>
 </body>
 </html>
+
