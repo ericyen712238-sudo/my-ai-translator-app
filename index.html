@@ -792,7 +792,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                 } catch (err) { showToast("無法存取麥克風: " + err.message, "error"); }
             };
 
-           const stopRecordingAndProcess = () => {
+const stopRecordingAndProcess = () => {
                 if (!mediaRecorderRef.current) return;
                 setIsRecording(false);
                 setLoadingStatus('⚡ 極速翻譯中...'); // 更新提示文字
@@ -805,7 +805,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                     reader.onloadend = async () => {
                         const base64Audio = reader.result.split(',')[1];
                         try {
-                            // 1. 發送請求 (使用 Gemini 2.0 Flash 以獲得最快速度)
+                            // 1. 發送請求
                             const asrRes = await runGeminiRequest({
                                 contents: [{
                                     parts: [
@@ -813,7 +813,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                         { inline_data: { mime_type: 'audio/webm', data: base64Audio } }
                                     ]
                                 }]
-                            }, gemini-2.5-flash-preview-09-2025'); // 強制使用 2.5 Flash
+                            }, 'gemini-2.5-flash-preview-09-2025'); // <--- 這裡修正了引號
 
                             const translatedText = asrRes.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
@@ -822,8 +822,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                             // 2. 顯示結果
                             setChatMessages(prev => [...prev, { role: 'model', text: `🗣️ ${translatedText}` }]);
                             
-                            // 3. 【關鍵修改】直接使用瀏覽器內建朗讀 (零延遲)，取代原本的 AI TTS API
-                            // 這會直接調用你既有的 speak 函式
+                            // 3. 直接使用瀏覽器內建朗讀 (零延遲)
                             speak(translatedText, voiceTargetLang);
 
                         } catch (e) {
@@ -2149,5 +2148,6 @@ const runGeminiRequest = async (payload, preferredModel) => {
     </script>
 </body>
 </html>
+
 
 
