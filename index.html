@@ -792,10 +792,10 @@ const runGeminiRequest = async (payload, preferredModel) => {
                 } catch (err) { showToast("無法存取麥克風: " + err.message, "error"); }
             };
 
-            const stopRecordingAndProcess = () => {
+           const stopRecordingAndProcess = () => {
                 if (!mediaRecorderRef.current) return;
                 setIsRecording(false);
-                setLoadingStatus('思考並翻譯中...');
+                setLoadingStatus('⚡ 極速翻譯中...'); // 更新提示文字
                 setIsLoading(true);
 
                 mediaRecorderRef.current.onstop = async () => {
@@ -805,6 +805,7 @@ const runGeminiRequest = async (payload, preferredModel) => {
                     reader.onloadend = async () => {
                         const base64Audio = reader.result.split(',')[1];
                         try {
+                            // 1. 發送請求 (使用 Gemini 2.0 Flash 以獲得最快速度)
                             const asrRes = await runGeminiRequest({
                                 contents: [{
                                     parts: [
@@ -812,39 +813,19 @@ const runGeminiRequest = async (payload, preferredModel) => {
                                         { inline_data: { mime_type: 'audio/webm', data: base64Audio } }
                                     ]
                                 }]
-                            }, 'gemini-2.5-flash-preview-09-2025');
+                            }, gemini-2.5-flash-preview-09-2025'); // 強制使用 2.5 Flash
 
                             const translatedText = asrRes.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
                             if (!translatedText) throw new Error("無法辨識或翻譯");
 
+                            // 2. 顯示結果
                             setChatMessages(prev => [...prev, { role: 'model', text: `🗣️ ${translatedText}` }]);
-                            setLoadingStatus('生成語音中...');
-
-                            const voiceName = voiceTargetLang === 'en' ? 'Fenrir' : voiceTargetLang === 'ja' ? 'Puck' : 'Aoede'; 
                             
-                            const ttsRes = await runGeminiRequest({
-                                contents: [{ parts: [{ text: translatedText }] }],
-                                generationConfig: {
-                                    responseModalities: ["AUDIO"],
-                                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } } }
-                                },
-                            }, 'gemini-2.5-flash-preview-tts');
+                            // 3. 【關鍵修改】直接使用瀏覽器內建朗讀 (零延遲)，取代原本的 AI TTS API
+                            // 這會直接調用你既有的 speak 函式
+                            speak(translatedText, voiceTargetLang);
 
-                            const audioData = ttsRes.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-                            if (audioData) {
-                                if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                                const ctx = audioContextRef.current;
-                                const wavBuffer = pcmToWav(base64ToArrayBuffer(audioData), 24000); 
-                                try {
-                                    const audioBuffer = await ctx.decodeAudioData(wavBuffer);
-                                    const source = ctx.createBufferSource();
-                                    source.buffer = audioBuffer;
-                                    source.connect(ctx.destination);
-                                    source.start(0);
-                                } catch (decodeErr) { console.error("Decode Error", decodeErr); }
-                            }
                         } catch (e) {
                             showToast("處理失敗: " + e.message, "error");
                         } finally {
@@ -2168,4 +2149,5 @@ const runGeminiRequest = async (payload, preferredModel) => {
     </script>
 </body>
 </html>
+
 
