@@ -1713,27 +1713,29 @@ const stopRecordingAndProcess = () => {
 
                             {/* --- New Voice Mode UI --- */}
 {mode === 'voice' && (
-    <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 overflow-hidden animate-pop-in h-[60vh] md:h-[600px] w-full">
+    <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in h-[60vh] md:h-[600px] w-full">
         
-        {/* 1. 【修復】頂部固定標題列 (不再懸浮，保證不消失) */}
-        <div className="flex justify-between items-center p-3 bg-slate-100/80 dark:bg-slate-900/80 border-b dark:border-slate-700 shrink-0 backdrop-blur-sm z-30">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm">
+        {/* 1. 頂部固定標題列 (不再懸浮，保證不消失) */}
+        <div className="flex justify-between items-center p-3 bg-slate-100 dark:bg-slate-900 border-b dark:border-slate-700 shrink-0 z-20">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm px-2">
                 <Icons.Mic className="w-4 h-4"/>
-                <span className="hidden md:inline">即時翻譯</span>
+                <span>即時翻譯</span>
             </div>
+            {/* 語言選單：直接放在這裡，佔據實體空間 */}
             <select 
                 value={voiceTargetLang} 
                 onChange={e=>setVoiceTargetLang(e.target.value)} 
-                className="bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg px-4 py-2 text-sm font-bold outline-none dark:text-white shadow-sm min-w-[120px]"
+                className="bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm font-bold outline-none dark:text-white shadow-sm min-w-[110px]"
             >
                 <option value="en">翻譯成英文</option>
                 <option value="ja">翻譯成日文</option>
+                <option value="ko">翻譯成韓文</option>
                 <option value="zh">翻譯成中文</option>
             </select>
         </div>
 
         {/* 2. 中間主要內容區 (自動填滿剩餘空間) */}
-        <div className="flex-1 relative w-full overflow-hidden flex flex-col bg-slate-50/30 dark:bg-black/20">
+        <div className="flex-1 relative w-full overflow-hidden flex flex-col bg-slate-50/50 dark:bg-black/20">
             {isLoading ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 animate-pulse">
                     <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
@@ -1759,7 +1761,7 @@ const stopRecordingAndProcess = () => {
                                         {m.role === 'user' ? '👤 You' : '🤖 AI'}
                                     </div>
                                     
-                                    {/* 4. 【修復】強制文字顏色，防止變透明 */}
+                                    {/* 4. 強制文字顏色，防止變透明 */}
                                     <div className="text-slate-800 dark:text-slate-100 leading-relaxed break-words text-lg font-medium">
                                          <SafeMarkdown content={m.text} fontSize={globalFontSize} isUser={m.role==='user'}/>
                                     </div>
@@ -1772,8 +1774,8 @@ const stopRecordingAndProcess = () => {
             )}
         </div>
 
-        {/* 5. 底部按鈕區 (固定高度，確保不被鍵盤或瀏覽器底部遮擋) */}
-        <div className="w-full p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex flex-col items-center gap-2 shrink-0 z-20 pb-8 safe-area-pb shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        {/* 5. 底部按鈕區 (固定高度) */}
+        <div className="w-full p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex flex-col items-center gap-2 shrink-0 z-20 pb-6 safe-area-pb shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
             {isRecording && (
                  <div className="flex gap-1 h-6 items-center mb-1">
                     <div className="wave-bar h-3 bg-red-500"></div>
@@ -2164,6 +2166,7 @@ const stopRecordingAndProcess = () => {
     </script>
 </body>
 </html>
+
 
 
 
