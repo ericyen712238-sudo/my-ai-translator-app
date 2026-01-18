@@ -1713,101 +1713,95 @@ const stopRecordingAndProcess = () => {
 
                             {/* --- New Voice Mode UI --- */}
 {mode === 'voice' && (
-    <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 relative overflow-hidden animate-pop-in h-[60vh] md:h-[600px]">
+    <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl border dark:border-slate-700 overflow-hidden animate-pop-in h-[60vh] md:h-[600px] w-full">
         
-        {/* 1. 頂部語言選單 (絕對定位) */}
-        <div className="absolute top-4 right-4 z-10">
-            <select value={voiceTargetLang} onChange={e=>setVoiceTargetLang(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border dark:border-slate-600 rounded-lg px-3 py-1 text-sm font-bold outline-none dark:text-white cursor-pointer hover:bg-slate-200 transition-colors shadow-sm">
+        {/* 1. 【修復】頂部固定標題列 (不再懸浮，保證不消失) */}
+        <div className="flex justify-between items-center p-3 bg-slate-100/80 dark:bg-slate-900/80 border-b dark:border-slate-700 shrink-0 backdrop-blur-sm z-30">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm">
+                <Icons.Mic className="w-4 h-4"/>
+                <span className="hidden md:inline">即時翻譯</span>
+            </div>
+            <select 
+                value={voiceTargetLang} 
+                onChange={e=>setVoiceTargetLang(e.target.value)} 
+                className="bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg px-4 py-2 text-sm font-bold outline-none dark:text-white shadow-sm min-w-[120px]"
+            >
                 <option value="en">翻譯成英文</option>
                 <option value="ja">翻譯成日文</option>
-                <option value="ko">翻譯成韓文</option>
                 <option value="zh">翻譯成中文</option>
             </select>
         </div>
 
-        {/* 2. 中間主要內容區 (佔據剩餘空間 flex-1) */}
-        <div className="flex-1 w-full relative flex flex-col overflow-hidden">
+        {/* 2. 中間主要內容區 (自動填滿剩餘空間) */}
+        <div className="flex-1 relative w-full overflow-hidden flex flex-col bg-slate-50/30 dark:bg-black/20">
             {isLoading ? (
-                // Loading 狀態：垂直水平置中
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 animate-pulse">
-                    <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center shadow-inner">
-                        <Icons.RotateCw className="w-10 h-10 text-blue-500 animate-spin"/>
+                    <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                        <Icons.RotateCw className="w-8 h-8 text-blue-500 animate-spin"/>
                     </div>
-                    <p className="text-xl font-bold text-slate-600 dark:text-slate-300 tracking-wide">{loadingStatus}</p>
+                    <p className="text-lg font-bold text-slate-600 dark:text-slate-300">{loadingStatus}</p>
                 </div>
             ) : (
                 <>
                     {chatMessages.length === 0 ? (
-                        // 空狀態 (還沒講話)：垂直水平置中
-                        <div className="flex-1 flex flex-col items-center justify-center opacity-60 gap-4">
-                            <div className="w-24 h-24 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center shadow-inner">
-                                <Icons.Mic className="w-12 h-12 text-slate-400"/>
+                        <div className="flex-1 flex flex-col items-center justify-center opacity-50 gap-4 p-4 text-center">
+                            <div className="w-20 h-20 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
+                                <Icons.Mic className="w-10 h-10 text-slate-400"/>
                             </div>
-                            <div className="text-center space-y-1">
-                                <p className="text-lg font-bold text-slate-600 dark:text-slate-300">準備就緒</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">按住下方麥克風開始說話</p>
-                            </div>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">請按住下方按鈕說話<br/>系統將自動翻譯並朗讀</p>
                         </div>
                     ) : (
-                        // 對話列表：有卷軸，內容靠上
-                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar scroll-smooth">
+                        // 3. 對話列表
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar w-full scroll-smooth">
                             {chatMessages.map((m, i) => (
-                                <div key={i} className={`p-4 rounded-2xl text-left shadow-sm animate-slide-up max-w-[90%] mx-auto ${m.role==='model' ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 border dark:border-slate-500 text-slate-800 dark:text-slate-100' : 'bg-white dark:bg-slate-800 border dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                                    <div className="flex items-center gap-2 mb-1 opacity-50 text-xs font-bold uppercase tracking-wider">
-                                        {m.role === 'user' ? <span>👤 You</span> : <span>🤖 AI</span>}
+                                <div key={i} className={`p-4 rounded-2xl text-left shadow-sm max-w-[95%] mx-auto animate-slide-up ${m.role==='model' ? 'bg-white dark:bg-slate-700 border border-blue-100 dark:border-slate-600' : 'bg-blue-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 ml-auto'}`}>
+                                    <div className="flex items-center gap-2 mb-2 opacity-60 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                        {m.role === 'user' ? '👤 You' : '🤖 AI'}
                                     </div>
-                                    <SafeMarkdown content={m.text}/>
+                                    
+                                    {/* 4. 【修復】強制文字顏色，防止變透明 */}
+                                    <div className="text-slate-800 dark:text-slate-100 leading-relaxed break-words text-lg font-medium">
+                                         <SafeMarkdown content={m.text} fontSize={globalFontSize} isUser={m.role==='user'}/>
+                                    </div>
                                 </div>
                             ))}
-                            <div ref={chatEndRef} className="h-4"></div>
+                            <div ref={chatEndRef} className="h-2"></div>
                         </div>
                     )}
                 </>
             )}
         </div>
 
-        {/* 3. 底部控制區 (固定高度 shrink-0) */}
-        <div className="w-full p-6 bg-slate-50 dark:bg-slate-900/80 border-t dark:border-slate-700 flex flex-col items-center justify-center gap-3 shrink-0 backdrop-blur-sm z-20">
+        {/* 5. 底部按鈕區 (固定高度，確保不被鍵盤或瀏覽器底部遮擋) */}
+        <div className="w-full p-4 bg-white dark:bg-slate-800 border-t dark:border-slate-700 flex flex-col items-center gap-2 shrink-0 z-20 pb-8 safe-area-pb shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             {isRecording && (
-                <div className="flex gap-1 h-8 items-center justify-center">
-                    <div className="wave-bar h-4 bg-red-500 rounded-full w-1.5"></div>
-                    <div className="wave-bar h-6 bg-red-500 rounded-full w-1.5"></div>
-                    <div className="wave-bar h-8 bg-red-500 rounded-full w-1.5"></div>
-                    <div className="wave-bar h-6 bg-red-500 rounded-full w-1.5"></div>
-                    <div className="wave-bar h-4 bg-red-500 rounded-full w-1.5"></div>
+                 <div className="flex gap-1 h-6 items-center mb-1">
+                    <div className="wave-bar h-3 bg-red-500"></div>
+                    <div className="wave-bar h-5 bg-red-500"></div>
+                    <div className="wave-bar h-4 bg-red-500"></div>
+                    <div className="wave-bar h-6 bg-red-500"></div>
+                    <div className="wave-bar h-3 bg-red-500"></div>
                 </div>
             )}
-            
             <button 
                 onMouseDown={startRecording} 
                 onMouseUp={stopRecordingAndProcess}
                 onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
                 onTouchEnd={(e) => { e.preventDefault(); stopRecordingAndProcess(); }}
                 disabled={isLoading}
-                className={`group relative flex items-center justify-center transition-all duration-200 select-none touch-none outline-none
-                    ${isLoading ? 'opacity-50 cursor-not-allowed scale-95' : 'active:scale-95 hover:scale-105'}
-                `}
+                className={`w-20 h-20 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200 border-4 select-none touch-none ${
+                    isLoading ? 'bg-slate-300 border-slate-200 opacity-50' :
+                    isRecording ? 'bg-red-500 border-red-200 scale-110 ring-4 ring-red-200' : 'bg-blue-600 border-blue-100 hover:bg-blue-700 active:scale-95'
+                }`}
             >
-                {/* 按鈕外圈光暈效果 */}
-                <div className={`absolute inset-0 rounded-full ${isRecording ? 'bg-red-500/30 animate-ping' : 'bg-blue-500/10'}`}></div>
-                
-                {/* 按鈕本體 */}
-                <div className={`
-                    w-20 h-20 md:w-24 md:h-24 rounded-full shadow-2xl flex items-center justify-center border-4 transition-colors duration-300
-                    ${isRecording 
-                        ? 'bg-red-500 border-red-100 dark:border-red-900 shadow-red-500/40' 
-                        : 'bg-blue-600 border-blue-100 dark:border-blue-900 shadow-blue-600/40 group-hover:bg-blue-700'}
-                `}>
-                    <Icons.Mic className={`w-8 h-8 md:w-10 md:h-10 text-white ${isRecording ? 'animate-pulse' : ''}`} />
-                </div>
+                <Icons.Mic className="w-9 h-9 text-white" />
             </button>
-            <p className={`text-xs font-bold uppercase tracking-widest transition-colors ${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
+            <p className={`text-xs font-bold mt-2 uppercase tracking-wider ${isRecording ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
                 {isRecording ? '放開以結束 (Release)' : '按住說話 (Hold)'}
             </p>
         </div>
     </div>
 )}
-
                             {/* --- Original Text/File Mode UI (Visible when not conversation and not voice) --- */}
                             {mode!=='conversation' && mode!=='voice' && <div className="grid grid-cols-4 md:grid-cols-8 gap-2 bg-white dark:bg-slate-800 p-1 rounded-lg border dark:border-slate-700 w-full">
                                 {TASKS.map(t => (
@@ -2170,6 +2164,7 @@ const stopRecordingAndProcess = () => {
     </script>
 </body>
 </html>
+
 
 
 
