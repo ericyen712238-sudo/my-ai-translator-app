@@ -586,7 +586,7 @@ const testApiKey = async () => {
     setLoadingStatus(`正在驗證 ${allKeys.length} 組 API Key...`);
 
     try {
-        const modelToTest = geminiModel || 'gemini-1.5-flash';
+        const modelToTest = geminiModel || 'gemini-3-flash-preview';
         
         // 只測試第一組，或者你可以寫迴圈測試全部
         // 這裡示範測試第一組即可，因為 runGeminiRequest 會自動輪詢
@@ -2227,6 +2227,7 @@ const stopRecordingAndProcess = () => {
     </script>
 </body>
 </html>
+
 
 
 
