@@ -405,7 +405,7 @@ const GEMINI_MODELS = [
             const [bilingualMode, setBilingualMode] = useState(false);
             const [darkMode, setDarkMode] = useState(()=>localStorage.getItem('gemini_dark_mode')==='true');
             const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gemini_api_key')||'');
-            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-2.5-flash-preview-09-2025');
+            const [geminiModel, setGeminiModel] = useState(localStorage.getItem('gemini_model')||'gemini-3-flash-preview');
             const [history, setHistory] = useState(() => { try { return JSON.parse(localStorage.getItem('translate_history') || '[]'); } catch(e) { return []; } });
             const [chatMessages, setChatMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
@@ -2227,6 +2227,7 @@ const stopRecordingAndProcess = () => {
     </script>
 </body>
 </html>
+
 
 
 
