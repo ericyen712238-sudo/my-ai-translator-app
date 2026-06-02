@@ -336,7 +336,8 @@ const GEMINI_MODELS = [
     // --- 下一代模型 (Experimental) ---
     // 注意：Gemini 3.0 目前可能僅限部分帳號使用，若失敗請改用 2.5
     {id:'gemini-3-pro-preview', name:'Gemini 3.0 Pro (Exp)'},
-    {id:'gemini-3-flash-preview', name:'Gemini 3.0 Flash (Exp)'},
+    
+    {id:'gemini-3.5-flash', name:'Gemini 3.5 Flash'},
     
     // --- 最新預覽版 (推薦備援) ---
     {id:'gemini-2.5-pro', name:'Gemini 2.5 Pro'},
@@ -371,7 +372,7 @@ const GEMINI_MODELS = [
         const TONES = [{id:'standard',name:'標準'},{id:'formal',name:'禮貌'},{id:'casual',name:'輕鬆'},{id:'academic',name:'專業'},{id:'creative',name:'優美'}];
         
         // 更穩定的備援模型
-        const FALLBACK_MODEL = 'gemini-3-flash-preview';
+        const FALLBACK_MODEL = 'gemini-3.5-flash';
 
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
